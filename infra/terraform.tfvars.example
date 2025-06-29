@@ -1,0 +1,23 @@
+# Copy this file to terraform.tfvars and customize the values
+
+# AWS Configuration
+aws_region = "your-aws-region"
+environment = "dev"
+
+# Networking
+vpc_cidr = "10.0.0.0/16"
+
+# Domain Configuration (optional - for custom domain)
+# Terraform will create and validate the SSL certificate automatically
+domain_name = "your-domain.com"
+
+# Optional: Provide existing certificate ARN (if you don't want Terraform to create one)
+# certificate_arn = "arn:aws:acm:your-aws-region:123456789012:certificate/12345678-1234-1234-1234-123456789012"
+
+# Code Server Configuration
+code_server_image = "lscr.io/linuxserver/code-server:latest"
+code_server_cpu = 1024
+code_server_memory = 2048
+
+# Scaling
+max_instances = 10
