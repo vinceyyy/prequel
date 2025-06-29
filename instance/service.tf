@@ -185,7 +185,7 @@ resource "aws_lb_target_group" "interview" {
     matcher             = "200"
     path                = "/healthz"
     port                = "traffic-port"
-    protocol            = "HTTPS"
+    protocol            = "HTTP"
     timeout             = 10
     unhealthy_threshold = 3
   }
