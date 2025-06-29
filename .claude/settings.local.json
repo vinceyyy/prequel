@@ -46,7 +46,9 @@
       "Bash(AWS_PROFILE=your-aws-profile aws s3 rm s3://prequel-instance/templates/ --recursive)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run:*)"
     ],
     "deny": []
   }
