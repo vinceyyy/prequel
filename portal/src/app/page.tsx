@@ -51,6 +51,11 @@ export default function Home() {
       const response = await fetch('/api/interviews')
       if (response.ok) {
         const data = await response.json()
+        console.log('[DEBUG] Loaded interviews from API:', data.interviews?.map((i: any) => ({
+          id: i.id,
+          status: i.status,
+          candidateName: i.candidateName
+        })))
         setInterviews(data.interviews || [])
       } else {
         console.error('Failed to load interviews')

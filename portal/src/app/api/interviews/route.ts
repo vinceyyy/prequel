@@ -7,6 +7,16 @@ export async function GET() {
   try {
     // Get ongoing operations to include interviews being created/destroyed
     const operations = operationManager.getAllOperations()
+    
+    // Debug: Log operations for troubleshooting
+    console.log('[DEBUG] Found operations:', operations.map(op => ({
+      id: op.id,
+      type: op.type,
+      interviewId: op.interviewId,
+      status: op.status,
+      hasResult: !!op.result,
+      resultSuccess: op.result?.success
+    })))
 
     // Use S3 workspaces as source of truth for what interviews exist
     const workspaceInterviews = await terraformManager.listActiveInterviews()
@@ -61,7 +71,7 @@ export async function GET() {
       })
     )
 
-    // Add interviews from operations that aren't completed yet
+    // Add interviews from operations (both create and destroy operations can affect status)
     const operationInterviews = operations
       .filter(op => op.type === 'create')
       .map(op => ({
@@ -82,6 +92,21 @@ export async function GET() {
         password: op.result?.password || '',
         createdAt: op.startedAt.toISOString(),
       }))
+
+    // Also add destroy operations to update status for existing interviews
+    const destroyOperationUpdates = new Map()
+    operations
+      .filter(op => op.type === 'destroy')
+      .forEach(op => {
+        // Keep the most recent destroy operation for each interview
+        const existing = destroyOperationUpdates.get(op.interviewId)
+        if (
+          !existing ||
+          op.startedAt.getTime() > existing.startedAt.getTime()
+        ) {
+          destroyOperationUpdates.set(op.interviewId, op)
+        }
+      })
 
     // Merge and deduplicate (operations take precedence for interviews in progress)
     const interviewMap = new Map()
@@ -105,10 +130,41 @@ export async function GET() {
       interviewMap.set(interview.id, interview)
     })
 
-    const interviews = Array.from(interviewMap.values()).sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
+    // Apply destroy operation status updates
+    destroyOperationUpdates.forEach((destroyOp, interviewId) => {
+      const existing = interviewMap.get(interviewId)
+      if (existing) {
+        // Update status based on destroy operation
+        const updatedInterview = {
+          ...existing,
+          status:
+            destroyOp.status === 'running'
+              ? 'destroying'
+              : destroyOp.status === 'failed'
+                ? 'error'
+                : destroyOp.status === 'completed'
+                  ? destroyOp.result?.success
+                    ? 'destroyed' // This will be filtered out later
+                    : 'error'
+                  : existing.status,
+        }
+        interviewMap.set(interviewId, updatedInterview)
+      }
+    })
+
+    const interviews = Array.from(interviewMap.values())
+      .filter(interview => interview.status !== 'destroyed') // Don't show successfully destroyed interviews
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+
+    // Debug: Log final interview list
+    console.log('[DEBUG] Final interviews:', interviews.map(i => ({
+      id: i.id,
+      status: i.status,
+      candidateName: i.candidateName
+    })))
 
     return NextResponse.json({ interviews })
   } catch (error: unknown) {
