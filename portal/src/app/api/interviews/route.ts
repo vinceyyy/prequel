@@ -5,14 +5,15 @@ import { v4 as uuidv4 } from 'uuid'
 
 export async function GET() {
   try {
-    // Get active interviews from Terraform
-    const activeInterviews = await terraformManager.listActiveInterviews()
-
     // Get ongoing operations to include interviews being created/destroyed
     const operations = operationManager.getAllOperations()
 
+    // Use S3 workspaces as source of truth for what interviews exist
+    const workspaceInterviews = await terraformManager.listActiveInterviews()
+
     const completedInterviews = await Promise.all(
-      activeInterviews.map(async id => {
+      workspaceInterviews.map(async id => {
+        // Try to get Terraform status first
         const status = await terraformManager.getInterviewStatus(id)
 
         if (status.success && status.outputs) {
@@ -28,6 +29,28 @@ export async function GET() {
           }
         }
 
+        // If Terraform status fails, this might be a failed destroy attempt
+        // Check if there's a recent destroy operation for this interview
+        const destroyOperation = operations
+          .filter(op => op.type === 'destroy' && op.interviewId === id)
+          .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0]
+
+        if (destroyOperation) {
+          return {
+            id,
+            candidateName: destroyOperation.candidateName || 'Unknown',
+            scenario: destroyOperation.scenario || 'unknown',
+            status:
+              destroyOperation.status === 'running'
+                ? 'destroying'
+                : destroyOperation.status === 'failed'
+                  ? 'error'
+                  : 'error',
+            createdAt: destroyOperation.startedAt.toISOString(),
+          }
+        }
+
+        // Fallback for interviews with workspace but no valid state or operations
         return {
           id,
           candidateName: 'Unknown',

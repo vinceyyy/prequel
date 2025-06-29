@@ -81,11 +81,14 @@ export default function Home() {
   }
 
   const stopInterview = async (id: string) => {
-    if (
-      !confirm(
-        'Are you sure you want to stop and destroy this interview? This action cannot be undone.'
-      )
-    ) {
+    const interview = interviews.find(i => i.id === id)
+    const isErrorState = interview?.status === 'error'
+
+    const message = isErrorState
+      ? 'Are you sure you want to retry destroying this interview? This will attempt to clean up any remaining AWS resources and remove the workspace from S3.'
+      : 'Are you sure you want to stop and destroy this interview? This action cannot be undone.'
+
+    if (!confirm(message)) {
       return
     }
 
@@ -230,21 +233,28 @@ export default function Home() {
                       {scenarios.find(s => s.id === interview.scenario)?.name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          interview.status === 'active'
-                            ? 'bg-green-100 text-green-800'
-                            : interview.status === 'creating'
-                              ? 'bg-blue-100 text-blue-800'
-                              : interview.status === 'destroying'
-                                ? 'bg-orange-100 text-orange-800'
-                                : interview.status === 'error'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {interview.status}
-                      </span>
+                      <div>
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            interview.status === 'active'
+                              ? 'bg-green-100 text-green-800'
+                              : interview.status === 'creating'
+                                ? 'bg-blue-100 text-blue-800'
+                                : interview.status === 'destroying'
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : interview.status === 'error'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {interview.status}
+                        </span>
+                        {interview.status === 'error' && (
+                          <div className="text-xs text-red-600 mt-1">
+                            Resources may need cleanup
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {interview.accessUrl ? (
@@ -281,7 +291,7 @@ export default function Home() {
                             onClick={() => stopInterview(interview.id)}
                             className="text-red-600 hover:text-red-900"
                           >
-                            Clean Up
+                            Retry Destroy
                           </button>
                         )}
                         <button

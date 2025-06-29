@@ -848,16 +848,76 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
 
       if (!initResult.success) {
         streamData(`Terraform init failed, attempting direct cleanup...\n`)
-        // Fall back to direct cleanup if terraform init fails
-        await this.deleteWorkspaceFromS3(interviewId)
+
+        // Try to fix provider permissions first
+        try {
+          streamData(`Attempting to fix provider permissions...\n`)
+          const { exec } = await import('child_process')
+          const { promisify } = await import('util')
+          const execAsync = promisify(exec)
+
+          await execAsync(
+            `find ${workspaceDir}/.terraform -name "*terraform-provider-*" -type f -exec chmod +x {} \\;`,
+            {
+              timeout: 30000,
+            }
+          )
+          streamData(`Provider permissions fixed, retrying init...\n`)
+
+          // Retry init after fixing permissions
+          const retryInitResult = await this.execTerraformStreaming(
+            'terraform init -reconfigure',
+            workspaceDir,
+            streamData
+          )
+
+          if (retryInitResult.success) {
+            streamData(`Init retry succeeded, proceeding with destroy...\n`)
+            // Continue with normal destroy flow
+            const destroyResult = await this.execTerraformStreaming(
+              'terraform destroy -auto-approve -var-file=terraform.tfvars',
+              workspaceDir,
+              streamData
+            )
+
+            // Clean up local workspace
+            streamData(`Cleaning up local workspace...\n`)
+            await fs.rm(workspaceDir, { recursive: true, force: true })
+
+            // Only delete S3 workspace if terraform destroy succeeded
+            if (destroyResult.success) {
+              streamData(
+                `Terraform destroy succeeded, deleting workspace from S3...\n`
+              )
+              await this.deleteWorkspaceFromS3(interviewId)
+              streamData(`S3 workspace cleanup completed successfully\n`)
+            } else {
+              streamData(
+                `Terraform destroy failed, preserving S3 workspace for retry\n`
+              )
+              streamData(
+                `S3 workspace preserved at: s3://prequel-instance/workspaces/${interviewId}/\n`
+              )
+            }
+
+            return destroyResult
+          }
+        } catch (permError) {
+          streamData(`Permission fix failed: ${permError}\n`)
+        }
+
+        // If init still fails after permission fix, preserve workspace for manual cleanup
+        streamData(
+          `Terraform init failed permanently, preserving workspace for manual intervention\n`
+        )
         await fs
           .rm(workspaceDir, { recursive: true, force: true })
           .catch(() => {})
 
         return {
-          success: true,
-          output: 'Interview cleanup completed with direct resource cleanup',
-          error: 'Terraform init failed but resources were cleaned up directly',
+          success: false,
+          output: initResult.output,
+          error: `Terraform init failed: ${initResult.error}. Workspace preserved for manual cleanup.`,
         }
       }
 
@@ -868,12 +928,25 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
         streamData
       )
 
-      // Clean up both local and S3 workspaces
+      // Clean up local workspace (always safe to do)
       streamData(`Cleaning up local workspace...\n`)
       await fs.rm(workspaceDir, { recursive: true, force: true })
-      streamData(`Deleting workspace from S3...\n`)
-      await this.deleteWorkspaceFromS3(interviewId)
-      streamData(`Cleanup completed successfully\n`)
+
+      // Only delete S3 workspace if terraform destroy succeeded
+      if (destroyResult.success) {
+        streamData(
+          `Terraform destroy succeeded, deleting workspace from S3...\n`
+        )
+        await this.deleteWorkspaceFromS3(interviewId)
+        streamData(`S3 workspace cleanup completed successfully\n`)
+      } else {
+        streamData(
+          `Terraform destroy failed, preserving S3 workspace for retry\n`
+        )
+        streamData(
+          `S3 workspace preserved at: s3://prequel-instance/workspaces/${interviewId}/\n`
+        )
+      }
 
       return destroyResult
     } catch (error: unknown) {
