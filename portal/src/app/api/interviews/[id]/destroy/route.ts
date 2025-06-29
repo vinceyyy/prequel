@@ -100,48 +100,61 @@ export async function POST(
     const { id: interviewId } = await params
 
     // Create operation to track progress
-    const operationId = operationManager.createOperation(
-      'destroy',
-      interviewId
-    )
+    const operationId = operationManager.createOperation('destroy', interviewId)
 
     // Start background operation
     setImmediate(async () => {
       try {
         operationManager.updateOperationStatus(operationId, 'running')
-        operationManager.addOperationLog(operationId, `Starting interview destruction for ${interviewId}`)
+        operationManager.addOperationLog(
+          operationId,
+          `Starting interview destruction for ${interviewId}`
+        )
 
-        const result = await terraformManager.destroyInterviewStreaming(interviewId, (data: string) => {
-          // Add each line to operation logs
-          const lines = data.split('\n').filter(line => line.trim())
-          lines.forEach(line => {
-            operationManager.addOperationLog(operationId, line)
-          })
-        })
+        const result = await terraformManager.destroyInterviewStreaming(
+          interviewId,
+          (data: string) => {
+            // Add each line to operation logs
+            const lines = data.split('\n').filter(line => line.trim())
+            lines.forEach(line => {
+              operationManager.addOperationLog(operationId, line)
+            })
+          }
+        )
 
         if (result.success) {
-          operationManager.addOperationLog(operationId, '✅ Interview destroyed successfully!')
-          
+          operationManager.addOperationLog(
+            operationId,
+            '✅ Interview destroyed successfully!'
+          )
+
           operationManager.setOperationResult(operationId, {
             success: true,
-            fullOutput: result.fullOutput
+            fullOutput: result.fullOutput,
           })
         } else {
-          operationManager.addOperationLog(operationId, '❌ Interview destruction failed')
-          operationManager.addOperationLog(operationId, `Error: ${result.error}`)
-          
+          operationManager.addOperationLog(
+            operationId,
+            '❌ Interview destruction failed'
+          )
+          operationManager.addOperationLog(
+            operationId,
+            `Error: ${result.error}`
+          )
+
           operationManager.setOperationResult(operationId, {
             success: false,
             error: result.error,
-            fullOutput: result.fullOutput
+            fullOutput: result.fullOutput,
           })
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+        const errorMsg =
+          error instanceof Error ? error.message : 'Unknown error'
         operationManager.addOperationLog(operationId, `❌ Error: ${errorMsg}`)
         operationManager.setOperationResult(operationId, {
           success: false,
-          error: errorMsg
+          error: errorMsg,
         })
       }
     })
@@ -149,7 +162,7 @@ export async function POST(
     return NextResponse.json({
       operationId,
       interviewId,
-      message: 'Interview destruction started in background'
+      message: 'Interview destruction started in background',
     })
   } catch (error: unknown) {
     return NextResponse.json(

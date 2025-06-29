@@ -688,7 +688,7 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
       try {
         // Find and update the individual ECS service for this interview
         const serviceName = `interview-${interviewId}`
-        
+
         // First, try to scale down the service to 0
         streamData(`Scaling down service ${serviceName} to 0...\n`)
         await execAsync(

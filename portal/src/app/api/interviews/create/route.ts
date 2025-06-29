@@ -37,43 +37,66 @@ export async function POST(request: NextRequest) {
     setImmediate(async () => {
       try {
         operationManager.updateOperationStatus(operationId, 'running')
-        operationManager.addOperationLog(operationId, `Starting interview creation for ${candidateName}`)
-        operationManager.addOperationLog(operationId, `Interview ID: ${interviewId}`)
+        operationManager.addOperationLog(
+          operationId,
+          `Starting interview creation for ${candidateName}`
+        )
+        operationManager.addOperationLog(
+          operationId,
+          `Interview ID: ${interviewId}`
+        )
         operationManager.addOperationLog(operationId, `Scenario: ${scenario}`)
 
-        const result = await terraformManager.createInterviewStreaming(instance, (data: string) => {
-          // Add each line to operation logs
-          const lines = data.split('\n').filter(line => line.trim())
-          lines.forEach(line => {
-            operationManager.addOperationLog(operationId, line)
-          })
-        })
+        const result = await terraformManager.createInterviewStreaming(
+          instance,
+          (data: string) => {
+            // Add each line to operation logs
+            const lines = data.split('\n').filter(line => line.trim())
+            lines.forEach(line => {
+              operationManager.addOperationLog(operationId, line)
+            })
+          }
+        )
 
         if (result.success) {
-          operationManager.addOperationLog(operationId, '✅ Interview created successfully!')
-          operationManager.addOperationLog(operationId, `Access URL: ${result.accessUrl}`)
-          
+          operationManager.addOperationLog(
+            operationId,
+            '✅ Interview created successfully!'
+          )
+          operationManager.addOperationLog(
+            operationId,
+            `Access URL: ${result.accessUrl}`
+          )
+
           operationManager.setOperationResult(operationId, {
             success: true,
             accessUrl: result.accessUrl,
-            fullOutput: result.fullOutput
+            password: password,
+            fullOutput: result.fullOutput,
           })
         } else {
-          operationManager.addOperationLog(operationId, '❌ Interview creation failed')
-          operationManager.addOperationLog(operationId, `Error: ${result.error}`)
-          
+          operationManager.addOperationLog(
+            operationId,
+            '❌ Interview creation failed'
+          )
+          operationManager.addOperationLog(
+            operationId,
+            `Error: ${result.error}`
+          )
+
           operationManager.setOperationResult(operationId, {
             success: false,
             error: result.error,
-            fullOutput: result.fullOutput
+            fullOutput: result.fullOutput,
           })
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+        const errorMsg =
+          error instanceof Error ? error.message : 'Unknown error'
         operationManager.addOperationLog(operationId, `❌ Error: ${errorMsg}`)
         operationManager.setOperationResult(operationId, {
           success: false,
-          error: errorMsg
+          error: errorMsg,
         })
       }
     })
@@ -84,7 +107,7 @@ export async function POST(request: NextRequest) {
       candidateName,
       scenario,
       password,
-      message: 'Interview creation started in background'
+      message: 'Interview creation started in background',
     })
   } catch (error: unknown) {
     return NextResponse.json(

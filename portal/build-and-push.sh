@@ -15,9 +15,9 @@ echo "AWS Region: $AWS_REGION"
 echo "Logging in to ECR..."
 aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
 
-# Build the Docker image
-echo "Building Docker image..."
-docker build -t prequel-portal:latest .
+# Build the Docker image for AMD64 (ECS compatibility)
+echo "Building Docker image for AMD64..."
+docker build --platform=linux/amd64 -t prequel-portal:latest .
 
 # Tag the image for ECR
 echo "Tagging image for ECR..."

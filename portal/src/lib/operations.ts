@@ -1,6 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
 import fs from 'fs/promises'
-import path from 'path'
 
 export interface Operation {
   id: string
@@ -15,6 +14,7 @@ export interface Operation {
   result?: {
     success: boolean
     accessUrl?: string
+    password?: string
     error?: string
     fullOutput?: string
   }
@@ -39,7 +39,7 @@ class OperationManager {
         this.operations.set(op.id, op)
       }
       console.log(`Loaded ${operations.length} operations from disk`)
-    } catch (error) {
+    } catch {
       console.log('No existing operations file found, starting fresh')
     }
   }
@@ -60,7 +60,7 @@ class OperationManager {
     scenario?: string
   ): string {
     const operationId = uuidv4()
-    
+
     const operation: Operation = {
       id: operationId,
       type,
@@ -74,7 +74,7 @@ class OperationManager {
 
     this.operations.set(operationId, operation)
     this.saveToDisk()
-    
+
     return operationId
   }
 
@@ -83,8 +83,9 @@ class OperationManager {
   }
 
   getAllOperations(): Operation[] {
-    return Array.from(this.operations.values())
-      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())
+    return Array.from(this.operations.values()).sort(
+      (a, b) => b.startedAt.getTime() - a.startedAt.getTime()
+    )
   }
 
   getOperationsByInterview(interviewId: string): Operation[] {
@@ -112,10 +113,7 @@ class OperationManager {
     }
   }
 
-  setOperationResult(
-    operationId: string, 
-    result: Operation['result']
-  ) {
+  setOperationResult(operationId: string, result: Operation['result']) {
     const operation = this.operations.get(operationId)
     if (operation) {
       operation.result = result
@@ -146,6 +144,9 @@ class OperationManager {
 export const operationManager = new OperationManager()
 
 // Clean up old operations every hour
-setInterval(() => {
-  operationManager.cleanup()
-}, 60 * 60 * 1000)
+setInterval(
+  () => {
+    operationManager.cleanup()
+  },
+  60 * 60 * 1000
+)

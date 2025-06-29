@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
     const interviewId = url.searchParams.get('interviewId')
-    
+
     if (interviewId) {
       // Get operations for a specific interview
       const operations = operationManager.getOperationsByInterview(interviewId)

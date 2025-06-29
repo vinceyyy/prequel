@@ -24,7 +24,7 @@ export function useOperations(interviewId?: string) {
 
   const loadOperations = useCallback(async () => {
     try {
-      const url = interviewId 
+      const url = interviewId
         ? `/api/operations?interviewId=${interviewId}`
         : '/api/operations'
       const response = await fetch(url)
@@ -37,58 +37,64 @@ export function useOperations(interviewId?: string) {
     }
   }, [interviewId])
 
-  const createInterview = useCallback(async (candidateName: string, scenario: string) => {
-    try {
-      setLoading(true)
-      const response = await fetch('/api/interviews/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ candidateName, scenario })
-      })
+  const createInterview = useCallback(
+    async (candidateName: string, scenario: string) => {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/interviews/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ candidateName, scenario }),
+        })
 
-      if (response.ok) {
-        const data = await response.json()
-        await loadOperations() // Refresh operations list
-        return data
-      } else {
-        throw new Error('Failed to create interview')
+        if (response.ok) {
+          const data = await response.json()
+          await loadOperations() // Refresh operations list
+          return data
+        } else {
+          throw new Error('Failed to create interview')
+        }
+      } catch (error) {
+        console.error('Error creating interview:', error)
+        throw error
+      } finally {
+        setLoading(false)
       }
-    } catch (error) {
-      console.error('Error creating interview:', error)
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }, [loadOperations])
+    },
+    [loadOperations]
+  )
 
-  const destroyInterview = useCallback(async (interviewId: string) => {
-    try {
-      setLoading(true)
-      const response = await fetch(`/api/interviews/${interviewId}/destroy`, {
-        method: 'POST'
-      })
+  const destroyInterview = useCallback(
+    async (interviewId: string) => {
+      try {
+        setLoading(true)
+        const response = await fetch(`/api/interviews/${interviewId}/destroy`, {
+          method: 'POST',
+        })
 
-      if (response.ok) {
-        const data = await response.json()
-        await loadOperations() // Refresh operations list
-        return data
-      } else {
-        throw new Error('Failed to destroy interview')
+        if (response.ok) {
+          const data = await response.json()
+          await loadOperations() // Refresh operations list
+          return data
+        } else {
+          throw new Error('Failed to destroy interview')
+        }
+      } catch (error) {
+        console.error('Error destroying interview:', error)
+        throw error
+      } finally {
+        setLoading(false)
       }
-    } catch (error) {
-      console.error('Error destroying interview:', error)
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }, [loadOperations])
+    },
+    [loadOperations]
+  )
 
   useEffect(() => {
     loadOperations()
-    
+
     // Poll for updates every 3 seconds
     const interval = setInterval(loadOperations, 3000)
-    
+
     return () => clearInterval(interval)
   }, [loadOperations])
 
@@ -97,6 +103,6 @@ export function useOperations(interviewId?: string) {
     loading,
     createInterview,
     destroyInterview,
-    refreshOperations: loadOperations
+    refreshOperations: loadOperations,
   }
 }

@@ -1,5 +1,6 @@
-# Explicitly use AMD64 for ECS compatibility
-FROM --platform=linux/amd64 node:22-alpine
+# Use build argument for platform, defaults to AMD64 for ECS compatibility
+ARG TARGETPLATFORM
+FROM --platform=${TARGETPLATFORM:-linux/amd64} node:22-alpine
 
 WORKDIR /app
 
@@ -12,12 +13,13 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Install terraform and AWS CLI (AMD64)
+# Install terraform and AWS CLI with architecture detection
 RUN apk add --no-cache wget unzip aws-cli
-RUN wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip \
-    && unzip terraform_1.5.7_linux_amd64.zip \
+RUN ARCH=$(case "$(uname -m)" in x86_64) echo "amd64" ;; aarch64) echo "arm64" ;; *) echo "amd64" ;; esac) && \
+    wget https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_${ARCH}.zip \
+    && unzip terraform_1.5.7_linux_${ARCH}.zip \
     && mv terraform /usr/local/bin/ \
-    && rm terraform_1.5.7_linux_amd64.zip
+    && rm terraform_1.5.7_linux_${ARCH}.zip
 
 # Build the Next.js application
 RUN npm run build

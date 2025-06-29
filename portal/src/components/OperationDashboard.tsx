@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 interface Operation {
   id: string
@@ -21,12 +21,12 @@ interface Operation {
 }
 
 interface OperationDashboardProps {
-  interviewId?: string // If provided, only show operations for this interview
+  interviewFilter?: string | null // If provided, only show operations for this interview
   className?: string
 }
 
 export default function OperationDashboard({
-  interviewId,
+  interviewFilter,
   className = '',
 }: OperationDashboardProps) {
   const [operations, setOperations] = useState<Operation[]>([])
@@ -36,7 +36,22 @@ export default function OperationDashboard({
   const [logs, setLogs] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const terminalRef = useRef<HTMLDivElement>(null)
-  const pollInterval = useRef<NodeJS.Timeout>()
+  const pollInterval = useRef<NodeJS.Timeout | null>(null)
+
+  const loadOperations = useCallback(async () => {
+    try {
+      const url = interviewFilter
+        ? `/api/operations?interviewId=${interviewFilter}`
+        : '/api/operations'
+      const response = await fetch(url)
+      if (response.ok) {
+        const data = await response.json()
+        setOperations(data.operations || [])
+      }
+    } catch (error) {
+      console.error('Failed to load operations:', error)
+    }
+  }, [interviewFilter])
 
   useEffect(() => {
     loadOperations()
@@ -49,7 +64,7 @@ export default function OperationDashboard({
         clearInterval(pollInterval.current)
       }
     }
-  }, [interviewId])
+  }, [interviewFilter, loadOperations])
 
   useEffect(() => {
     if (selectedOperation) {
@@ -63,21 +78,6 @@ export default function OperationDashboard({
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight
     }
   }, [logs])
-
-  const loadOperations = async () => {
-    try {
-      const url = interviewId
-        ? `/api/operations?interviewId=${interviewId}`
-        : '/api/operations'
-      const response = await fetch(url)
-      if (response.ok) {
-        const data = await response.json()
-        setOperations(data.operations || [])
-      }
-    } catch (error) {
-      console.error('Failed to load operations:', error)
-    }
-  }
 
   const loadOperationLogs = async (operationId: string) => {
     try {
@@ -145,8 +145,8 @@ export default function OperationDashboard({
     <div className={`bg-white rounded-lg shadow-md ${className}`}>
       <div className="p-6 border-b border-gray-200">
         <h2 className="text-xl font-semibold text-gray-900">
-          {interviewId
-            ? `Operations for Interview ${interviewId}`
+          {interviewFilter
+            ? `Operations for Interview ${interviewFilter}`
             : 'All Operations'}
         </h2>
       </div>

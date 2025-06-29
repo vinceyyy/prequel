@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import OperationDashboard from '@/components/OperationDashboard'
+import { useOperations } from '@/hooks/useOperations'
 
 interface Interview {
   id: string
@@ -16,14 +18,17 @@ export default function Home() {
   const [interviews, setInterviews] = useState<Interview[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [streamingOutput, setStreamingOutput] = useState('')
-  const [showOutput, setShowOutput] = useState(false)
-  const [outputTitle, setOutputTitle] = useState('Terraform Output')
+  const [showLogsModal, setShowLogsModal] = useState(false)
+  const [selectedInterviewForLogs, setSelectedInterviewForLogs] = useState<
+    string | null
+  >(null)
   const [formData, setFormData] = useState({
     candidateName: '',
     scenario: 'javascript',
   })
-  const terminalRef = useRef<HTMLDivElement>(null)
+
+  // Use the operations hook for background operations
+  const { createInterview, destroyInterview } = useOperations()
 
   const scenarios = [
     { id: 'javascript', name: 'JavaScript/React' },
@@ -34,14 +39,12 @@ export default function Home() {
 
   useEffect(() => {
     loadInterviews()
-  }, [])
 
-  // Auto-scroll terminal to bottom when new output arrives
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight
-    }
-  }, [streamingOutput])
+    // Poll for interview updates every 3 seconds
+    const interval = setInterval(loadInterviews, 3000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   const loadInterviews = async () => {
     try {
@@ -61,123 +64,17 @@ export default function Home() {
     if (!formData.candidateName.trim()) return
 
     setLoading(true)
-    setStreamingOutput('')
-    setOutputTitle('Creating Interview - Terraform Output')
-    setShowOutput(true)
-
     try {
-      const response = await fetch('/api/interviews/stream', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          candidateName: formData.candidateName.trim(),
-          scenario: formData.scenario,
-        }),
-      })
+      // Use the background create API
+      await createInterview(formData.candidateName.trim(), formData.scenario)
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-      let currentInterview: Interview | null = null
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          const chunk = decoder.decode(value)
-          const lines = chunk.split('\n')
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6))
-
-                if (data.type === 'metadata') {
-                  // Create initial interview entry
-                  currentInterview = {
-                    id: data.interviewId,
-                    candidateName: data.candidateName,
-                    scenario: data.scenario,
-                    status: 'creating',
-                    password: data.password,
-                    createdAt: new Date().toISOString(),
-                  }
-                  setInterviews(prev => [...prev, currentInterview!])
-                  setStreamingOutput(
-                    prev =>
-                      prev +
-                      `Starting interview creation for ${data.candidateName}...\n`
-                  )
-                } else if (data.type === 'output') {
-                  setStreamingOutput(prev => prev + data.data)
-                } else if (data.type === 'complete') {
-                  if (currentInterview && data.success) {
-                    setInterviews(prev =>
-                      prev.map(interview =>
-                        interview.id === currentInterview?.id
-                          ? {
-                              ...interview,
-                              status: 'active',
-                              accessUrl: data.accessUrl,
-                            }
-                          : interview
-                      )
-                    )
-                    setStreamingOutput(
-                      prev =>
-                        prev +
-                        `\n✅ Interview created successfully!\nAccess URL: ${data.accessUrl}\n`
-                    )
-                  } else {
-                    if (currentInterview) {
-                      setInterviews(prev =>
-                        prev.map(interview =>
-                          interview.id === currentInterview?.id
-                            ? { ...interview, status: 'error' }
-                            : interview
-                        )
-                      )
-                    }
-                    setStreamingOutput(
-                      prev =>
-                        prev +
-                        `\n❌ Failed to create interview: ${data.error}\n`
-                    )
-                  }
-                } else if (data.type === 'error') {
-                  if (currentInterview) {
-                    setInterviews(prev =>
-                      prev.map(interview =>
-                        interview.id === currentInterview?.id
-                          ? { ...interview, status: 'error' }
-                          : interview
-                      )
-                    )
-                  }
-                  setStreamingOutput(
-                    prev => prev + `\n❌ Error: ${data.error}\n`
-                  )
-                }
-              } catch (e) {
-                console.error('Failed to parse SSE data:', e)
-              }
-            }
-          }
-        }
-      }
+      // Refresh interviews list immediately to show the new interview
+      await loadInterviews()
 
       setFormData({ candidateName: '', scenario: 'javascript' })
       setShowCreateForm(false)
     } catch (error) {
-      setStreamingOutput(
-        prev => prev + `\n❌ Error creating interview: ${error}\n`
-      )
+      console.error('Error creating interview:', error)
     } finally {
       setLoading(false)
     }
@@ -192,103 +89,14 @@ export default function Home() {
       return
     }
 
-    setInterviews(
-      interviews.map(interview =>
-        interview.id === id ? { ...interview, status: 'destroying' } : interview
-      )
-    )
-
-    // Show streaming output for destroy
-    setStreamingOutput('')
-    setOutputTitle('Destroying Interview - Terraform Output')
-    setShowOutput(true)
-
     try {
-      const response = await fetch(`/api/interviews/${id}/destroy`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
+      // Use the background destroy API
+      await destroyInterview(id)
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          const chunk = decoder.decode(value)
-          const lines = chunk.split('\n')
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6))
-
-                if (data.type === 'metadata') {
-                  setStreamingOutput(
-                    prev =>
-                      prev +
-                      `Starting destroy for interview ${data.interviewId}...\n`
-                  )
-                } else if (data.type === 'output') {
-                  setStreamingOutput(prev => prev + data.data)
-                } else if (data.type === 'complete') {
-                  if (data.success) {
-                    setStreamingOutput(
-                      prev => prev + '\n✅ Interview destroyed successfully!\n'
-                    )
-                    setInterviews(
-                      interviews.filter(interview => interview.id !== id)
-                    )
-                  } else {
-                    setStreamingOutput(
-                      prev =>
-                        prev +
-                        `\n❌ Failed to destroy interview: ${data.error}\n`
-                    )
-                    setInterviews(
-                      interviews.map(interview =>
-                        interview.id === id
-                          ? { ...interview, status: 'error' }
-                          : interview
-                      )
-                    )
-                  }
-                } else if (data.type === 'error') {
-                  setStreamingOutput(
-                    prev => prev + `\n❌ Error: ${data.error}\n`
-                  )
-                  setInterviews(
-                    interviews.map(interview =>
-                      interview.id === id
-                        ? { ...interview, status: 'error' }
-                        : interview
-                    )
-                  )
-                }
-              } catch (e) {
-                console.error('Failed to parse SSE data:', e)
-              }
-            }
-          }
-        }
-      }
+      // Refresh interviews list to show the latest state
+      await loadInterviews()
     } catch (error) {
-      setStreamingOutput(
-        prev => prev + `\n❌ Error destroying interview: ${error}\n`
-      )
-      setInterviews(
-        interviews.map(interview =>
-          interview.id === id ? { ...interview, status: 'error' } : interview
-        )
-      )
+      console.error('Error destroying interview:', error)
     }
   }
 
@@ -376,40 +184,6 @@ export default function Home() {
           </div>
         )}
 
-        {showOutput && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-4xl h-3/4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {outputTitle}
-                </h2>
-                <button
-                  onClick={() => setShowOutput(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div
-                ref={terminalRef}
-                className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm h-full overflow-y-auto whitespace-pre-wrap"
-              >
-                {streamingOutput || 'Waiting for output...'}
-              </div>
-
-              <div className="flex justify-end mt-4">
-                <button
-                  onClick={() => setShowOutput(false)}
-                  className="bg-gray-200 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -487,28 +261,39 @@ export default function Home() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {interview.status === 'active' && (
+                      <div className="flex gap-2">
+                        {interview.status === 'active' && (
+                          <button
+                            onClick={() => stopInterview(interview.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Stop & Destroy
+                          </button>
+                        )}
+                        {interview.status === 'creating' && (
+                          <span className="text-blue-600">Creating...</span>
+                        )}
+                        {interview.status === 'destroying' && (
+                          <span className="text-orange-600">Destroying...</span>
+                        )}
+                        {interview.status === 'error' && (
+                          <button
+                            onClick={() => stopInterview(interview.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Clean Up
+                          </button>
+                        )}
                         <button
-                          onClick={() => stopInterview(interview.id)}
-                          className="text-red-600 hover:text-red-900"
+                          onClick={() => {
+                            setSelectedInterviewForLogs(interview.id)
+                            setShowLogsModal(true)
+                          }}
+                          className="text-blue-600 hover:text-blue-900"
                         >
-                          Stop & Destroy
+                          Logs
                         </button>
-                      )}
-                      {interview.status === 'creating' && (
-                        <span className="text-blue-600">Creating...</span>
-                      )}
-                      {interview.status === 'destroying' && (
-                        <span className="text-orange-600">Destroying...</span>
-                      )}
-                      {interview.status === 'error' && (
-                        <button
-                          onClick={() => stopInterview(interview.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Clean Up
-                        </button>
-                      )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -516,6 +301,45 @@ export default function Home() {
             </tbody>
           </table>
         </div>
+
+        {/* Logs Modal */}
+        {showLogsModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-6xl h-5/6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Operation Logs
+                  {selectedInterviewForLogs
+                    ? ` - Interview ${selectedInterviewForLogs}`
+                    : ''}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowLogsModal(false)
+                    setSelectedInterviewForLogs(null)
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <OperationDashboard interviewFilter={selectedInterviewForLogs} />
+
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={() => {
+                    setShowLogsModal(false)
+                    setSelectedInterviewForLogs(null)
+                  }}
+                  className="bg-gray-200 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

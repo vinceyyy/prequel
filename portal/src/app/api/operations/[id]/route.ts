@@ -3,12 +3,13 @@ import { operationManager } from '@/lib/operations'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const operationId = params.id
+    const { id } = await params
+    const operationId = id
     const operation = operationManager.getOperation(operationId)
-    
+
     if (!operation) {
       return NextResponse.json(
         { error: 'Operation not found' },
