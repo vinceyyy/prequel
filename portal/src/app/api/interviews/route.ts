@@ -7,16 +7,19 @@ export async function GET() {
   try {
     // Get ongoing operations to include interviews being created/destroyed
     const operations = operationManager.getAllOperations()
-    
+
     // Debug: Log operations for troubleshooting
-    console.log('[DEBUG] Found operations:', operations.map(op => ({
-      id: op.id,
-      type: op.type,
-      interviewId: op.interviewId,
-      status: op.status,
-      hasResult: !!op.result,
-      resultSuccess: op.result?.success
-    })))
+    console.log(
+      '[DEBUG] Found operations:',
+      operations.map(op => ({
+        id: op.id,
+        type: op.type,
+        interviewId: op.interviewId,
+        status: op.status,
+        hasResult: !!op.result,
+        resultSuccess: op.result?.success,
+      }))
+    )
 
     // Use S3 workspaces as source of truth for what interviews exist
     const workspaceInterviews = await terraformManager.listActiveInterviews()
@@ -160,11 +163,14 @@ export async function GET() {
       )
 
     // Debug: Log final interview list
-    console.log('[DEBUG] Final interviews:', interviews.map(i => ({
-      id: i.id,
-      status: i.status,
-      candidateName: i.candidateName
-    })))
+    console.log(
+      '[DEBUG] Final interviews:',
+      interviews.map(i => ({
+        id: i.id,
+        status: i.status,
+        candidateName: i.candidateName,
+      }))
+    )
 
     return NextResponse.json({ interviews })
   } catch (error: unknown) {
