@@ -43,7 +43,8 @@
       "Bash(AWS_PROFILE=your-aws-profile aws s3 ls s3://prequel-instance/scenario/ --recursive)",
       "Bash(AWS_PROFILE=your-aws-profile aws s3 ls s3://prequel-instance/scenarios/ --recursive)",
       "Bash(AWS_PROFILE=your-aws-profile aws s3 rm s3://prequel-instance/scenarios/ --recursive)",
-      "Bash(AWS_PROFILE=your-aws-profile aws s3 rm s3://prequel-instance/templates/ --recursive)"
+      "Bash(AWS_PROFILE=your-aws-profile aws s3 rm s3://prequel-instance/templates/ --recursive)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

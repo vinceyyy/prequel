@@ -101,6 +101,17 @@ resource "aws_iam_role_policy" "ecs_task_efs" {
           "elasticfilesystem:ClientRootAccess"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.instance_code.arn,
+          "${aws_s3_bucket.instance_code.arn}/*"
+        ]
       }
     ]
   })

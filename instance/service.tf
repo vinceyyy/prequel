@@ -54,115 +54,9 @@ resource "aws_efs_access_point" "interview" {
   })
 }
 
-# ECS Task to populate EFS with scenario files
-resource "aws_ecs_task_definition" "efs_init" {
-  family                   = "${local.service_name}-init"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = 256
-  memory                   = 512
-  execution_role_arn       = data.terraform_remote_state.infrastructure.outputs.ecs_execution_role_arn
-  task_role_arn            = data.terraform_remote_state.infrastructure.outputs.ecs_task_role_arn
-
-  container_definitions = jsonencode([
-    {
-      name  = "efs-init"
-      image = data.terraform_remote_state.infrastructure.outputs.ecr_repository_url
-      
-      environment = [
-        {
-          name  = "INIT_MODE"
-          value = "true"
-        },
-        {
-          name  = "SCENARIO"
-          value = var.scenario
-        }
-      ]
-
-      mountPoints = [
-        {
-          sourceVolume  = "scenario-files"
-          containerPath = "/workspace"
-          readOnly      = false
-        }
-      ]
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = data.terraform_remote_state.infrastructure.outputs.cloudwatch_log_group_name
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "init-${local.interview_id}"
-        }
-      }
-
-      essential = true
-    }
-  ])
-
-  volume {
-    name = "scenario-files"
-
-    efs_volume_configuration {
-      file_system_id          = aws_efs_file_system.interview.id
-      root_directory          = "/"
-      transit_encryption      = "ENABLED"
-      transit_encryption_port = 2049
-      authorization_config {
-        access_point_id = aws_efs_access_point.interview.id
-        iam             = "ENABLED"
-      }
-    }
-  }
-
-  tags = local.tags
-}
-
-# Run the EFS initialization task
-resource "null_resource" "efs_init" {
-  depends_on = [aws_efs_mount_target.interview]
-
-  provisioner "local-exec" {
-    interpreter = ["sh", "-c"]
-    command = <<-EOT
-      set -e
-      echo "Starting EFS initialization task..."
-      
-      # Run the task and extract the task ARN directly
-      TASK_ARN=$(aws ecs run-task \
-        --cluster ${data.terraform_remote_state.infrastructure.outputs.ecs_cluster_name} \
-        --task-definition ${aws_ecs_task_definition.efs_init.arn} \
-        --launch-type FARGATE \
-        --network-configuration "awsvpcConfiguration={subnets=[${join(",", data.terraform_remote_state.infrastructure.outputs.private_subnet_ids)}],securityGroups=[${data.terraform_remote_state.infrastructure.outputs.code_server_security_group_id}],assignPublicIp=DISABLED}" \
-        --region ${var.aws_region} \
-        --query 'tasks[0].taskArn' \
-        --output text)
-      
-      echo "Started task: $TASK_ARN"
-      
-      # Validate that we got a task ARN
-      if [ "$TASK_ARN" = "None" ] || [ -z "$TASK_ARN" ]; then
-        echo "Error: Failed to start ECS task"
-        exit 1
-      fi
-      
-      # Wait for the task to complete
-      echo "Waiting for task to complete..."
-      aws ecs wait tasks-stopped \
-        --cluster ${data.terraform_remote_state.infrastructure.outputs.ecs_cluster_name} \
-        --tasks "$TASK_ARN" \
-        --region ${var.aws_region}
-      
-      echo "Task completed: $TASK_ARN"
-    EOT
-  }
-
-  triggers = {
-    efs_id = aws_efs_file_system.interview.id
-    scenario = var.scenario
-  }
-}
+# EFS initialization is handled by the container itself during startup
+# The container will download scenario files from S3 to the EFS mount
+# This approach is simpler and more reliable than Lambda-based initialization
 
 # ECS Task Definition for the interview instance
 resource "aws_ecs_task_definition" "interview" {
@@ -215,6 +109,18 @@ resource "aws_ecs_task_definition" "interview" {
         {
           name  = "SCENARIO"
           value = var.scenario
+        },
+        {
+          name  = "AWS_REGION"
+          value = var.aws_region
+        },
+        {
+          name  = "S3_BUCKET"
+          value = "prequel-instance"
+        },
+        {
+          name  = "INIT_EFS"
+          value = "true"
         }
       ]
 
@@ -277,7 +183,7 @@ resource "aws_lb_target_group" "interview" {
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200"
-    path                = "/"
+    path                = "/healthz"
     port                = "traffic-port"
     protocol            = "HTTPS"
     timeout             = 10
@@ -347,7 +253,7 @@ resource "aws_ecs_service" "interview" {
     container_port   = 8443
   }
 
-  depends_on = [aws_lb_listener_rule.interview, null_resource.efs_init]
+  depends_on = [aws_lb_listener_rule.interview, aws_efs_mount_target.interview]
 
   tags = local.tags
 
