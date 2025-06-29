@@ -1,5 +1,6 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { terraformManager } from '@/lib/terraform'
+import { operationManager } from '@/lib/operations'
 
 export async function DELETE(
   request: NextRequest,
@@ -87,6 +88,76 @@ export async function DELETE(
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       }
+    )
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: interviewId } = await params
+
+    // Create operation to track progress
+    const operationId = operationManager.createOperation(
+      'destroy',
+      interviewId
+    )
+
+    // Start background operation
+    setImmediate(async () => {
+      try {
+        operationManager.updateOperationStatus(operationId, 'running')
+        operationManager.addOperationLog(operationId, `Starting interview destruction for ${interviewId}`)
+
+        const result = await terraformManager.destroyInterviewStreaming(interviewId, (data: string) => {
+          // Add each line to operation logs
+          const lines = data.split('\n').filter(line => line.trim())
+          lines.forEach(line => {
+            operationManager.addOperationLog(operationId, line)
+          })
+        })
+
+        if (result.success) {
+          operationManager.addOperationLog(operationId, '✅ Interview destroyed successfully!')
+          
+          operationManager.setOperationResult(operationId, {
+            success: true,
+            fullOutput: result.fullOutput
+          })
+        } else {
+          operationManager.addOperationLog(operationId, '❌ Interview destruction failed')
+          operationManager.addOperationLog(operationId, `Error: ${result.error}`)
+          
+          operationManager.setOperationResult(operationId, {
+            success: false,
+            error: result.error,
+            fullOutput: result.fullOutput
+          })
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+        operationManager.addOperationLog(operationId, `❌ Error: ${errorMsg}`)
+        operationManager.setOperationResult(operationId, {
+          success: false,
+          error: errorMsg
+        })
+      }
+    })
+
+    return NextResponse.json({
+      operationId,
+      interviewId,
+      message: 'Interview destruction started in background'
+    })
+  } catch (error: unknown) {
+    return NextResponse.json(
+      {
+        error: 'Failed to start interview destruction',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
     )
   }
 }
