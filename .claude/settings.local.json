@@ -48,7 +48,9 @@
       "Bash(git commit:*)",
       "Bash(sed:*)",
       "Bash(npm run dev:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(git checkout:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

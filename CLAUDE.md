@@ -4,15 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Prequel is a coding interview tool that provisions VS Code instances on AWS ECS for candidates. The project is in the
-early development stage with only basic configuration files present.
+Prequel is a coding interview platform that provisions on-demand VS Code instances in the browser for candidates.
 
-## Current Architecture
+## Architecture
 
-- **Infrastructure**: Terraform for shared AWS resource management
-- **Portal**: NextJS portal
-- **instance**: Code-server instances on AWS ECS using Docker
-- **scenario**: files that can be used to create EFS and mounted to instance as volume
+- **`infra/`** - Shared AWS infrastructure (VPC, ECS, ALB) via Terraform
+- **`portal/`** - NextJS web interface for managing interviews
+- **`instance/`** - Per-interview Terraform templates for ECS instances
+- **`scenario/`** - Interview coding challenges and environments
 
 ## Development Commands
 
@@ -25,6 +24,16 @@ npm run build        # Build for production
 npm run lint         # Run ESLint
 npm run format       # Format code with Prettier
 npm run format:check # Check code formatting
+
+# Testing (Local Development Focus)
+npm run test:quick   # Quick pre-commit tests (recommended)
+npm run test:all     # Full test suite before PR
+npm run test:dev     # Watch mode for development
+
+# Individual test types
+npm run test         # Unit tests only
+npm run test:e2e     # E2E tests only
+npm run test:coverage # Coverage report
 ```
 
 **Infrastructure:**
@@ -74,11 +83,38 @@ Current structure:
 
 ## Development Guidelines
 
-- ALWAYS run linter and formatter after change.
+- ALWAYS run `npm run test:quick` before committing
+- ALWAYS run linter and formatter after changes
 - ALWAYS make sure the app can be built without error
 - DO NOT deploy without explicit consent
-- ALWAYS run linter and formatter after change
-- Use conventional commit
+- Use conventional commit messages
+
+## Local Testing Workflow
+
+**During Development:**
+```bash
+npm run test:dev     # Watch mode - tests run automatically
+```
+
+**Before Committing:**
+```bash
+npm run test:quick   # Fast validation (2-3 minutes)
+```
+
+**Before Creating PR:**
+```bash
+npm run test:all     # Full test suite (5-10 minutes)
+```
+
+**Testing Documentation:**
+- `CONTRIBUTING.md` - Development workflow, testing, and contribution guidelines
+- `portal/TESTING.md` - Comprehensive testing guide
+- `portal/README.md` - Portal-specific documentation
+
+**Debugging Tests:**
+- Unit tests: Use `test.only()` to focus on specific tests
+- E2E tests: Use `npm run test:e2e:ui` for interactive debugging
+- Coverage reports: `npm run test:coverage`
 
 ## Key Features (Planned)
 
