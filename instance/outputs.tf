@@ -10,13 +10,9 @@ output "service_name" {
 
 output "access_url" {
   description = "URL to access the interview"
-  value = var.domain_name != "" ? "https://interview-${local.interview_id}.${var.domain_name}" : "${data.terraform_remote_state.infrastructure.outputs.alb_dns_name}/interview/${local.interview_id}"
+  value = "Direct access via ECS service - check ECS console for public IP:8443"
 }
 
-output "target_group_arn" {
-  description = "Target group ARN"
-  value       = aws_lb_target_group.interview.arn
-}
 
 output "password" {
   description = "Interview password"
