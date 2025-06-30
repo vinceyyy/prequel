@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
 import { useOperations } from '@/hooks/useOperations'
 
@@ -18,10 +18,12 @@ export default function Home() {
   const [interviews, setInterviews] = useState<Interview[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [showLogsModal, setShowLogsModal] = useState(false)
   const [selectedInterviewForLogs, setSelectedInterviewForLogs] = useState<
     string | null
   >(null)
+  const [notification, setNotification] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     candidateName: '',
     scenario: 'javascript',
@@ -37,33 +39,70 @@ export default function Home() {
     { id: 'fullstack', name: 'Full Stack' },
   ]
 
-  useEffect(() => {
-    loadInterviews()
-
-    // Poll for interview updates every 3 seconds
-    const interval = setInterval(loadInterviews, 3000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  const loadInterviews = async () => {
+  const loadInterviews = useCallback(async () => {
     try {
-      const response = await fetch('/api/interviews')
+      // Add cache busting to ensure fresh data
+      const timestamp = new Date().getTime()
+      const response = await fetch(`/api/interviews?t=${timestamp}`)
       if (response.ok) {
         const data = await response.json()
-        console.log('[DEBUG] Loaded interviews from API:', data.interviews?.map((i: any) => ({
-          id: i.id,
-          status: i.status,
-          candidateName: i.candidateName
-        })))
-        setInterviews(data.interviews || [])
+        console.log(
+          '[DEBUG] Loaded interviews from API:',
+          data.interviews?.map((i: Interview) => ({
+            id: i.id,
+            status: i.status,
+            candidateName: i.candidateName,
+          }))
+        )
+
+        const newInterviews = data.interviews || []
+        console.log(
+          '[DEBUG] Setting new interviews state:',
+          newInterviews.map((i: Interview) => ({
+            id: i.id,
+            status: i.status,
+            candidateName: i.candidateName,
+          }))
+        )
+
+        setInterviews(newInterviews)
       } else {
         console.error('Failed to load interviews')
       }
     } catch (error) {
       console.error('Error loading interviews:', error)
+    } finally {
+      // Set initial loading to false after first load
+      if (initialLoading) {
+        setInitialLoading(false)
+      }
     }
-  }
+  }, [initialLoading])
+
+  // Step 1: One-off request when user first loads the page, blocking until response
+  useEffect(() => {
+    console.log(
+      '[DEBUG] Main page: Step 1 - Initial load, checking existing interviews (one-off request)'
+    )
+    loadInterviews()
+  }, [loadInterviews])
+
+  // NO AUTOMATIC POLLING - interviews endpoint is manual refresh only
+
+  // Debug: Monitor when interviews state changes
+  useEffect(() => {
+    console.log(
+      '[DEBUG] Interviews state changed:',
+      interviews.map(i => ({
+        id: i.id,
+        status: i.status,
+        candidateName: i.candidateName,
+      }))
+    )
+  }, [interviews])
+
+  // NO AUTOMATIC COMPLETION DETECTION - since interviews endpoint is manual only
+  // Users can manually refresh to see completion status
 
   const handleCreateInterview = async () => {
     if (!formData.candidateName.trim()) return
@@ -73,13 +112,20 @@ export default function Home() {
       // Use the background create API
       await createInterview(formData.candidateName.trim(), formData.scenario)
 
-      // Refresh interviews list immediately to show the new interview
-      await loadInterviews()
-
+      // Close the modal immediately since operation is now background
       setFormData({ candidateName: '', scenario: 'javascript' })
       setShowCreateForm(false)
+
+      // Show notification
+      setNotification(
+        `Interview creation started for ${formData.candidateName.trim()}`
+      )
+      setTimeout(() => setNotification(null), 5000) // Clear after 5 seconds
+
+      // NO automatic refresh - user will see progress via notifications and can manually refresh
     } catch (error) {
       console.error('Error creating interview:', error)
+      alert('Failed to start interview creation. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -101,8 +147,7 @@ export default function Home() {
       // Use the background destroy API
       await destroyInterview(id)
 
-      // Refresh interviews list to show the latest state
-      await loadInterviews()
+      // NO automatic refresh - user can manually refresh to see latest state
     } catch (error) {
       console.error('Error destroying interview:', error)
     }
@@ -110,6 +155,22 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
+      {/* Notification */}
+      {notification && (
+        <div
+          className={`fixed top-4 right-4 text-white px-6 py-3 rounded-lg shadow-lg z-50 ${
+            notification.includes('❌') ? 'bg-red-500' : 'bg-green-500'
+          }`}
+        >
+          <div className="flex items-center space-x-2">
+            {notification.includes('started') && (
+              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+            )}
+            <span>{notification}</span>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Prequel Portal</h1>
@@ -118,12 +179,18 @@ export default function Home() {
           </p>
         </header>
 
-        <div className="mb-6">
+        <div className="mb-6 flex gap-3">
           <button
             onClick={() => setShowCreateForm(true)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             Create New Interview
+          </button>
+          <button
+            onClick={loadInterviews}
+            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            Refresh
           </button>
         </div>
 
@@ -214,7 +281,19 @@ export default function Home() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {interviews.length === 0 ? (
+              {initialLoading ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-4 text-center text-gray-500"
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                      <span>Loading interviews...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : interviews.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}

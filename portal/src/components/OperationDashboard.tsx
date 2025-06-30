@@ -34,9 +34,9 @@ export default function OperationDashboard({
     null
   )
   const [logs, setLogs] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
   const terminalRef = useRef<HTMLDivElement>(null)
   const pollInterval = useRef<NodeJS.Timeout | null>(null)
+  const logsPollInterval = useRef<NodeJS.Timeout | null>(null)
 
   const loadOperations = useCallback(async () => {
     try {
@@ -53,46 +53,133 @@ export default function OperationDashboard({
     }
   }, [interviewFilter])
 
+  const loadOperationLogs = useCallback(async (operationId: string) => {
+    try {
+      const response = await fetch(`/api/operations/${operationId}/logs`)
+      if (response.ok) {
+        const data = await response.json()
+        const newLogs = data.logs || []
+
+        // Use functional update to avoid dependency issues
+        setLogs(currentLogs => {
+          // Only update if logs actually changed to prevent flickering
+          if (JSON.stringify(newLogs) !== JSON.stringify(currentLogs)) {
+            return newLogs
+          }
+          return currentLogs
+        })
+      }
+    } catch (error) {
+      console.error('Failed to load operation logs:', error)
+    }
+  }, [])
+
   useEffect(() => {
     loadOperations()
+  }, [interviewFilter, loadOperations])
 
-    // Poll for updates every 2 seconds
-    pollInterval.current = setInterval(loadOperations, 2000)
+  // Only poll when there are running or pending operations
+  useEffect(() => {
+    const hasActiveOperations = operations.some(
+      op => op.status === 'running' || op.status === 'pending'
+    )
+
+    if (hasActiveOperations) {
+      console.log(
+        '[DEBUG] OperationDashboard: Active operations detected, starting operations polling...'
+      )
+      pollInterval.current = setInterval(loadOperations, 3000)
+    } else {
+      if (pollInterval.current) {
+        console.log(
+          '[DEBUG] OperationDashboard: No active operations, stopping polling'
+        )
+        clearInterval(pollInterval.current)
+        pollInterval.current = null
+      }
+    }
 
     return () => {
       if (pollInterval.current) {
         clearInterval(pollInterval.current)
+        pollInterval.current = null
       }
     }
-  }, [interviewFilter, loadOperations])
+  }, [operations, loadOperations])
 
   useEffect(() => {
     if (selectedOperation) {
       loadOperationLogs(selectedOperation)
     }
-  }, [selectedOperation])
 
-  // Auto-scroll terminal to bottom
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight
-    }
-  }, [logs])
-
-  const loadOperationLogs = async (operationId: string) => {
-    try {
-      setLoading(true)
-      const response = await fetch(`/api/operations/${operationId}/logs`)
-      if (response.ok) {
-        const data = await response.json()
-        setLogs(data.logs || [])
+    return () => {
+      if (logsPollInterval.current) {
+        clearInterval(logsPollInterval.current)
+        logsPollInterval.current = null
       }
-    } catch (error) {
-      console.error('Failed to load operation logs:', error)
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [selectedOperation, loadOperationLogs])
+
+  // Only poll logs when the selected operation is running or pending
+  useEffect(() => {
+    if (selectedOperation) {
+      const operation = operations.find(op => op.id === selectedOperation)
+      if (
+        operation &&
+        (operation.status === 'running' || operation.status === 'pending')
+      ) {
+        console.log(
+          `[DEBUG] Starting log polling for active operation: ${selectedOperation}`
+        )
+        logsPollInterval.current = setInterval(() => {
+          loadOperationLogs(selectedOperation)
+        }, 2000)
+      } else {
+        if (logsPollInterval.current) {
+          console.log(
+            `[DEBUG] Stopping log polling for completed operation: ${selectedOperation}`
+          )
+          clearInterval(logsPollInterval.current)
+          logsPollInterval.current = null
+        }
+      }
+    }
+
+    return () => {
+      if (logsPollInterval.current) {
+        clearInterval(logsPollInterval.current)
+        logsPollInterval.current = null
+      }
+    }
+  }, [selectedOperation, operations, loadOperationLogs])
+
+  // Auto-scroll to bottom when new logs arrive
+  useEffect(() => {
+    if (terminalRef.current && logs.length > 0) {
+      const element = terminalRef.current
+      // Check if user is near the bottom (within 100px) - if so, auto-scroll
+      // This prevents auto-scroll if user is scrolling up to read previous logs
+      const isNearBottom =
+        element.scrollHeight - element.scrollTop - element.clientHeight < 100
+
+      if (isNearBottom) {
+        element.scrollTop = element.scrollHeight
+      }
+    }
+  }, [logs]) // Trigger whenever logs change
+
+  // Always scroll to bottom when switching operations
+  useEffect(() => {
+    if (terminalRef.current && selectedOperation) {
+      // Small delay to ensure logs are loaded
+      const timer = setTimeout(() => {
+        if (terminalRef.current) {
+          terminalRef.current.scrollTop = terminalRef.current.scrollHeight
+        }
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [selectedOperation])
 
   const getStatusIcon = (status: Operation['status']) => {
     switch (status) {
@@ -143,17 +230,23 @@ export default function OperationDashboard({
 
   return (
     <div className={`bg-white rounded-lg shadow-md ${className}`}>
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-gray-200 flex justify-between items-center">
         <h2 className="text-xl font-semibold text-gray-900">
           {interviewFilter
             ? `Operations for Interview ${interviewFilter}`
             : 'All Operations'}
         </h2>
+        <button
+          onClick={loadOperations}
+          className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700 transition-colors"
+        >
+          Refresh
+        </button>
       </div>
 
-      <div className="flex h-96">
+      <div className="flex h-[500px]">
         {/* Operations List */}
-        <div className="w-1/2 border-r border-gray-200 overflow-y-auto">
+        <div className="w-1/4 border-r border-gray-200 overflow-y-auto">
           {operations.length === 0 ? (
             <div className="p-4 text-gray-500 text-center">
               No operations found
@@ -224,7 +317,7 @@ export default function OperationDashboard({
         </div>
 
         {/* Logs Panel */}
-        <div className="w-1/2 flex flex-col">
+        <div className="w-3/4 flex flex-col">
           <div className="p-4 border-b border-gray-200 bg-gray-50">
             <h3 className="font-medium text-gray-900">
               {selectedOperation
@@ -233,20 +326,16 @@ export default function OperationDashboard({
             </h3>
           </div>
 
-          <div className="flex-1 p-4">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-gray-500">Loading logs...</div>
-              </div>
-            ) : selectedOperation ? (
+          <div className="flex-1 p-4 flex flex-col overflow-y-scroll">
+            {selectedOperation ? (
               <div
                 ref={terminalRef}
-                className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm h-full overflow-y-auto whitespace-pre-wrap"
+                className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm whitespace-pre-wrap"
               >
                 {logs.length > 0 ? logs.join('\n') : 'No logs available yet...'}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="flex items-center justify-center flex-1 text-gray-500">
                 Select an operation to view its logs
               </div>
             )}

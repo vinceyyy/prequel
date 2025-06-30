@@ -645,7 +645,34 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
 
     const s3Key = `workspaces/${interviewId}/`
 
+    console.log(
+      `[Terraform] CRITICAL: Attempting to delete workspace from S3: ${s3Key}`
+    )
+    console.log(
+      `[Terraform] This will permanently delete interview data for: ${interviewId}`
+    )
+
     try {
+      // First, check if workspace actually exists to avoid unnecessary deletion attempts
+      const listResult = await execAsync(
+        `aws s3 ls "s3://prequel-instance/${s3Key}"`,
+        {
+          env: process.env as NodeJS.ProcessEnv,
+          timeout: 30000,
+        }
+      )
+
+      if (!listResult.stdout.trim()) {
+        console.log(
+          `[Terraform] Workspace ${s3Key} does not exist in S3, skipping deletion`
+        )
+        return
+      }
+
+      console.log(
+        `[Terraform] Confirmed workspace exists, proceeding with deletion: ${s3Key}`
+      )
+
       // Delete workspace from S3
       await execAsync(
         `aws s3 rm "s3://prequel-instance/${s3Key}" --recursive`,
@@ -654,7 +681,7 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
           timeout: 60000,
         }
       )
-      console.log(`[Terraform] Deleted workspace from S3: ${s3Key}`)
+      console.log(`[Terraform] SUCCESS: Deleted workspace from S3: ${s3Key}`)
     } catch (error) {
       console.error(`[Terraform] Failed to delete workspace from S3:`, error)
       // Don't throw - this is cleanup, continue even if S3 cleanup fails
@@ -824,8 +851,11 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
             )
           }
 
-          // Clean up S3 workspace
-          await this.deleteWorkspaceFromS3(interviewId)
+          // DO NOT delete S3 workspace during direct cleanup - it may contain important data
+          // Only delete S3 workspace after confirmed successful terraform destroy
+          streamData(
+            `Preserving S3 workspace - manual cleanup required if resources are fully destroyed\n`
+          )
 
           return {
             success: true,
@@ -1035,6 +1065,40 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
       const { promisify } = await import('util')
       const execAsync = promisify(exec)
 
+      console.log('[Terraform] Listing active interviews from S3 workspaces...')
+
+      // First check if the workspaces directory exists
+      try {
+        await execAsync('aws s3 ls s3://prequel-instance/workspaces/', {
+          env: process.env as NodeJS.ProcessEnv,
+          timeout: 15000,
+        })
+      } catch {
+        console.log(
+          '[Terraform] Workspaces directory does not exist in S3, creating it...'
+        )
+
+        // Create the workspaces directory by creating a placeholder file
+        try {
+          await execAsync(
+            'echo "Workspaces directory for Prequel interviews" | aws s3 cp - s3://prequel-instance/workspaces/.directory',
+            {
+              env: process.env as NodeJS.ProcessEnv,
+              timeout: 15000,
+            }
+          )
+          console.log('[Terraform] Created workspaces directory in S3')
+        } catch (createError) {
+          console.error(
+            '[Terraform] Failed to create workspaces directory:',
+            createError
+          )
+        }
+
+        // Return empty list since directory was just created
+        return []
+      }
+
       // List workspaces from S3
       const { stdout } = await execAsync(
         'aws s3 ls s3://prequel-instance/workspaces/ --recursive',
@@ -1050,11 +1114,14 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
 
       for (const line of lines) {
         const match = line.match(/workspaces\/([^\/]+)\//)
-        if (match && match[1]) {
+        if (match && match[1] && match[1] !== '.directory') {
           interviewIds.add(match[1])
         }
       }
 
+      console.log(
+        `[Terraform] Found ${interviewIds.size} active interviews in S3`
+      )
       return Array.from(interviewIds)
     } catch (error) {
       console.error('[Terraform] Failed to list workspaces from S3:', error)

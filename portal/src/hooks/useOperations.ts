@@ -91,12 +91,25 @@ export function useOperations(interviewId?: string) {
 
   useEffect(() => {
     loadOperations()
-
-    // Poll for updates every 3 seconds
-    const interval = setInterval(loadOperations, 3000)
-
-    return () => clearInterval(interval)
   }, [loadOperations])
+
+  // Only poll when there are running or pending operations
+  useEffect(() => {
+    const hasActiveOperations = operations.some(
+      op => op.status === 'running' || op.status === 'pending'
+    )
+
+    if (hasActiveOperations) {
+      console.log(
+        '[DEBUG] useOperations: Active operations detected, starting polling...'
+      )
+      const interval = setInterval(loadOperations, 3000)
+      return () => {
+        console.log('[DEBUG] useOperations: Stopping polling')
+        clearInterval(interval)
+      }
+    }
+  }, [operations, loadOperations])
 
   return {
     operations,

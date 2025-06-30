@@ -3,177 +3,268 @@ import { terraformManager } from '@/lib/terraform'
 import { operationManager } from '@/lib/operations'
 import { v4 as uuidv4 } from 'uuid'
 
-export async function GET() {
-  try {
-    // Get ongoing operations to include interviews being created/destroyed
-    const operations = operationManager.getAllOperations()
+// Shared execution to prevent multiple simultaneous S3 queries (NO caching)
+interface SharedResult {
+  workspaceInterviews: string[]
+  completedInterviews: Array<{
+    id: string
+    candidateName: string
+    scenario: string
+    status: string
+    accessUrl?: string
+    password?: string
+    createdAt: string
+  }>
+}
 
-    // Debug: Log operations for troubleshooting
-    console.log(
-      '[DEBUG] Found operations:',
-      operations.map(op => ({
-        id: op.id,
-        type: op.type,
-        interviewId: op.interviewId,
-        status: op.status,
-        hasResult: !!op.result,
-        resultSuccess: op.result?.success,
-      }))
-    )
+let activeQuery: Promise<SharedResult> | null = null // Shared promise for concurrent requests
 
-    // Use S3 workspaces as source of truth for what interviews exist
-    const workspaceInterviews = await terraformManager.listActiveInterviews()
+async function performExpensiveQuery(): Promise<SharedResult> {
+  // Use S3 workspaces as source of truth for what interviews exist (EXPENSIVE)
+  const workspaceInterviews = await terraformManager.listActiveInterviews()
 
-    const completedInterviews = await Promise.all(
-      workspaceInterviews.map(async id => {
-        // Try to get Terraform status first
-        const status = await terraformManager.getInterviewStatus(id)
+  const completedInterviewsPromises = workspaceInterviews.map(async id => {
+    // Try to get Terraform status first (EXPENSIVE)
+    const status = await terraformManager.getInterviewStatus(id)
 
-        if (status.success && status.outputs) {
-          const outputs = status.outputs as Record<string, { value: string }>
-          return {
-            id,
-            candidateName: outputs.candidate_name?.value || 'Unknown',
-            scenario: outputs.scenario?.value || 'unknown',
-            status: 'active',
-            accessUrl: outputs.access_url?.value,
-            password: outputs.password?.value,
-            createdAt: outputs.created_at?.value || new Date().toISOString(),
-          }
-        }
+    if (status.success && status.outputs) {
+      const outputs = status.outputs as Record<string, { value: string }>
 
-        // If Terraform status fails, this might be a failed destroy attempt
-        // Check if there's a recent destroy operation for this interview
-        const destroyOperation = operations
-          .filter(op => op.type === 'destroy' && op.interviewId === id)
-          .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0]
-
-        if (destroyOperation) {
-          return {
-            id,
-            candidateName: destroyOperation.candidateName || 'Unknown',
-            scenario: destroyOperation.scenario || 'unknown',
-            status:
-              destroyOperation.status === 'running'
-                ? 'destroying'
-                : destroyOperation.status === 'failed'
-                  ? 'error'
-                  : 'error',
-            createdAt: destroyOperation.startedAt.toISOString(),
-          }
-        }
-
-        // Fallback for interviews with workspace but no valid state or operations
+      // Only return interview if it has valid candidate name and scenario
+      // This prevents malformed data during creation process
+      if (outputs.candidate_name?.value && outputs.scenario?.value) {
         return {
           id,
-          candidateName: 'Unknown',
-          scenario: 'unknown',
-          status: 'error',
-          createdAt: new Date().toISOString(),
+          candidateName: outputs.candidate_name.value,
+          scenario: outputs.scenario.value,
+          status: 'active',
+          accessUrl: outputs.access_url?.value,
+          password: outputs.password?.value,
+          createdAt: outputs.created_at?.value || new Date().toISOString(),
         }
-      })
-    )
+      } else {
+        console.log(
+          `[DEBUG] Skipping interview ${id} - incomplete terraform outputs during creation`
+        )
+        return null
+      }
+    }
 
-    // Add interviews from operations (both create and destroy operations can affect status)
-    const operationInterviews = operations
-      .filter(op => op.type === 'create')
-      .map(op => ({
-        id: op.interviewId,
-        candidateName: op.candidateName || 'Unknown',
-        scenario: op.scenario || 'unknown',
+    // If Terraform status fails, this might be a failed destroy attempt
+    // Check if there's a recent destroy operation for this interview
+    const operations = operationManager.getAllOperations()
+    const destroyOperation = operations
+      .filter(op => op.type === 'destroy' && op.interviewId === id)
+      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0]
+
+    if (destroyOperation) {
+      return {
+        id,
+        candidateName: destroyOperation.candidateName || 'Unknown',
+        scenario: destroyOperation.scenario || 'unknown',
         status:
-          op.status === 'pending'
+          destroyOperation.status === 'running'
+            ? 'destroying'
+            : destroyOperation.status === 'failed'
+              ? 'error'
+              : 'error',
+        createdAt: destroyOperation.startedAt.toISOString(),
+      }
+    }
+
+    // Fallback for interviews with workspace but no valid state or operations
+    return {
+      id,
+      candidateName: 'Unknown',
+      scenario: 'unknown',
+      status: 'error',
+      createdAt: new Date().toISOString(),
+    }
+  })
+
+  const completedInterviewsResults = await Promise.all(
+    completedInterviewsPromises
+  )
+  const completedInterviews = completedInterviewsResults.filter(
+    interview => interview !== null
+  )
+
+  return { workspaceInterviews, completedInterviews }
+}
+
+function getOperationInterviews(
+  operations: Array<{
+    type: string
+    interviewId: string
+    candidateName?: string
+    scenario?: string
+    status: string
+    result?: {
+      success: boolean
+      accessUrl?: string
+      password?: string
+    }
+    startedAt: Date
+  }>
+) {
+  return operations
+    .filter(op => op.type === 'create')
+    .map(op => ({
+      id: op.interviewId,
+      candidateName: op.candidateName || 'Unknown',
+      scenario: op.scenario || 'unknown',
+      status:
+        op.status === 'pending'
+          ? 'creating'
+          : op.status === 'running'
             ? 'creating'
-            : op.status === 'running'
-              ? 'creating'
-              : op.status === 'completed'
-                ? op.result?.success
-                  ? 'active'
+            : op.status === 'completed'
+              ? op.result?.success
+                ? 'active'
+                : 'error'
+              : 'error',
+      accessUrl: op.result?.accessUrl,
+      password: op.result?.password || '',
+      createdAt: op.startedAt.toISOString(),
+    }))
+}
+
+function mergeAndDeduplicateInterviews(
+  allInterviews: Array<{
+    id: string
+    candidateName: string
+    scenario: string
+    status: string
+    accessUrl?: string
+    password?: string
+    createdAt: string
+  }>,
+  operations: Array<{
+    type: string
+    interviewId: string
+    status: string
+    result?: {
+      success: boolean
+    }
+    startedAt: Date
+  }>
+) {
+  // Apply destroy operation status updates
+  const destroyOperationUpdates = new Map()
+  operations
+    .filter(op => op.type === 'destroy')
+    .forEach(op => {
+      const existing = destroyOperationUpdates.get(op.interviewId)
+      if (!existing || op.startedAt.getTime() > existing.startedAt.getTime()) {
+        destroyOperationUpdates.set(op.interviewId, op)
+      }
+    })
+
+  const interviewMap = new Map()
+
+  // Add all interviews
+  allInterviews.forEach(interview => {
+    const existing = interviewMap.get(interview.id)
+    if (
+      existing &&
+      existing.status === 'active' &&
+      interview.status !== 'active'
+    ) {
+      return // Keep the active one
+    }
+    interviewMap.set(interview.id, interview)
+  })
+
+  // Apply destroy operation status updates
+  destroyOperationUpdates.forEach((destroyOp, interviewId) => {
+    const existing = interviewMap.get(interviewId)
+    if (existing) {
+      const updatedInterview = {
+        ...existing,
+        status:
+          destroyOp.status === 'running'
+            ? 'destroying'
+            : destroyOp.status === 'failed'
+              ? 'error'
+              : destroyOp.status === 'completed'
+                ? destroyOp.result?.success
+                  ? 'destroyed'
                   : 'error'
-                : 'error',
-        accessUrl: op.result?.accessUrl,
-        password: op.result?.password || '',
-        createdAt: op.startedAt.toISOString(),
-      }))
-
-    // Also add destroy operations to update status for existing interviews
-    const destroyOperationUpdates = new Map()
-    operations
-      .filter(op => op.type === 'destroy')
-      .forEach(op => {
-        // Keep the most recent destroy operation for each interview
-        const existing = destroyOperationUpdates.get(op.interviewId)
-        if (
-          !existing ||
-          op.startedAt.getTime() > existing.startedAt.getTime()
-        ) {
-          destroyOperationUpdates.set(op.interviewId, op)
-        }
-      })
-
-    // Merge and deduplicate (operations take precedence for interviews in progress)
-    const interviewMap = new Map()
-
-    // Add completed interviews first
-    completedInterviews.forEach(interview => {
-      interviewMap.set(interview.id, interview)
-    })
-
-    // Add/update with operation interviews (this will override if same ID)
-    operationInterviews.forEach(interview => {
-      const existing = interviewMap.get(interview.id)
-      if (
-        existing &&
-        existing.status === 'active' &&
-        interview.status !== 'active'
-      ) {
-        // Keep the active one if it exists
-        return
+                : existing.status,
       }
-      interviewMap.set(interview.id, interview)
-    })
+      interviewMap.set(interviewId, updatedInterview)
+    }
+  })
 
-    // Apply destroy operation status updates
-    destroyOperationUpdates.forEach((destroyOp, interviewId) => {
-      const existing = interviewMap.get(interviewId)
-      if (existing) {
-        // Update status based on destroy operation
-        const updatedInterview = {
-          ...existing,
-          status:
-            destroyOp.status === 'running'
-              ? 'destroying'
-              : destroyOp.status === 'failed'
-                ? 'error'
-                : destroyOp.status === 'completed'
-                  ? destroyOp.result?.success
-                    ? 'destroyed' // This will be filtered out later
-                    : 'error'
-                  : existing.status,
-        }
-        interviewMap.set(interviewId, updatedInterview)
-      }
-    })
+  return Array.from(interviewMap.values())
+    .filter(interview => interview.status !== 'destroyed')
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+}
 
-    const interviews = Array.from(interviewMap.values())
-      .filter(interview => interview.status !== 'destroyed') // Don't show successfully destroyed interviews
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+export async function GET() {
+  try {
+    // Get ongoing operations (this is fast - just in-memory operations)
+    const operations = operationManager.getAllOperations()
+
+    // Check if there's already an active query - if so, share its result
+    if (activeQuery) {
+      console.log(
+        '[DEBUG] Another user is already querying S3, sharing result...'
+      )
+      const sharedResult = await activeQuery
+
+      // Merge with operations and return
+      const operationInterviews = getOperationInterviews(operations)
+      const allInterviews = [
+        ...sharedResult.completedInterviews,
+        ...operationInterviews,
+      ]
+      const interviews = mergeAndDeduplicateInterviews(
+        allInterviews,
+        operations
       )
 
-    // Debug: Log final interview list
-    console.log(
-      '[DEBUG] Final interviews:',
-      interviews.map(i => ({
-        id: i.id,
-        status: i.status,
-        candidateName: i.candidateName,
-      }))
-    )
+      return NextResponse.json({ interviews })
+    }
 
-    return NextResponse.json({ interviews })
+    // Create new query that other concurrent requests can share
+    console.log('[DEBUG] Starting fresh S3 query (no active query)')
+    activeQuery = performExpensiveQuery()
+
+    try {
+      const result = await activeQuery
+
+      // Add interviews from operations
+      const operationInterviews = getOperationInterviews(operations)
+      const allInterviews = [
+        ...result.completedInterviews,
+        ...operationInterviews,
+      ]
+      const interviews = mergeAndDeduplicateInterviews(
+        allInterviews,
+        operations
+      )
+
+      console.log(
+        `[DEBUG] Final interviews at ${new Date().toISOString()}:`,
+        interviews.map(i => ({
+          id: i.id,
+          status: i.status,
+          candidateName: i.candidateName,
+        }))
+      )
+
+      return NextResponse.json({ interviews })
+    } finally {
+      // Clear the active query so next request will be fresh
+      activeQuery = null
+    }
   } catch (error: unknown) {
+    // Clear the active query on error
+    activeQuery = null
     return NextResponse.json(
       {
         error: 'Failed to list interviews',
