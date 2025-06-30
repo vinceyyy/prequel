@@ -99,6 +99,10 @@ resource "aws_ecs_task_definition" "interview" {
           value = "/config/workspace"
         },
         {
+          name  = "PROXY_DOMAIN"
+          value = "${data.terraform_remote_state.infrastructure.outputs.alb_dns_name}/interview-${local.interview_id}"
+        },
+        {
           name  = "INTERVIEW_ID"
           value = local.interview_id
         },
@@ -121,6 +125,14 @@ resource "aws_ecs_task_definition" "interview" {
         {
           name  = "INIT_EFS"
           value = "true"
+        },
+        {
+          name  = "SUDO_PASSWORD"
+          value = "disable"
+        },
+        {
+          name  = "SUDO_PASSWORD_HASH"
+          value = "disable"
         }
       ]
 
@@ -182,8 +194,8 @@ resource "aws_lb_target_group" "interview" {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
-    matcher             = "200"
-    path                = "/healthz"
+    matcher             = "200,302"
+    path                = "/"
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 10
