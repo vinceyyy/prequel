@@ -147,9 +147,17 @@ export default function Home() {
       // Use the background destroy API
       await destroyInterview(id)
 
+      // Show notification
+      const candidateName = interview?.candidateName || 'Unknown'
+      const actionText = isErrorState ? 'retry destroy' : 'destroy'
+      setNotification(`Interview ${actionText} started for ${candidateName}`)
+      setTimeout(() => setNotification(null), 5000) // Clear after 5 seconds
+
       // NO automatic refresh - user can manually refresh to see latest state
     } catch (error) {
       console.error('Error destroying interview:', error)
+      setNotification('❌ Failed to start destroy operation. Please try again.')
+      setTimeout(() => setNotification(null), 5000)
     }
   }
 

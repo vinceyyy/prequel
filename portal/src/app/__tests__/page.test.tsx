@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom'
+import { useOperations } from '@/hooks/useOperations'
 import Home from '../page'
 
 // Mock the hooks and components
@@ -54,9 +55,7 @@ const mockInterviews = [
   },
 ]
 
-const mockUseOperations = jest.mocked(
-  require('@/hooks/useOperations').useOperations
-)
+const mockUseOperations = jest.mocked(useOperations)
 
 describe('Home Page', () => {
   beforeEach(() => {
@@ -143,7 +142,11 @@ describe('Home Page', () => {
     })
     fireEvent.click(createButton)
 
-    expect(screen.getByText('Create New Interview')).toBeInTheDocument()
+    // Use getAllByText to handle duplicate text, then check for modal specifically
+    const modalTitle = screen
+      .getAllByText('Create New Interview')
+      .find(element => element.tagName === 'H2')
+    expect(modalTitle).toBeInTheDocument()
     expect(screen.getByLabelText('Candidate Name')).toBeInTheDocument()
     expect(screen.getByLabelText('Interview Scenario')).toBeInTheDocument()
   })
@@ -256,12 +259,28 @@ describe('Home Page', () => {
     await waitFor(() => {
       expect(mockDestroyInterview).toHaveBeenCalledWith('int-1')
     })
+
+    // Check for destroy notification
+    await waitFor(() => {
+      expect(
+        screen.getByText('Interview destroy started for John Doe')
+      ).toBeInTheDocument()
+    })
   })
 
   it('handles retry destroy for error state interviews', async () => {
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ interviews: [mockInterviews[2]] }),
+    })
+
+    const mockDestroyInterview = jest.fn().mockResolvedValue({})
+    mockUseOperations.mockReturnValue({
+      createInterview: jest.fn(),
+      destroyInterview: mockDestroyInterview,
+      operations: [],
+      loading: false,
+      refreshOperations: jest.fn(),
     })
 
     render(<Home />)
@@ -274,6 +293,17 @@ describe('Home Page', () => {
     expect(global.confirm).toHaveBeenCalledWith(
       'Are you sure you want to retry destroying this interview? This will attempt to clean up any remaining AWS resources and remove the workspace from S3.'
     )
+
+    await waitFor(() => {
+      expect(mockDestroyInterview).toHaveBeenCalledWith('int-3')
+    })
+
+    // Check for retry destroy notification
+    await waitFor(() => {
+      expect(
+        screen.getByText('Interview retry destroy started for Bob Wilson')
+      ).toBeInTheDocument()
+    })
   })
 
   it('opens logs modal when logs button is clicked', async () => {
@@ -384,5 +414,38 @@ describe('Home Page', () => {
     })
 
     jest.useRealTimers()
+  })
+
+  it('shows error notification when destroy fails', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ interviews: [mockInterviews[0]] }),
+    })
+
+    const mockDestroyInterview = jest
+      .fn()
+      .mockRejectedValue(new Error('Destroy failed'))
+    mockUseOperations.mockReturnValue({
+      createInterview: jest.fn(),
+      destroyInterview: mockDestroyInterview,
+      operations: [],
+      loading: false,
+      refreshOperations: jest.fn(),
+    })
+
+    render(<Home />)
+
+    await waitFor(() => {
+      const stopButton = screen.getByText('Stop & Destroy')
+      fireEvent.click(stopButton)
+    })
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          '❌ Failed to start destroy operation. Please try again.'
+        )
+      ).toBeInTheDocument()
+    })
   })
 })

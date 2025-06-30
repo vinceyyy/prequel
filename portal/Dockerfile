@@ -1,6 +1,4 @@
-# Use build argument for platform, defaults to AMD64 for ECS compatibility
-ARG TARGETPLATFORM
-FROM --platform=${TARGETPLATFORM:-linux/amd64} node:22-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
