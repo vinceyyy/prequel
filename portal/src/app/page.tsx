@@ -162,7 +162,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-8 w-full overflow-x-hidden">
       {/* Notification */}
       {notification && (
         <div
@@ -179,7 +179,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto w-full">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Prequel Portal</h1>
           <p className="text-gray-600 mt-2">
@@ -187,7 +187,7 @@ export default function Home() {
           </p>
         </header>
 
-        <div className="mb-6 flex gap-3">
+        <div className="mb-6 flex flex-wrap gap-3">
           <button
             onClick={() => setShowCreateForm(true)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -203,8 +203,8 @@ export default function Home() {
         </div>
 
         {showCreateForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md">
               <h2 className="text-xl font-semibold mb-4 text-gray-900">
                 Create New Interview
               </h2>
@@ -268,146 +268,150 @@ export default function Home() {
         )}
 
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Candidate
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Scenario
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Access Details
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {initialLoading ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="px-6 py-4 text-center text-gray-500"
-                  >
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                      <span>Loading interviews...</span>
-                    </div>
-                  </td>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Candidate
+                  </th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Scenario
+                  </th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Access Details
+                  </th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ) : interviews.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-6 py-4 text-center text-gray-500"
-                  >
-                    No interviews created yet
-                  </td>
-                </tr>
-              ) : (
-                interviews.map(interview => (
-                  <tr key={interview.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {interview.candidateName}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {new Date(interview.createdAt).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {scenarios.find(s => s.id === interview.scenario)?.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            interview.status === 'active'
-                              ? 'bg-green-100 text-green-800'
-                              : interview.status === 'creating'
-                                ? 'bg-blue-100 text-blue-800'
-                                : interview.status === 'destroying'
-                                  ? 'bg-orange-100 text-orange-800'
-                                  : interview.status === 'error'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {interview.status}
-                        </span>
-                        {interview.status === 'error' && (
-                          <div className="text-xs text-red-600 mt-1">
-                            Resources may need cleanup
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {interview.accessUrl ? (
-                        <div>
-                          <div className="text-blue-600 underline cursor-pointer">
-                            {interview.accessUrl}
-                          </div>
-                          <div className="text-gray-500">
-                            Password: {interview.password}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">Not started</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex gap-2">
-                        {interview.status === 'active' && (
-                          <button
-                            onClick={() => stopInterview(interview.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Stop & Destroy
-                          </button>
-                        )}
-                        {interview.status === 'creating' && (
-                          <span className="text-blue-600">Creating...</span>
-                        )}
-                        {interview.status === 'destroying' && (
-                          <span className="text-orange-600">Destroying...</span>
-                        )}
-                        {interview.status === 'error' && (
-                          <button
-                            onClick={() => stopInterview(interview.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Retry Destroy
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            setSelectedInterviewForLogs(interview.id)
-                            setShowLogsModal(true)
-                          }}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          Logs
-                        </button>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {initialLoading ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-3 sm:px-6 py-4 text-center text-gray-500"
+                    >
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                        <span>Loading interviews...</span>
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : interviews.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-3 sm:px-6 py-4 text-center text-gray-500"
+                    >
+                      No interviews created yet
+                    </td>
+                  </tr>
+                ) : (
+                  interviews.map(interview => (
+                    <tr key={interview.id}>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {interview.candidateName}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {new Date(interview.createdAt).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {scenarios.find(s => s.id === interview.scenario)?.name}
+                      </td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              interview.status === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : interview.status === 'creating'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : interview.status === 'destroying'
+                                    ? 'bg-orange-100 text-orange-800'
+                                    : interview.status === 'error'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {interview.status}
+                          </span>
+                          {interview.status === 'error' && (
+                            <div className="text-xs text-red-600 mt-1">
+                              Resources may need cleanup
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 sm:px-6 py-4 text-sm text-gray-900">
+                        {interview.accessUrl ? (
+                          <div className="max-w-xs">
+                            <div className="text-blue-600 underline cursor-pointer break-all">
+                              {interview.accessUrl}
+                            </div>
+                            <div className="text-gray-500 break-all">
+                              Password: {interview.password}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">Not started</span>
+                        )}
+                      </td>
+                      <td className="px-3 sm:px-6 py-4 text-sm font-medium">
+                        <div className="flex flex-wrap gap-2">
+                          {interview.status === 'active' && (
+                            <button
+                              onClick={() => stopInterview(interview.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Stop & Destroy
+                            </button>
+                          )}
+                          {interview.status === 'creating' && (
+                            <span className="text-blue-600">Creating...</span>
+                          )}
+                          {interview.status === 'destroying' && (
+                            <span className="text-orange-600">
+                              Destroying...
+                            </span>
+                          )}
+                          {interview.status === 'error' && (
+                            <button
+                              onClick={() => stopInterview(interview.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Retry Destroy
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setSelectedInterviewForLogs(interview.id)
+                              setShowLogsModal(true)
+                            }}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            Logs
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Logs Modal */}
         {showLogsModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-6xl h-5/6">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-6xl h-5/6 max-h-screen overflow-hidden">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">
                   Operation Logs
