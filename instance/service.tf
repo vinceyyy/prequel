@@ -133,6 +133,10 @@ resource "aws_ecs_task_definition" "interview" {
         {
           name  = "SUDO_PASSWORD_HASH"
           value = "disable"
+        },
+        {
+          name  = "CODE_SERVER_ARGS"
+          value = "--auth password --bind-addr 0.0.0.0:8443 --proxy-domain ${data.terraform_remote_state.infrastructure.outputs.alb_dns_name}"
         }
       ]
 
@@ -194,8 +198,8 @@ resource "aws_lb_target_group" "interview" {
     enabled             = true
     healthy_threshold   = 2
     interval            = 30
-    matcher             = "200,302"
-    path                = "/"
+    matcher             = "200"
+    path                = "/healthz"
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 10
