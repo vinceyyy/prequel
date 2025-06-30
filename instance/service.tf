@@ -72,7 +72,7 @@ resource "aws_ecs_task_definition" "interview" {
     {
       name  = "code-server"
       image = "lscr.io/linuxserver/code-server:latest"
-      
+
       portMappings = [
         {
           containerPort = 8443
@@ -200,7 +200,7 @@ resource "aws_lb_target_group" "interview" {
 # Load balancer listener rules for HTTP
 resource "aws_lb_listener_rule" "interview" {
   listener_arn = data.terraform_remote_state.infrastructure.outputs.alb_listener_arn
-  priority     = 200 + (sum([for i, c in split("", substr(local.interview_id, 0, 4)) : (pow(16, 3 - i) * index(split("", "0123456789abcdef"), lower(c)))]) % 49800)
+  priority     = 100 + (sum([for i, c in split("", substr(local.interview_id, 0, 4)) : (pow(16, 3 - i) * index(split("", "0123456789abcdef"), lower(c)))]) % 49800)
 
   action {
     type             = "forward"
@@ -209,7 +209,7 @@ resource "aws_lb_listener_rule" "interview" {
 
   condition {
     path_pattern {
-      values = ["/interview-${local.interview_id}/*"]
+      values = ["/interview-${local.interview_id}", "/interview-${local.interview_id}/*"]
     }
   }
 }
@@ -217,7 +217,7 @@ resource "aws_lb_listener_rule" "interview" {
 # Load balancer listener rules for HTTPS
 resource "aws_lb_listener_rule" "interview_https" {
   count = data.terraform_remote_state.infrastructure.outputs.alb_https_listener_arn != null ? 1 : 0
-  
+
   listener_arn = data.terraform_remote_state.infrastructure.outputs.alb_https_listener_arn
   priority     = 200 + (sum([for i, c in split("", substr(local.interview_id, 0, 4)) : (pow(16, 3 - i) * index(split("", "0123456789abcdef"), lower(c)))]) % 49800)
 

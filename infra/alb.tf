@@ -101,24 +101,6 @@ resource "aws_lb_listener" "https" {
   }
 }
 
-resource "aws_lb_listener_rule" "interview_instances" {
-  count = var.domain_name != "" ? 1 : 0
-
-  listener_arn = aws_lb_listener.https[0].arn
-  priority     = 100
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.code_server_default.arn
-  }
-
-  condition {
-    path_pattern {
-      values = ["/interview-*"]
-    }
-  }
-}
-
 data "aws_route53_zone" "main" {
   count = var.domain_name != "" ? 1 : 0
   name  = var.domain_name
