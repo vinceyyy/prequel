@@ -55,7 +55,7 @@ terraform destroy # Clean up resources
 4. Set AWS profile: `export AWS_PROFILE=your-aws-profile`
 5. Start portal: `cd portal && npm run dev`
 
-**Production Deployment:**
+**Interview Deployment:**
 
 - Uses ECS IAM task roles for AWS authentication
 - No need for AWS_PROFILE or SSO in production
@@ -76,8 +76,8 @@ Current structure:
 
 **Portal TypeScript/React:**
 
-- **Prettier**: Automatic code formatting (single quotes, no semicolons, 80 char width)
-- **ESLint**: Code quality rules with NextJS and TypeScript support
+- **Prettier**: Automatic code formatting (single quotes, no semicolons, 80 char width). Always run after changes.
+- **ESLint**: Code quality rules with NextJS and TypeScript support. Use ES6 syntax. Always run after changes.
 - **Tailwind**: Use tailwind classes instead of inline styles as much as possible
 - **Commands**: `npm run format` to format all files. `npm run build` to build the app.
 
@@ -86,32 +86,37 @@ Current structure:
 - ALWAYS run `npm run test:quick` before committing
 - ALWAYS run linter and formatter after changes
 - ALWAYS make sure the app can be built without error
-- DO NOT deploy without explicit consent
+- DO NOT deploy to production without explicit consent
 - Use conventional commit messages
 
 ## Local Testing Workflow
 
 **During Development:**
+
 ```bash
 npm run test:dev     # Watch mode - tests run automatically
 ```
 
 **Before Committing:**
+
 ```bash
 npm run test:quick   # Fast validation (2-3 minutes)
 ```
 
 **Before Creating PR:**
+
 ```bash
 npm run test:all     # Full test suite (5-10 minutes)
 ```
 
 **Testing Documentation:**
+
 - `CONTRIBUTING.md` - Development workflow, testing, and contribution guidelines
 - `portal/TESTING.md` - Comprehensive testing guide
 - `portal/README.md` - Portal-specific documentation
 
 **Debugging Tests:**
+
 - Unit tests: Use `test.only()` to focus on specific tests
 - E2E tests: Use `npm run test:e2e:ui` for interactive debugging
 - Coverage reports: `npm run test:coverage`
