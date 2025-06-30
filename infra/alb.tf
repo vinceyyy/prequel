@@ -11,10 +11,10 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "portal" {
-  name     = "${local.name}-portal"
-  port     = 3000
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  name        = "${local.name}-portal"
+  port        = 3000
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
   target_type = "ip"
 
   health_check {
@@ -35,10 +35,10 @@ resource "aws_lb_target_group" "portal" {
 }
 
 resource "aws_lb_target_group" "code_server_default" {
-  name     = "${local.name}-default"
-  port     = 8443
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  name        = "${local.name}-default"
+  port        = 8443
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
   target_type = "ip"
 
   health_check {

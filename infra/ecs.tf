@@ -131,13 +131,13 @@ resource "aws_ecs_task_definition" "code_server" {
   cpu                      = var.code_server_cpu
   memory                   = var.code_server_memory
   execution_role_arn       = aws_iam_role.ecs_execution.arn
-  task_role_arn           = aws_iam_role.ecs_task.arn
+  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([
     {
       name  = "code-server"
       image = var.code_server_image
-      
+
       portMappings = [
         {
           containerPort = 8443
@@ -315,7 +315,7 @@ resource "aws_ecs_task_definition" "portal" {
   cpu                      = 1024
   memory                   = 4096
   execution_role_arn       = aws_iam_role.ecs_execution.arn
-  task_role_arn           = aws_iam_role.portal_task.arn
+  task_role_arn            = aws_iam_role.portal_task.arn
 
   container_definitions = jsonencode([
     {
