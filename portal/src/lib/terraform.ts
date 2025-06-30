@@ -30,6 +30,21 @@ class TerraformManager {
     this.terraformDir = path.resolve(process.cwd(), '../infra')
   }
 
+  private async fixProviderPermissions(workspaceDir: string): Promise<void> {
+    try {
+      await execAsync(
+        `find ${workspaceDir}/.terraform -name "*terraform-provider-*" -type f -exec chmod +x {} \\; 2>/dev/null || true`,
+        { timeout: 10000 }
+      )
+      console.log('[Terraform] Fixed provider permissions')
+    } catch (error) {
+      console.log(
+        '[Terraform] Warning: Could not fix provider permissions:',
+        error
+      )
+    }
+  }
+
   private async execTerraformStreaming(
     command: string,
     cwd: string,
@@ -415,6 +430,12 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
       )
       if (initResult.fullOutput) executionLog.push(initResult.fullOutput)
 
+      // Fix provider permissions after successful init
+      if (initResult.success) {
+        await this.fixProviderPermissions(workspaceDir)
+        executionLog.push('Provider permissions fixed')
+      }
+
       if (!initResult.success) {
         return {
           ...initResult,
@@ -543,6 +564,12 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
         `Init result: ${initResult.success ? 'SUCCESS' : 'FAILED'}`
       )
       if (initResult.fullOutput) executionLog.push(initResult.fullOutput)
+
+      // Fix provider permissions after successful init
+      if (initResult.success) {
+        await this.fixProviderPermissions(workspaceDir)
+        executionLog.push('Provider permissions fixed')
+      }
 
       if (!initResult.success) {
         return {
@@ -875,6 +902,12 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
         workspaceDir,
         streamData
       )
+
+      // Fix provider permissions after successful init
+      if (initResult.success) {
+        await this.fixProviderPermissions(workspaceDir)
+        streamData(`Provider permissions fixed\n`)
+      }
 
       if (!initResult.success) {
         streamData(`Terraform init failed, attempting direct cleanup...\n`)
