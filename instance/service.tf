@@ -127,17 +127,9 @@ resource "aws_ecs_task_definition" "interview" {
           value = "true"
         },
         {
-          name  = "SUDO_PASSWORD"
-          value = "disable"
+          name  = "SUBFOLDER"
+          value = "/interview-${local.interview_id}"
         },
-        {
-          name  = "SUDO_PASSWORD_HASH"
-          value = "disable"
-        },
-        {
-          name  = "CODE_SERVER_ARGS"
-          value = "--auth password --bind-addr 0.0.0.0:8443 --proxy-domain ${data.terraform_remote_state.infrastructure.outputs.alb_dns_name}"
-        }
       ]
 
       mountPoints = [
@@ -244,7 +236,7 @@ resource "aws_lb_listener_rule" "interview_https" {
 
   condition {
     path_pattern {
-      values = ["/interview-${local.interview_id}/*"]
+      values = ["/interview-${local.interview_id}", "/interview-${local.interview_id}/*"]
     }
   }
 }
