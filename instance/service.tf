@@ -6,57 +6,11 @@ resource "aws_ssm_parameter" "interview_password" {
   tags = local.tags
 }
 
-# Per-interview EFS file system
-resource "aws_efs_file_system" "interview" {
-  creation_token = "${local.service_name}-efs"
-  encrypted      = true
-
-  performance_mode = "generalPurpose"
-  throughput_mode  = "provisioned"
-  provisioned_throughput_in_mibps = 10
-
-  tags = merge(local.tags, {
-    Name = "${local.service_name}-efs"
-    InterviewId = local.interview_id
-    Scenario = var.scenario
-  })
+# Custom code-server ECR repository
+data "aws_ecr_repository" "code_server" {
+  name = "prequel-dev-code-server"
 }
 
-# resource "aws_efs_mount_target" "interview" {
-#   count = length(data.terraform_remote_state.infrastructure.outputs.private_subnet_ids)
-#
-#   file_system_id  = aws_efs_file_system.interview.id
-#   subnet_id       = data.terraform_remote_state.infrastructure.outputs.private_subnet_ids[count.index]
-#   security_groups = [data.terraform_remote_state.infrastructure.outputs.efs_security_group_id]
-# }
-#
-# resource "aws_efs_access_point" "interview" {
-#   file_system_id = aws_efs_file_system.interview.id
-#
-#   root_directory {
-#     path = "/workspace"
-#     creation_info {
-#       owner_gid   = 1000
-#       owner_uid   = 1000
-#       permissions = 755
-#     }
-#   }
-#
-#   posix_user {
-#     gid = 1000
-#     uid = 1000
-#   }
-#
-#   tags = merge(local.tags, {
-#     Name = "${local.service_name}-access-point"
-#     InterviewId = local.interview_id
-#     Scenario = var.scenario
-#   })
-# }
-
-# EFS initialization is handled by the container itself during startup
-# The container will download scenario files from S3 to the EFS mount
-# This approach is simpler and more reliable than Lambda-based initialization
 
 # ECS Task Definition for the interview instance
 resource "aws_ecs_task_definition" "interview" {
@@ -71,45 +25,30 @@ resource "aws_ecs_task_definition" "interview" {
   container_definitions = jsonencode([
     {
       name  = "code-server"
-      image = "lscr.io/linuxserver/code-server:latest"
+      image = "${data.aws_ecr_repository.code_server.repository_url}:latest"
 
       portMappings = [
         {
-          containerPort = 8443
-          hostPort      = 8443
+          containerPort = 8080
+          hostPort      = 8080
           protocol      = "tcp"
         }
       ]
 
       environment = [
         {
-          name  = "PUID"
-          value = "1000"
-        },
-        {
-          name  = "PGID"
-          value = "1000"
-        },
-        {
-          name  = "TZ"
-          value = "UTC"
-        },
+          name  = "SCENARIO"
+          value = var.scenario
+        }
       ]
 
-      # mountPoints = [
-      #   {
-      #     sourceVolume  = "scenario-files"
-      #     containerPath = "/workspace"
-      #     readOnly      = false
-      #   }
-      # ]
+      secrets = [
+        {
+          name      = "PASSWORD"
+          valueFrom = aws_ssm_parameter.interview_password.arn
+        }
+      ]
 
-      # secrets = [
-      #   {
-      #     name      = "PASSWORD"
-      #     valueFrom = aws_ssm_parameter.interview_password.arn
-      #   }
-      # ]
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -124,20 +63,6 @@ resource "aws_ecs_task_definition" "interview" {
     }
   ])
 
-  # volume {
-  #   name = "scenario-files"
-  #
-  #   efs_volume_configuration {
-  #     file_system_id          = aws_efs_file_system.interview.id
-  #     root_directory          = "/"
-  #     transit_encryption      = "ENABLED"
-  #     transit_encryption_port = 2049
-  #     authorization_config {
-  #       access_point_id = aws_efs_access_point.interview.id
-  #       iam             = "ENABLED"
-  #     }
-  #   }
-  # }
 
   tags = local.tags
 }
@@ -150,8 +75,8 @@ resource "aws_security_group" "code_server_direct" {
 
   ingress {
     description = "Code Server from Internet"
-    from_port   = 8443
-    to_port     = 8443
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }

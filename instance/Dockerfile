@@ -1,0 +1,56 @@
+# Use the official code-server image as base - it already has Node.js and basic tools
+FROM codercom/code-server:4.99.3
+
+# Switch to root to install additional packages
+USER root
+
+# Install Python3 and pip using system package manager (minimal approach)
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip python3-venv nodejs npm && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create workspace directories for each scenario
+RUN mkdir -p /workspaces/javascript /workspaces/python /workspaces/sql /workspaces/fullstack
+
+# Copy scenario files (from parent context)
+COPY scenario/javascript/ /workspaces/javascript/
+COPY scenario/python/ /workspaces/python/
+COPY scenario/sql/ /workspaces/sql/
+COPY scenario/fullstack/ /workspaces/fullstack/
+
+# Install Python dependencies for all Python-related scenarios
+RUN cd /workspaces/python && \
+    python3 -m pip install --upgrade pip --break-system-packages && \
+    python3 -m pip install -r requirements.txt --break-system-packages
+
+# Install Node.js dependencies for JavaScript scenario
+RUN cd /workspaces/javascript && npm install
+
+# Install Node.js dependencies for fullstack scenario (if package.json exists)
+RUN if [ -f /workspaces/fullstack/package.json ]; then \
+        cd /workspaces/fullstack && npm install; \
+    fi
+
+# Install common VS Code extensions that work well with our scenarios
+RUN code-server --install-extension ms-python.python \
+    && code-server --install-extension ms-vscode.vscode-typescript-next \
+    && code-server --install-extension esbenp.prettier-vscode \
+    && code-server --install-extension bradlc.vscode-tailwindcss \
+    && code-server --install-extension ms-toolsai.jupyter
+
+# Set proper ownership
+RUN chown -R coder:coder /workspaces
+
+# Add startup script
+COPY instance/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Switch to coder user and set workspace
+USER coder
+WORKDIR /workspaces
+
+# Expose code-server port
+EXPOSE 8080
+
+# Start code-server
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

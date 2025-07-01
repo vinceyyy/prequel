@@ -895,6 +895,28 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
         streamData(`Using existing local workspace\n`)
       }
 
+      // Check if terraform.tfvars exists, create if missing
+      const tfvarsPath = path.join(workspaceDir, 'terraform.tfvars')
+      try {
+        await fs.access(tfvarsPath)
+        streamData(`Found existing terraform.tfvars file\n`)
+      } catch {
+        streamData(
+          `terraform.tfvars missing, creating minimal version for destroy...\n`
+        )
+        // Create minimal tfvars file with required variables for destroy
+        const minimalTfvarsContent = `
+interview_id = "${interviewId}"
+candidate_name = "unknown"
+scenario = "javascript"
+password = "destroy-temp-password"
+aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
+domain_name = "${process.env.DOMAIN_NAME || ''}"
+`
+        await fs.writeFile(tfvarsPath, minimalTfvarsContent.trim())
+        streamData(`Created minimal terraform.tfvars for destruction\n`)
+      }
+
       // Step 3: Initialize and run terraform destroy
       streamData(`Initializing Terraform...\n`)
       const initResult = await this.execTerraformStreaming(
@@ -936,6 +958,28 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
 
           if (retryInitResult.success) {
             streamData(`Init retry succeeded, proceeding with destroy...\n`)
+
+            // Ensure terraform.tfvars exists before destroy
+            const tfvarsPath = path.join(workspaceDir, 'terraform.tfvars')
+            try {
+              await fs.access(tfvarsPath)
+              streamData(`Found existing terraform.tfvars file\n`)
+            } catch {
+              streamData(
+                `terraform.tfvars missing, creating minimal version for destroy...\n`
+              )
+              const minimalTfvarsContent = `
+interview_id = "${interviewId}"
+candidate_name = "unknown"
+scenario = "javascript"
+password = "destroy-temp-password"
+aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
+domain_name = "${process.env.DOMAIN_NAME || ''}"
+`
+              await fs.writeFile(tfvarsPath, minimalTfvarsContent.trim())
+              streamData(`Created minimal terraform.tfvars for destruction\n`)
+            }
+
             // Continue with normal destroy flow
             const destroyResult = await this.execTerraformStreaming(
               'terraform destroy -auto-approve -var-file=terraform.tfvars',

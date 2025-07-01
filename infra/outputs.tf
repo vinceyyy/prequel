@@ -23,15 +23,6 @@ output "ecs_cluster_arn" {
   value       = aws_ecs_cluster.main.arn
 }
 
-output "code_server_task_definition_arn" {
-  description = "ARN of the code-server task definition"
-  value       = aws_ecs_task_definition.code_server.arn
-}
-
-output "code_server_security_group_id" {
-  description = "Security group ID for code-server instances"
-  value       = aws_security_group.code_server.id
-}
 
 output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer"
@@ -68,10 +59,6 @@ output "portal_url" {
   value       = var.domain_name != "" ? "https://${var.domain_name}" : "http://${aws_lb.main.dns_name}"
 }
 
-output "efs_security_group_id" {
-  description = "EFS security group ID for interview volumes"
-  value       = aws_security_group.efs.id
-}
 
 output "ecs_execution_role_arn" {
   description = "ARN of the ECS execution role"
@@ -85,7 +72,7 @@ output "ecs_task_role_arn" {
 
 output "cloudwatch_log_group_name" {
   description = "Name of the CloudWatch log group"
-  value       = aws_cloudwatch_log_group.code_server.name
+  value       = aws_cloudwatch_log_group.portal.name
 }
 
 output "route53_zone_id" {
@@ -106,6 +93,11 @@ output "certificate_domain_validation_options" {
 output "ecr_repository_url" {
   description = "ECR repository URL for the portal"
   value       = aws_ecr_repository.portal.repository_url
+}
+
+output "code_server_ecr_repository_url" {
+  description = "ECR repository URL for the code-server"
+  value       = aws_ecr_repository.code_server.repository_url
 }
 
 output "instance_code_bucket_name" {
