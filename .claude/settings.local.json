@@ -50,7 +50,20 @@
       "Bash(npm run dev:*)",
       "Bash(npm run:*)",
       "Bash(git checkout:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(pkill:*)",
+      "Bash(../check-ecs-status.sh)",
+      "Bash(aws elbv2 describe-load-balancers:*)",
+      "Bash(aws logs tail:*)",
+      "Bash(aws logs describe-log-groups:*)",
+      "Bash(aws ec2 describe-network-interfaces:*)",
+      "Bash(curl:*)",
+      "Bash(docker run:*)",
+      "Bash(timeout:*)",
+      "Bash(aws ecr describe-images:*)",
+      "Bash(AWS_PROFILE=your-aws-profile AWS_REGION=your-aws-region docker push 816781470469.dkr.ecr.your-aws-region.amazonaws.com/prequel-dev-code-server:latest)",
+      "Bash(aws logs describe-log-streams --log-group-name \"/ecs/prequel-dev/portal\" --region your-aws-region --order-by LastEventTime --descending --max-items 1 --query 'logStreams[0].logStreamName' --output text)",
+      "Bash(aws logs:*)"
     ],
     "deny": []
   }

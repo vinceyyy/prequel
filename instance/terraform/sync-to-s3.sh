@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Sync scenario files to S3
-# This allows updating scenarios without redeploying the NextJS app
+# Sync instance Terraform templates to S3
+# This allows updating IaC without redeploying the NextJS app
 
 set -e
 
 AWS_PROFILE=${AWS_PROFILE:-"your-aws-profile"}
 S3_BUCKET="prequel-instance"
-S3_PATH="s3://${S3_BUCKET}/scenario/"
+S3_PATH="s3://${S3_BUCKET}/terraform/"
 LOCAL_PATH="."
 
 # Colors for output
@@ -43,7 +43,7 @@ show_usage() {
     echo "  --help, -h         Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0                 # Sync scenario files"
+    echo "  $0                 # Sync instance terraform templates"
     echo "  $0 --dry-run       # Preview what would be synced"
 }
 
@@ -69,8 +69,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Main execution
-echo "🚀 Scenario Files Sync Script"
-echo "============================="
+echo "🚀 Instance Terraform Sync Script"
+echo "================================="
 echo "AWS Profile: ${AWS_PROFILE}"
 echo "S3 Bucket: ${S3_BUCKET}"
 echo "Local Path: ${LOCAL_PATH}"
@@ -79,8 +79,8 @@ echo "Dry Run: ${DRY_RUN}"
 echo ""
 
 # Check if we're in the right directory
-if [ ! -d "python" ] && [ ! -d "javascript" ] && [ ! -d "sql" ]; then
-    print_error "Please run this script from the scenario directory"
+if [ ! -f "main.tf" ] || [ ! -f "service.tf" ]; then
+    print_error "Please run this script from the instance/terraform directory"
     exit 1
 fi
 
@@ -92,14 +92,14 @@ if [ "$DRY_RUN" = true ]; then
     echo ""
 fi
 
-print_status "Syncing scenario files..."
+print_status "Syncing instance Terraform templates..."
 echo "  Source: ${LOCAL_PATH}"
 echo "  Destination: ${S3_PATH}"
 echo ""
 
 # Build the AWS CLI command with exclusions
 cmd="AWS_PROFILE=${AWS_PROFILE} aws s3 sync \"${LOCAL_PATH}\" \"${S3_PATH}\" --delete"
-cmd="${cmd} --exclude \"*.md\" --exclude \"README*\""
+cmd="${cmd} --exclude \"*.terraform*\" --exclude \".terraform*\" --exclude \"terraform.tfstate*\" --exclude \"terraform.tfvars\""
 
 # Add dry run flag if specified
 if [ -n "${DRY_RUN_FLAG}" ]; then
@@ -108,15 +108,16 @@ fi
 
 # Execute the sync command
 if eval $cmd; then
-    print_success "Scenario files synced successfully!"
+    print_success "Instance Terraform templates synced successfully!"
     echo ""
     print_status "Files in S3:"
-    AWS_PROFILE=${AWS_PROFILE} aws s3 ls "${S3_PATH}" --recursive | head -20
+    AWS_PROFILE=${AWS_PROFILE} aws s3 ls "${S3_PATH}" --recursive | head -10
     echo ""
     if [ "$DRY_RUN" = false ]; then
-        print_status "The NextJS app will now use the updated scenario files for new interviews."
+        print_status "The NextJS app will now use the updated templates for new interviews."
+        print_warning "Existing interviews will continue using their saved workspace versions."
     fi
 else
-    print_error "Failed to sync scenario files"
+    print_error "Failed to sync instance Terraform templates"
     exit 1
 fi

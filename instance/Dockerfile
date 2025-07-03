@@ -10,13 +10,13 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create workspace directories for each scenario
-RUN mkdir -p /workspaces/javascript /workspaces/python /workspaces/sql /workspaces/fullstack
+RUN mkdir -p /workspaces/javascript /workspaces/python /workspaces/sql
 
-# Copy scenario files (from parent context)
+# Copy scenario files
 COPY scenario/javascript/ /workspaces/javascript/
 COPY scenario/python/ /workspaces/python/
 COPY scenario/sql/ /workspaces/sql/
-COPY scenario/fullstack/ /workspaces/fullstack/
+
 
 # Install Python dependencies for all Python-related scenarios
 RUN cd /workspaces/python && \
@@ -42,7 +42,7 @@ RUN code-server --install-extension ms-python.python \
 RUN chown -R coder:coder /workspaces
 
 # Add startup script
-COPY instance/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Switch to coder user and set workspace
@@ -50,7 +50,7 @@ USER coder
 WORKDIR /workspaces
 
 # Expose code-server port
-EXPOSE 8080
+EXPOSE 8443
 
 # Start code-server
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

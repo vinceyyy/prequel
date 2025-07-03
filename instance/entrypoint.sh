@@ -12,11 +12,11 @@ fi
 
 echo "Starting code-server for scenario: ${SCENARIO}"
 echo "Workspace path: ${WORKSPACE_PATH}"
-echo "Access URL will be available on port 8080"
+echo "Access URL will be available on port 8443"
 
 # Start code-server with the selected workspace
 exec /usr/bin/entrypoint.sh \
-    --bind-addr 0.0.0.0:8080 \
+    --bind-addr 0.0.0.0:8443 \
     --auth password \
     --disable-telemetry \
     --disable-update-check \

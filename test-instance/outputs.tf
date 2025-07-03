@@ -10,7 +10,7 @@ output "service_name" {
 
 output "access_url" {
   description = "URL to access the interview"
-  value = "Direct access via ECS service - check ECS console for public IP:8080"
+  value = "Direct access via ECS service - check ECS console for public IP:8443"
 }
 
 

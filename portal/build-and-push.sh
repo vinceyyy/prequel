@@ -5,27 +5,20 @@
 set -e
 
 # Get ECR repository URL from Terraform output
-ECR_REPO=$(cd ../infra && terraform output -raw ecr_repository_url)
+$ECR_URI=$(cd ../infra && terraform output -raw ecr_repository_url)
 AWS_REGION="your-aws-region"
 
-echo "ECR Repository: $ECR_REPO"
+echo "ECR Repository: $ECR_URI"
 echo "AWS Region: $AWS_REGION"
 
 # Login to ECR
 echo "Logging in to ECR..."
-aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
+aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
 
 # Build the Docker image for AMD64 (ECS compatibility)
 echo "Building Docker image for AMD64..."
-docker build --platform=linux/amd64 -t prequel-portal:latest .
-
-# Tag the image for ECR
-echo "Tagging image for ECR..."
-docker tag prequel-portal:latest $ECR_REPO:latest
-
-# Push to ECR
-echo "Pushing image to ECR..."
-docker push $ECR_REPO:latest
+docker buildx create --use --name multiarch-builder --driver docker-container 2>/dev/null || true
+docker buildx build --platform=linux/amd64 -t "$ECR_URI:latest" --push .
 
 # Force ECS service deployment
 echo "Triggering ECS service deployment..."
@@ -60,5 +53,5 @@ fi
 
 echo ""
 echo "🚀 Build, push, and deployment completed!"
-echo "Image: $ECR_REPO:latest"
+echo "Image: $ECR_URI:latest"
 echo "Service: prequel-dev-portal"

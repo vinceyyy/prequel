@@ -29,8 +29,8 @@ resource "aws_ecs_task_definition" "interview" {
 
       portMappings = [
         {
-          containerPort = 8080
-          hostPort      = 8080
+          containerPort = 8443
+          hostPort      = 8443
           protocol      = "tcp"
         }
       ]
@@ -75,8 +75,8 @@ resource "aws_security_group" "code_server_direct" {
 
   ingress {
     description = "Code Server from Internet"
-    from_port   = 8080
-    to_port     = 8080
+    from_port   = 8443
+    to_port     = 8443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }

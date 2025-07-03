@@ -260,11 +260,22 @@ resource "aws_iam_role_policy" "portal_task" {
           "ec2:ModifyNetworkInterfaceAttribute",
           "ec2:DescribeInstances",
           "ec2:DescribeInstanceTypes",
+          "ec2:CreateSecurityGroup",
+          "ec2:DeleteSecurityGroup",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupEgress",
+          "ec2:CreateTags",
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "logs:DescribeLogGroups",
-          "logs:DescribeLogStreams"
+          "logs:DescribeLogStreams",
+          "ecr:DescribeRepositories",
+          "ecr:DescribeImages",
+          "ecr:GetRepositoryPolicy",
+          "ecr:ListTagsForResource"
         ]
         Resource = "*"
       },

@@ -329,7 +329,7 @@ class TerraformManager {
     try {
       // Download template files from S3
       await execAsync(
-        `aws s3 sync "s3://prequel-instance/instance/" "${workspaceDir}"`,
+        `aws s3 sync "s3://prequel-instance/terraform/" "${workspaceDir}"`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 60000,

@@ -110,3 +110,8 @@ output "instance_code_bucket_arn" {
   value       = aws_s3_bucket.instance_code.arn
 }
 
+output "code_server_security_group_id" {
+  description = "ID of the code server security group"
+  value       = aws_security_group.code_server.id
+}
+
