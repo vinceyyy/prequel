@@ -15,9 +15,9 @@ The web interface for managing coding interviews and VS Code instances.
 2. **Configure AWS (required for full functionality):**
 
    ```bash
-   aws configure sso --profile your-aws-profile
-   aws sso login --profile your-aws-profile
-   export AWS_PROFILE=your-aws-profile
+   aws configure sso --profile <AWS_PROFILE>
+   aws sso login --profile <AWS_PROFILE>
+   export AWS_PROFILE=<AWS_PROFILE>
    ```
 
 3. **Setup environment:**
@@ -204,8 +204,8 @@ The portal is designed to run on AWS ECS:
 
 **AWS authentication errors:**
 
-- Run `aws sso login --profile your-aws-profile`
-- Set `export AWS_PROFILE=your-aws-profile`
+- Run `aws sso login --profile <AWS_PROFILE>`
+- Set `export AWS_PROFILE=<AWS_PROFILE>`
 - Restart development server after authentication
 
 **Build failures:**

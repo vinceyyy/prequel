@@ -7,7 +7,7 @@ A platform for conducting coding interviews using on-demand VS Code instances in
 ### Prerequisites
 - AWS account with appropriate permissions  
 - Node.js (>= 18), Terraform (>= 1.0)
-- AWS CLI configured with SSO profile `your-aws-profile`
+- AWS CLI configured with SSO profile `<AWS_PROFILE>`
 
 ### Setup
 ```bash
@@ -17,9 +17,9 @@ cd prequel/portal
 npm install
 
 # 2. Configure AWS
-aws configure sso --profile your-aws-profile
-aws sso login --profile your-aws-profile
-export AWS_PROFILE=your-aws-profile
+aws configure sso --profile <AWS_PROFILE>
+aws sso login --profile <AWS_PROFILE>
+export AWS_PROFILE=<AWS_PROFILE>
 
 # 3. Start development
 npm run dev          # Development server at http://localhost:3000
@@ -152,8 +152,8 @@ cd scenario/ && ./sync-to-s3.sh
 **Common Issues:**
 ```bash
 # AWS authentication
-aws sso login --profile your-aws-profile
-export AWS_PROFILE=your-aws-profile
+aws sso login --profile <AWS_PROFILE>
+export AWS_PROFILE=<AWS_PROFILE>
 
 # Test failures
 npm install && npx playwright install

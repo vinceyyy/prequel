@@ -79,7 +79,7 @@ cd scenario && ./sync-to-s3.sh
 
 ```bash
 # Instance templates
-AWS_PROFILE=your-aws-profile aws s3 sync instance/ s3://prequel-instance/instance/ \
+AWS_PROFILE=<AWS_PROFILE> aws s3 sync instance/ s3://prequel-instance/instance/ \
   --exclude "*.terraform*" \
   --exclude ".terraform*" \
   --exclude "terraform.tfstate*" \
@@ -87,7 +87,7 @@ AWS_PROFILE=your-aws-profile aws s3 sync instance/ s3://prequel-instance/instanc
   --delete
 
 # Scenarios
-AWS_PROFILE=your-aws-profile aws s3 sync scenario/ s3://prequel-instance/scenario/ \
+AWS_PROFILE=<AWS_PROFILE> aws s3 sync scenario/ s3://prequel-instance/scenario/ \
   --exclude "*.md" \
   --exclude "README*" \
   --delete

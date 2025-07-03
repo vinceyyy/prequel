@@ -55,7 +55,7 @@ class TerraformManager {
 
     // Determine environment and credential strategy
     const isProduction = process.env.NODE_ENV === 'production'
-    const awsProfile = process.env.AWS_PROFILE || 'your-aws-profile'
+    const awsProfile = process.env.AWS_PROFILE
     const awsRegion = process.env.AWS_REGION || 'your-aws-region'
 
     console.log(
@@ -63,7 +63,7 @@ class TerraformManager {
     )
     console.log(`[Terraform] AWS Region: ${awsRegion}`)
 
-    const env: Record<string, string> = {
+    const env: Record<string, string | undefined> = {
       ...process.env,
       AWS_REGION: awsRegion,
       TF_CLI_ARGS: '-no-color',
@@ -177,7 +177,7 @@ class TerraformManager {
 
     // Determine environment and credential strategy
     const isProduction = process.env.NODE_ENV === 'production'
-    const awsProfile = process.env.AWS_PROFILE || 'your-aws-profile'
+    const awsProfile = process.env.AWS_PROFILE
     const awsRegion = process.env.AWS_REGION || 'your-aws-region'
 
     console.log(
@@ -185,7 +185,7 @@ class TerraformManager {
     )
     console.log(`[Terraform] AWS Region: ${awsRegion}`)
 
-    const env: Record<string, string> = {
+    const env: Record<string, string | undefined> = {
       ...process.env,
       AWS_REGION: awsRegion,
     }
@@ -749,7 +749,7 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
       const awsProfile =
         process.env.NODE_ENV === 'production'
           ? ''
-          : `AWS_PROFILE=${process.env.AWS_PROFILE || 'your-aws-profile'}`
+          : `AWS_PROFILE=${process.env.AWS_PROFILE}`
       const awsRegion = process.env.AWS_REGION || 'your-aws-region'
 
       try {

@@ -6,7 +6,7 @@ This guide is for developers contributing code to the Prequel project. It covers
 
 ### Prerequisites
 - Node.js (>= 18)
-- AWS CLI configured with SSO profile `your-aws-profile`
+- AWS CLI configured with SSO profile `<AWS_PROFILE>`
 - Git
 
 ### Setup Development Environment
@@ -20,9 +20,9 @@ This guide is for developers contributing code to the Prequel project. It covers
 
 2. **Configure AWS:**
    ```bash
-   aws configure sso --profile your-aws-profile
-   aws sso login --profile your-aws-profile
-   export AWS_PROFILE=your-aws-profile
+   aws configure sso --profile <AWS_PROFILE>
+   aws sso login --profile <AWS_PROFILE>
+   export AWS_PROFILE=<AWS_PROFILE>
    ```
 
 3. **Setup environment:**
@@ -206,8 +206,8 @@ test: add E2E tests for interview workflow
 - Check Jest configuration in `jest.config.js`
 
 **AWS authentication errors:**
-- Run `aws sso login --profile your-aws-profile`
-- Set `export AWS_PROFILE=your-aws-profile`
+- Run `aws sso login --profile <AWS_PROFILE>`
+- Set `export AWS_PROFILE=<AWS_PROFILE>`
 - Restart development server after authentication
 
 **Build failures:**

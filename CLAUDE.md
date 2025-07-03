@@ -49,10 +49,10 @@ terraform destroy # Clean up resources
 
 **Portal Setup:**
 
-1. Configure AWS SSO: `aws configure sso --profile your-aws-profile`
-2. Login to AWS: `aws sso login --profile your-aws-profile`
+1. Configure AWS SSO: `aws configure sso --profile <AWS_PROFILE>`
+2. Login to AWS: `aws sso login --profile <AWS_PROFILE>`
 3. Copy environment file: `cp portal/.env.example portal/.env.local`
-4. Set AWS profile: `export AWS_PROFILE=your-aws-profile`
+4. Set AWS profile: `export AWS_PROFILE=<AWS_PROFILE>`
 5. Start portal: `cd portal && npm run dev`
 
 **Interview Deployment:**

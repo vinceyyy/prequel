@@ -5,7 +5,7 @@
 
 set -e
 
-AWS_PROFILE=${AWS_PROFILE:-"your-aws-profile"}
+AWS_PROFILE=${AWS_PROFILE}
 S3_BUCKET="prequel-instance"
 S3_PATH="s3://${S3_BUCKET}/terraform/"
 LOCAL_PATH="."

@@ -1,5 +1,6 @@
 ### Claude Code
 !.claude/*
+.claude/settings.local.json
 
 ### VisualStudioCode template
 .vscode/*
