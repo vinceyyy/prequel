@@ -28,9 +28,5 @@ RUN npm prune --production
 # Expose port 3000
 EXPOSE 3000
 
-# Copy init script
-COPY init-efs.sh /usr/local/bin/init-efs.sh
-RUN chmod +x /usr/local/bin/init-efs.sh
-
 # Start the application or run init script based on environment
-CMD ["sh", "-c", "if [ \"$INIT_MODE\" = \"true\" ]; then /usr/local/bin/init-efs.sh; else npm start; fi"]
+CMD ["npm", "start"]

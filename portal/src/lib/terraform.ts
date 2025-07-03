@@ -129,7 +129,9 @@ class TerraformManager {
       })
 
       child.on('close', code => {
-        const fullOutput = `Command: ${command}\nDirectory: ${cwd}\n\n--- STDOUT ---\n${stdout}\n\n--- STDERR ---\n${stderr || '(none)'}`
+        const fullOutput = `Command: ${command}\nDirectory: ${cwd}\n\n--- STDOUT ---\n${stdout}\n\n--- STDERR ---\n${
+          stderr || '(none)'
+        }`
 
         if (code === 0) {
           console.log(`[Terraform] Success`)
@@ -220,7 +222,9 @@ class TerraformManager {
         env: env as NodeJS.ProcessEnv,
       })
 
-      const fullOutput = `Command: ${command}\nDirectory: ${cwd}\n\n--- STDOUT ---\n${stdout}\n\n--- STDERR ---\n${stderr || '(none)'}`
+      const fullOutput = `Command: ${command}\nDirectory: ${cwd}\n\n--- STDOUT ---\n${stdout}\n\n--- STDERR ---\n${
+        stderr || '(none)'
+      }`
 
       console.log(`[Terraform] Success:`, stdout)
       if (stderr) {
@@ -242,7 +246,11 @@ class TerraformManager {
         code?: number
       }
 
-      const fullOutput = `Command: ${command}\nDirectory: ${cwd}\n\n--- ERROR ---\nExit code: ${execError.code || 'unknown'}\nMessage: ${execError.message || 'Unknown error'}\n\n--- STDOUT ---\n${execError.stdout || '(none)'}\n\n--- STDERR ---\n${execError.stderr || '(none)'}`
+      const fullOutput = `Command: ${command}\nDirectory: ${cwd}\n\n--- ERROR ---\nExit code: ${
+        execError.code || 'unknown'
+      }\nMessage: ${execError.message || 'Unknown error'}\n\n--- STDOUT ---\n${
+        execError.stdout || '(none)'
+      }\n\n--- STDERR ---\n${execError.stderr || '(none)'}`
 
       console.error(`[Terraform] Failed:`, {
         command,
@@ -391,7 +399,6 @@ candidate_name = "${instance.candidateName}"
 scenario = "${instance.scenario}"
 password = "${instance.password}"
 aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
-domain_name = "${process.env.DOMAIN_NAME || ''}"
 `
 
     const tfvarsPath = path.join(workspaceDir, 'terraform.tfvars')
@@ -529,7 +536,9 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
 
       return { ...applyResult, executionLog }
     } catch (error: unknown) {
-      const errorMsg = `Workspace creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      const errorMsg = `Workspace creation failed: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`
       executionLog.push(errorMsg)
       streamData(errorMsg + '\n')
       return {
@@ -654,12 +663,16 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
       return { ...applyResult, executionLog }
     } catch (error: unknown) {
       executionLog.push(
-        `Workspace creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Workspace creation failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
       )
       return {
         success: false,
         output: '',
-        error: `Workspace creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: `Workspace creation failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
         executionLog,
       }
     }
@@ -812,7 +825,7 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
             // Clean up load balancer rules
             streamData(`Cleaning up load balancer rules...\n`)
             const { stdout: rulesOutput } = await execAsync(
-              `${awsProfile} aws elbv2 describe-rules --listener-arn \$(aws elbv2 describe-listeners --load-balancer-arn \$(aws elbv2 describe-load-balancers --names prequel-dev --query 'LoadBalancers[0].LoadBalancerArn' --output text --region ${awsRegion}) --query 'Listeners[?Port==\`80\`].ListenerArn' --output text --region ${awsRegion}) --query 'Rules[?Conditions[0].Values[0]==\`/interview-${interviewId}/*\`].RuleArn' --output text --region ${awsRegion} || echo ''`,
+              `${awsProfile} aws elbv2 describe-rules --listener-arn \$(aws elbv2 describe-listeners --load-balancer-arn \$(aws elbv2 describe-load-balancers --names prequel-dev --query 'LoadBalancers[0].LoadBalancerArn' --output text --region ${awsRegion}) --query 'Listeners[?Port==\`443\`].ListenerArn' --output text --region ${awsRegion}) --query 'Rules[?contains(Conditions[0].Values[0], \`${interviewId}.\`)].RuleArn' --output text --region ${awsRegion} || echo ''`,
               { timeout: 30000 }
             )
 
@@ -821,47 +834,6 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
                 `${awsProfile} aws elbv2 delete-rule --rule-arn ${rulesOutput.trim()} --region ${awsRegion} || true`,
                 { timeout: 30000 }
               )
-            }
-
-            // Clean up EFS
-            streamData(`Cleaning up EFS resources...\n`)
-            try {
-              const { stdout: efsOutput } = await execAsync(
-                `${awsProfile} aws efs describe-file-systems --query 'FileSystems[?Tags[?Key==\`InterviewId\` && Value==\`${interviewId}\`]].FileSystemId' --output text --region ${awsRegion} || echo ''`,
-                { timeout: 30000 }
-              )
-
-              if (efsOutput.trim()) {
-                const fileSystemId = efsOutput.trim()
-
-                // Delete mount targets first
-                const { stdout: mountTargetsOutput } = await execAsync(
-                  `${awsProfile} aws efs describe-mount-targets --file-system-id ${fileSystemId} --query 'MountTargets[].MountTargetId' --output text --region ${awsRegion} || echo ''`,
-                  { timeout: 30000 }
-                )
-
-                if (mountTargetsOutput.trim()) {
-                  const mountTargets = mountTargetsOutput.trim().split(/\s+/)
-                  for (const mountTargetId of mountTargets) {
-                    await execAsync(
-                      `${awsProfile} aws efs delete-mount-target --mount-target-id ${mountTargetId} --region ${awsRegion} || true`,
-                      { timeout: 30000 }
-                    )
-                  }
-
-                  // Wait a bit for mount targets to be deleted
-                  streamData(`Waiting for mount targets to be deleted...\n`)
-                  await new Promise(resolve => setTimeout(resolve, 10000))
-                }
-
-                // Delete the file system
-                await execAsync(
-                  `${awsProfile} aws efs delete-file-system --file-system-id ${fileSystemId} --region ${awsRegion} || true`,
-                  { timeout: 30000 }
-                )
-              }
-            } catch (efsError) {
-              streamData(`Warning: EFS cleanup had issues: ${efsError}\n`)
             }
 
             // Clean up SSM parameter
@@ -911,7 +883,6 @@ candidate_name = "unknown"
 scenario = "javascript"
 password = "destroy-temp-password"
 aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
-domain_name = "${process.env.DOMAIN_NAME || ''}"
 `
         await fs.writeFile(tfvarsPath, minimalTfvarsContent.trim())
         streamData(`Created minimal terraform.tfvars for destruction\n`)
@@ -974,7 +945,6 @@ candidate_name = "unknown"
 scenario = "javascript"
 password = "destroy-temp-password"
 aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
-domain_name = "${process.env.DOMAIN_NAME || ''}"
 `
               await fs.writeFile(tfvarsPath, minimalTfvarsContent.trim())
               streamData(`Created minimal terraform.tfvars for destruction\n`)
@@ -1057,7 +1027,9 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
 
       return destroyResult
     } catch (error: unknown) {
-      const errorMsg = `Destroy failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      const errorMsg = `Destroy failed: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`
       streamData(errorMsg + '\n')
       return {
         success: false,
@@ -1131,7 +1103,9 @@ domain_name = "${process.env.DOMAIN_NAME || ''}"
       return {
         success: false,
         output: '',
-        error: `Failed to get interview status: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: `Failed to get interview status: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
       }
     }
   }

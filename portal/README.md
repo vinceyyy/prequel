@@ -173,7 +173,6 @@ playwright-report/      # E2E test reports (generated)
 ### AWS Requirements
 
 - ECS cluster for running interview instances
-- EFS for shared scenario files
 - Application Load Balancer for routing
 - Route53 for DNS management
 - IAM roles with appropriate permissions
@@ -189,7 +188,7 @@ The portal is designed to run on AWS ECS:
    ```
 
 2. **Deploy to ECS** with:
-   - Task role with ECS, ELB, Route53, EFS permissions
+   - Task role with ECS, ELB, Route53 permissions
    - Environment: `NODE_ENV=production`
    - No AWS_PROFILE needed (uses ECS metadata service)
 

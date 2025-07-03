@@ -106,8 +106,8 @@ resource "aws_lb_listener_rule" "interview" {
   }
 
   condition {
-    path_pattern {
-      values = ["/interview-${local.interview_id}", "/interview-${local.interview_id}/*"]
+    host_header {
+      values = ["${local.interview_id}.${data.terraform_remote_state.infrastructure.outputs.domain_name}"]
     }
   }
 

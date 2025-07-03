@@ -134,7 +134,6 @@ aws s3 cp service.tf s3://prequel-instance/instance/service.tf
 
 ### service.tf
 
-- EFS file system and access points
 - ECS task definitions and services
 - Load balancer rules and target groups
 - Security groups and networking

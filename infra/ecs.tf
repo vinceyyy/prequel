@@ -86,37 +86,6 @@ resource "aws_iam_role" "ecs_task" {
   tags = local.tags
 }
 
-resource "aws_iam_role_policy" "ecs_task_efs" {
-  name = "${local.name}-ecs-task-efs-policy"
-  role = aws_iam_role.ecs_task.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "elasticfilesystem:ClientMount",
-          "elasticfilesystem:ClientWrite",
-          "elasticfilesystem:ClientRootAccess"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          aws_s3_bucket.instance_code.arn,
-          "${aws_s3_bucket.instance_code.arn}/*"
-        ]
-      }
-    ]
-  })
-}
-
 resource "aws_cloudwatch_log_group" "code_server" {
   name              = "/ecs/${local.name}/code-server"
   retention_in_days = 7

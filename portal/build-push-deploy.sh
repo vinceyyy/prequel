@@ -5,7 +5,7 @@
 set -e
 
 # Get ECR repository URL from Terraform output
-$ECR_URI=$(cd ../infra && terraform output -raw ecr_repository_url)
+ECR_URI=$(cd ../infra && terraform output -raw ecr_repository_url)
 AWS_REGION="your-aws-region"
 
 echo "ECR Repository: $ECR_URI"

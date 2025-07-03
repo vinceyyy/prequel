@@ -36,7 +36,7 @@ prequel/
 └── scenario/        # Interview coding challenges
 ```
 
-**Tech Stack:** Next.js + TypeScript, AWS ECS/EFS, Terraform
+**Tech Stack:** Next.js + TypeScript, AWS ECS, Terraform
 
 ## Features
 
@@ -137,8 +137,7 @@ cd scenario/ && ./sync-to-s3.sh
 
 **Security:**
 - Network isolation (private subnets)
-- Password-protected instances  
-- Encrypted data (EFS + ECS)
+- Password-protected instances
 - Temporary access credentials
 - No data persistence
 

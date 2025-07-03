@@ -59,6 +59,11 @@ output "portal_url" {
   value       = var.domain_name != "" ? "https://${var.domain_name}" : "http://${aws_lb.main.dns_name}"
 }
 
+output "domain_name" {
+  description = "Configured domain name"
+  value       = var.domain_name
+}
+
 
 output "ecs_execution_role_arn" {
   description = "ARN of the ECS execution role"

@@ -352,9 +352,13 @@ export default function Home() {
                       <td className="px-3 sm:px-6 py-4 text-sm text-gray-900">
                         {interview.accessUrl ? (
                           <div className="max-w-xs">
-                            <div className="text-blue-600 underline cursor-pointer break-all">
+                            <a
+                              className="text-blue-600 underline cursor-pointer break-all"
+                              href={interview.accessUrl}
+                              target="_blank"
+                            >
                               {interview.accessUrl}
-                            </div>
+                            </a>
                             <div className="text-gray-500 break-all">
                               Password: {interview.password}
                             </div>
@@ -368,7 +372,7 @@ export default function Home() {
                           {interview.status === 'active' && (
                             <button
                               onClick={() => stopInterview(interview.id)}
-                              className="text-red-600 hover:text-red-900"
+                              className="bg-red-600 hover:bg-red-700 cursor-pointer text-white px-2 py-1 rounded-lg transition-colors"
                             >
                               Stop & Destroy
                             </button>
@@ -384,7 +388,7 @@ export default function Home() {
                           {interview.status === 'error' && (
                             <button
                               onClick={() => stopInterview(interview.id)}
-                              className="text-red-600 hover:text-red-900"
+                              className="bg-red-600 hover:bg-red-700 cursor-pointer text-white px-2 py-1 rounded-lg transition-colors"
                             >
                               Retry Destroy
                             </button>
@@ -394,7 +398,7 @@ export default function Home() {
                               setSelectedInterviewForLogs(interview.id)
                               setShowLogsModal(true)
                             }}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="bg-blue-600 hover:bg-blue-700 cursor-pointer text-white px-2 py-1 rounded-lg transition-colors"
                           >
                             Logs
                           </button>
@@ -424,7 +428,7 @@ export default function Home() {
                     setShowLogsModal(false)
                     setSelectedInterviewForLogs(null)
                   }}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-gray-500 hover:text-gray-700 cursor-pointer"
                 >
                   ✕
                 </button>
@@ -438,7 +442,7 @@ export default function Home() {
                     setShowLogsModal(false)
                     setSelectedInterviewForLogs(null)
                   }}
-                  className="bg-gray-200 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors"
+                  className="bg-gray-200 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors cursor-pointer"
                 >
                   Close
                 </button>

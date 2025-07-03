@@ -10,7 +10,7 @@ output "service_name" {
 
 output "access_url" {
   description = "URL to access the interview"
-  value = var.domain_name != "" ? "https://${var.domain_name}/interview-${local.interview_id}/" : "http://${data.terraform_remote_state.infrastructure.outputs.alb_dns_name}/interview-${local.interview_id}/"
+  value = data.terraform_remote_state.infrastructure.outputs.domain_name != "" ? "https://${local.interview_id}.${data.terraform_remote_state.infrastructure.outputs.domain_name}/" : "http://${data.terraform_remote_state.infrastructure.outputs.alb_dns_name}/"
 }
 
 

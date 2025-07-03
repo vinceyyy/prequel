@@ -29,11 +29,6 @@ variable "password" {
   sensitive   = true
 }
 
-variable "domain_name" {
-  description = "Domain name for subdomain routing (optional)"
-  type        = string
-  default     = ""
-}
 
 variable "auto_destroy_after_hours" {
   description = "Hours after which to auto-destroy the interview instance"
