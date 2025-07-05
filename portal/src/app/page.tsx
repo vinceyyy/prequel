@@ -32,11 +32,30 @@ export default function Home() {
   // Use the operations hook for background operations
   const { createInterview, destroyInterview } = useOperations()
 
-  const scenarios = [
+  const [scenarios, setScenarios] = useState<
+    Array<{ id: string; name: string }>
+  >([
     { id: 'python', name: 'Python' },
     { id: 'sql', name: 'SQL' },
     { id: 'javascript', name: 'JavaScript' },
-  ]
+  ])
+
+  const loadScenarios = useCallback(async () => {
+    try {
+      const response = await fetch('/api/scenarios')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.scenarios) {
+          console.log('[DEBUG] Loaded scenarios from API:', data.scenarios)
+          setScenarios(data.scenarios)
+        }
+      } else {
+        console.warn('Failed to load scenarios, using fallback')
+      }
+    } catch (error) {
+      console.error('Error loading scenarios:', error)
+    }
+  }, [])
 
   const loadInterviews = useCallback(async () => {
     try {
@@ -84,7 +103,8 @@ export default function Home() {
       '[DEBUG] Main page: Step 1 - Initial load, checking existing interviews (one-off request)'
     )
     loadInterviews()
-  }, [loadInterviews])
+    loadScenarios()
+  }, [loadInterviews, loadScenarios])
 
   // NO AUTOMATIC POLLING - interviews endpoint is manual refresh only
 

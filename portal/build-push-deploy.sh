@@ -4,9 +4,11 @@
 
 set -e
 
+# Configuration - use environment variables
+AWS_REGION=${AWS_REGION:-"your-aws-region"}
+
 # Get ECR repository URL from Terraform output
 ECR_URI=$(cd ../infra && terraform output -raw ecr_repository_url)
-AWS_REGION="your-aws-region"
 
 echo "ECR Repository: $ECR_URI"
 echo "AWS Region: $AWS_REGION"

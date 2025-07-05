@@ -47,6 +47,14 @@ terraform destroy # Clean up resources
 
 ## Local Development
 
+**Environment Variables:**
+
+Set these environment variables for AWS configuration:
+```bash
+export AWS_PROFILE=your-profile-name    # AWS profile to use
+export AWS_REGION=your-aws-region             # AWS region (default: your-aws-region)
+```
+
 **Portal Setup:**
 
 1. Configure AWS SSO: `aws configure sso --profile <AWS_PROFILE>`
@@ -54,6 +62,13 @@ terraform destroy # Clean up resources
 3. Copy environment file: `cp portal/.env.example portal/.env.local`
 4. Set AWS profile: `export AWS_PROFILE=<AWS_PROFILE>`
 5. Start portal: `cd portal && npm run dev`
+
+**Build Scripts:**
+
+All build scripts use environment variables for AWS configuration:
+- `instance/build-and-push.sh` - Build and push instance Docker image
+- `portal/build-push-deploy.sh` - Build, push and deploy portal
+- `scenario/sync-to-s3.sh` - Sync scenarios to S3
 
 **Interview Deployment:**
 

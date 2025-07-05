@@ -115,6 +115,16 @@ output "instance_code_bucket_arn" {
   value       = aws_s3_bucket.instance_code.arn
 }
 
+output "scenario_bucket_name" {
+  description = "S3 bucket name for storing interview scenarios"
+  value       = aws_s3_bucket.scenarios.bucket
+}
+
+output "scenario_bucket_arn" {
+  description = "S3 bucket ARN for storing interview scenarios"
+  value       = aws_s3_bucket.scenarios.arn
+}
+
 output "code_server_security_group_id" {
   description = "ID of the code server security group"
   value       = aws_security_group.code_server.id

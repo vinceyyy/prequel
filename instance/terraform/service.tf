@@ -204,6 +204,14 @@ resource "aws_ecs_task_definition" "interview" {
         {
           name  = "SCENARIO"
           value = var.scenario
+        },
+        {
+          name  = "S3_SCENARIO_BUCKET"
+          value = data.terraform_remote_state.infrastructure.outputs.scenario_bucket_name
+        },
+        {
+          name  = "AWS_REGION"
+          value = var.aws_region
         }
       ]
 

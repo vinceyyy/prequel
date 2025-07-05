@@ -86,6 +86,28 @@ resource "aws_iam_role" "ecs_task" {
   tags = local.tags
 }
 
+resource "aws_iam_role_policy" "ecs_task_s3_scenarios" {
+  name = "${local.name}-ecs-task-s3-scenarios-policy"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.scenarios.arn,
+          "${aws_s3_bucket.scenarios.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
 resource "aws_cloudwatch_log_group" "code_server" {
   name              = "/ecs/${local.name}/code-server"
   retention_in_days = 7
@@ -267,7 +289,8 @@ resource "aws_iam_role_policy" "portal_task" {
         ]
         Resource = [
           "arn:aws:s3:::prequel-terraform-state",
-          aws_s3_bucket.instance_code.arn
+          aws_s3_bucket.instance_code.arn,
+          aws_s3_bucket.scenarios.arn
         ]
       },
       {
@@ -281,7 +304,8 @@ resource "aws_iam_role_policy" "portal_task" {
         ]
         Resource = [
           "arn:aws:s3:::prequel-terraform-state/*",
-          "${aws_s3_bucket.instance_code.arn}/*"
+          "${aws_s3_bucket.instance_code.arn}/*",
+          "${aws_s3_bucket.scenarios.arn}/*"
         ]
       }
     ]
