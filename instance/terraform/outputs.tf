@@ -10,9 +10,33 @@ output "service_name" {
 
 output "access_url" {
   description = "URL to access the interview"
-  value = data.terraform_remote_state.infrastructure.outputs.domain_name != "" ? "https://${local.interview_id}.${data.terraform_remote_state.infrastructure.outputs.domain_name}/" : "http://${data.terraform_remote_state.infrastructure.outputs.alb_dns_name}/"
+  value = data.terraform_remote_state.infrastructure.outputs.domain_name != "" ? "https://${local.interview_id}.${data.terraform_remote_state.infrastructure.outputs.domain_name}/" : "http://${aws_lb.interview.dns_name}/"
 }
 
+output "alb_dns_name" {
+  description = "DNS name of the interview ALB"
+  value       = aws_lb.interview.dns_name
+}
+
+output "alb_arn" {
+  description = "ARN of the interview ALB"
+  value       = aws_lb.interview.arn
+}
+
+output "target_group_arn" {
+  description = "ARN of the interview target group"
+  value       = aws_lb_target_group.interview.arn
+}
+
+output "alb_security_group_id" {
+  description = "ID of the interview ALB security group"
+  value       = aws_security_group.interview_alb.id
+}
+
+output "ecs_security_group_id" {
+  description = "ID of the interview ECS security group"
+  value       = aws_security_group.interview_ecs.id
+}
 
 output "password" {
   description = "Interview password"

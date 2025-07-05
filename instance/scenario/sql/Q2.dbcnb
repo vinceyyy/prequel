@@ -1,0 +1,60 @@
+cells:
+  - kind: 2
+    languageId: sql
+    value: >
+      
+
+      /*
+          SQL 2
+      	=====================
+      	Background:
+      	The client is a subscription-based company (think Spotify). The subscription product is a fixed 12-month contract
+      	with monthly payment of $60. There is a introduction period where the monthly prices are discounted, and the
+      	amount of discount may be adjusted by the pricing team in future.
+
+      	Table 1: active_customer_snapshot
+      	(This table is the latest snapshot - unique by customer ID, and is always re-created today.)
+      	╔═════════════╦══════════════╦═════════════╗
+      	║ customer_id ║ signup_month ║ update_date ║
+      	╠═════════════╬══════════════╬═════════════╣
+      	║           1 ║ 02-2025      ║ 2025-06-24  ║
+      	║           2 ║ 01-2025      ║ 2025-06-24  ║
+      	║           3 ║ 03-2025      ║ 2025-06-24  ║
+      	║           4 ║ 05-2025      ║ 2025-06-24  ║
+      	║           5 ║ 04-2025      ║ 2025-06-24  ║
+      	╚═════════════╩══════════════╩═════════════╝
+
+      	Table 2: monthly_rate
+      	(This table has the montly rate for every month in the first 5 years. The pricing team owns this table and may update it at any moment.)
+      	╔═════════════════════╦══════╗
+      	║ lifecycle_nth_month ║ rate ║
+      	╠═════════════════════╬══════╣
+      	║ 1                   ║   10 ║
+      	║ 2                   ║   10 ║
+      	║ 3                   ║   20 ║
+      	║ 4                   ║   20 ║
+      	║ 5                   ║   40 ║
+      	║ 6                   ║   40 ║
+      	║ 7                   ║   60 ║
+      	║ 8                   ║   60 ║
+      	║ 9                   ║   60 ║
+      	║ 10                  ║   60 ║
+      	║ 11                  ║   60 ║
+      	║ 12                  ║   60 ║
+      	║ 13                  ║   60 ║
+      	║ …                   ║      ║
+      	╚═════════════════════╩══════╝
+
+      	Question: How much revenue would the existing customers generate for the rest of this year?
+       */
+
+      SELECT *
+
+      FROM active_customer_snapshot;
+    metadata: {}
+metadata:
+  conn:
+    id: c1056548d44402db
+    name: questions.duckdb
+  database: questions
+  schema: main

@@ -1,4 +1,4 @@
-# JavaScript/React Interview Scenario
+# JavaScript Interview Scenario
 
 ## Overview
 This scenario includes a basic React application setup for frontend development interviews.

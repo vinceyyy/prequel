@@ -17,7 +17,6 @@ COPY scenario/javascript/ /workspaces/javascript/
 COPY scenario/python/ /workspaces/python/
 COPY scenario/sql/ /workspaces/sql/
 
-
 # Install Python dependencies for all Python-related scenarios
 RUN cd /workspaces/python && \
     python3 -m pip install --upgrade pip --break-system-packages && \
@@ -25,18 +24,6 @@ RUN cd /workspaces/python && \
 
 # Install Node.js dependencies for JavaScript scenario
 RUN cd /workspaces/javascript && npm install
-
-# Install Node.js dependencies for fullstack scenario (if package.json exists)
-RUN if [ -f /workspaces/fullstack/package.json ]; then \
-        cd /workspaces/fullstack && npm install; \
-    fi
-
-# Install common VS Code extensions that work well with our scenarios
-RUN code-server --install-extension ms-python.python \
-    && code-server --install-extension ms-vscode.vscode-typescript-next \
-    && code-server --install-extension esbenp.prettier-vscode \
-    && code-server --install-extension bradlc.vscode-tailwindcss \
-    && code-server --install-extension ms-toolsai.jupyter
 
 # Set proper ownership
 RUN chown -R coder:coder /workspaces
@@ -48,6 +35,17 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Switch to coder user and set workspace
 USER coder
 WORKDIR /workspaces
+
+# Install common VS Code extensions that work well with our scenarios
+RUN code-server --install-extension ms-python.python \
+    && code-server --install-extension ms-vscode.vscode-typescript-next \
+    && code-server --install-extension esbenp.prettier-vscode \
+    && code-server --install-extension bradlc.vscode-tailwindcss \
+    && code-server --install-extension ms-toolsai.jupyter \
+    && code-server --install-extension dbcode.dbcode
+
+# Copy in settings
+COPY settings.json /home/coder/.local/share/code-server/User/settings.json
 
 # Expose code-server port
 EXPOSE 8443

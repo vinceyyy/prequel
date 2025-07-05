@@ -1,0 +1,13 @@
+{
+  "dbcode.connections": [
+    {
+      "connectionId": "4D6AX19HNazvJmdvsCkjs",
+      "name": "questions.duckdb",
+      "driver": "duckdb",
+      "connectionType": "socket",
+      "socket": "questions.duckdb",
+      "readOnly": false
+    }
+  ],
+  "dbcode.resultLocation": "beside"
+}

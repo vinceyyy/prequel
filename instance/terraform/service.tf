@@ -11,6 +11,171 @@ data "aws_ecr_repository" "code_server" {
   name = "prequel-dev-code-server"
 }
 
+# Security group for the interview ALB
+resource "aws_security_group" "interview_alb" {
+  name        = "${local.service_name}-alb"
+  description = "Security group for interview ALB"
+  vpc_id      = data.terraform_remote_state.infrastructure.outputs.vpc_id
+
+  ingress {
+    description = "HTTP from internet"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTPS from internet"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "All outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(local.tags, {
+    Name = "${local.service_name}-alb-sg"
+  })
+}
+
+# Security group for the interview ECS tasks
+resource "aws_security_group" "interview_ecs" {
+  name        = "${local.service_name}-ecs"
+  description = "Security group for interview ECS tasks"
+  vpc_id      = data.terraform_remote_state.infrastructure.outputs.vpc_id
+
+  ingress {
+    description     = "Code Server from interview ALB"
+    from_port       = 8443
+    to_port         = 8443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.interview_alb.id]
+  }
+
+  egress {
+    description = "All outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(local.tags, {
+    Name = "${local.service_name}-ecs-sg"
+  })
+}
+
+# Dedicated ALB for this interview instance
+resource "aws_lb" "interview" {
+  name = substr("${local.service_name}-alb", 0, 32)
+  internal           = false
+  load_balancer_type = "application"
+  security_groups = [aws_security_group.interview_alb.id]
+  subnets            = data.terraform_remote_state.infrastructure.outputs.public_subnet_ids
+
+  enable_deletion_protection = false
+
+  tags = merge(local.tags, {
+    Name = "${local.service_name}-alb"
+  })
+}
+
+# Target Group for this interview instance
+resource "aws_lb_target_group" "interview" {
+  name = substr("${local.service_name}-tg", 0, 32)
+  port        = 8443
+  protocol    = "HTTP"
+  vpc_id      = data.terraform_remote_state.infrastructure.outputs.vpc_id
+  target_type = "ip"
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200-302"
+    path                = "/healthz"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 10
+    unhealthy_threshold = 3
+  }
+
+  tags = merge(local.tags, {
+    Name = "${local.service_name}-tg"
+  })
+}
+
+# HTTP Listener (redirect to HTTPS)
+resource "aws_lb_listener" "interview_http" {
+  load_balancer_arn = aws_lb.interview.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = data.terraform_remote_state.infrastructure.outputs.domain_name != "" ? "redirect" : "forward"
+
+    dynamic "redirect" {
+      for_each = data.terraform_remote_state.infrastructure.outputs.domain_name != "" ? [1] : []
+      content {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+
+    dynamic "forward" {
+      for_each = data.terraform_remote_state.infrastructure.outputs.domain_name == "" ? [1] : []
+      content {
+        target_group {
+          arn = aws_lb_target_group.interview.arn
+        }
+      }
+    }
+  }
+
+  tags = local.tags
+}
+
+# HTTPS Listener (if domain is configured)
+resource "aws_lb_listener" "interview_https" {
+  count = data.terraform_remote_state.infrastructure.outputs.domain_name != "" ? 1 : 0
+
+  load_balancer_arn = aws_lb.interview.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
+  certificate_arn   = data.terraform_remote_state.infrastructure.outputs.certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.interview.arn
+  }
+
+  tags = local.tags
+}
+
+# Route53 record for the subdomain
+resource "aws_route53_record" "interview" {
+  count = data.terraform_remote_state.infrastructure.outputs.domain_name != "" ? 1 : 0
+
+  zone_id = data.terraform_remote_state.infrastructure.outputs.route53_zone_id
+  name    = "${local.interview_id}.${data.terraform_remote_state.infrastructure.outputs.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.interview.dns_name
+    zone_id                = aws_lb.interview.zone_id
+    evaluate_target_health = true
+  }
+}
 
 # ECS Task Definition for the interview instance
 resource "aws_ecs_task_definition" "interview" {
@@ -49,7 +214,6 @@ resource "aws_ecs_task_definition" "interview" {
         }
       ]
 
-
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -62,54 +226,6 @@ resource "aws_ecs_task_definition" "interview" {
       essential = true
     }
   ])
-
-
-  tags = local.tags
-}
-
-
-# ALB Target Group for this interview instance
-resource "aws_lb_target_group" "interview" {
-  name = substr(local.service_name, 0, 32)
-  port        = 8443
-  protocol    = "HTTP"
-  vpc_id      = data.terraform_remote_state.infrastructure.outputs.vpc_id
-  target_type = "ip"
-
-  health_check {
-    enabled             = true
-    healthy_threshold   = 2
-    interval            = 30
-    matcher             = "200-302"
-    path                = "/healthz"
-    port                = "traffic-port"
-    protocol            = "HTTP"
-    timeout             = 10
-    unhealthy_threshold = 3
-  }
-
-  tags = local.tags
-}
-
-# ALB Listener Rule for this interview instance
-resource "aws_lb_listener_rule" "interview" {
-  listener_arn = data.terraform_remote_state.infrastructure.outputs.alb_https_listener_arn
-  priority     = 100 + (sum([
-    for i, c in split("", substr(local.interview_id, 0, 4)) :
-    (pow(16, 3 - i) * index(split("", "0123456789abcdef"), lower(c)))
-  ]) % 49800)
-
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.interview.arn
-  }
-
-  condition {
-    host_header {
-      values = ["${local.interview_id}.${data.terraform_remote_state.infrastructure.outputs.domain_name}"]
-    }
-  }
 
   tags = local.tags
 }
@@ -124,7 +240,7 @@ resource "aws_ecs_service" "interview" {
 
   network_configuration {
     subnets          = data.terraform_remote_state.infrastructure.outputs.private_subnet_ids
-    security_groups = [data.terraform_remote_state.infrastructure.outputs.code_server_security_group_id]
+    security_groups  = [aws_security_group.interview_ecs.id]
     assign_public_ip = false
   }
 
@@ -134,7 +250,10 @@ resource "aws_ecs_service" "interview" {
     container_port   = 8443
   }
 
-  depends_on = [aws_lb_listener_rule.interview]
+  depends_on = [
+    aws_lb_listener.interview_http,
+    aws_lb_listener.interview_https
+  ]
 
   tags = local.tags
 
@@ -142,4 +261,3 @@ resource "aws_ecs_service" "interview" {
     ignore_changes = [desired_count]
   }
 }
-

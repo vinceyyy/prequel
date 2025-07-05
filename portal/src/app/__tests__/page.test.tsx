@@ -101,9 +101,9 @@ describe('Home Page', () => {
       expect(screen.getByText('Bob Wilson')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('JavaScript/React')).toBeInTheDocument()
-    expect(screen.getByText('Python/Data Science')).toBeInTheDocument()
-    expect(screen.getByText('SQL/Database')).toBeInTheDocument()
+    expect(screen.getByText('JavaScript')).toBeInTheDocument()
+    expect(screen.getByText('Python')).toBeInTheDocument()
+    expect(screen.getByText('SQL')).toBeInTheDocument()
   })
 
   it('shows loading state initially', () => {

@@ -1,7 +1,7 @@
 {
   "name": "interview-challenge",
   "version": "1.0.0",
-  "description": "JavaScript/React Interview Challenge",
+  "description": "JavaScript Interview Challenge",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

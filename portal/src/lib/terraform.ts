@@ -818,23 +818,39 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
               `Cleaning up target group for interview-${interviewId}...\n`
             )
             await execAsync(
-              `${awsProfile} aws elbv2 delete-target-group --target-group-arn \$(aws elbv2 describe-target-groups --names interview-${interviewId} --query 'TargetGroups[0].TargetGroupArn' --output text --region ${awsRegion}) --region ${awsRegion} || true`,
+              `${awsProfile} aws elbv2 delete-target-group --target-group-arn \$(aws elbv2 describe-target-groups --names interview-${interviewId}-tg --query 'TargetGroups[0].TargetGroupArn' --output text --region ${awsRegion}) --region ${awsRegion} || true`,
               { timeout: 30000 }
             )
 
-            // Clean up load balancer rules
-            streamData(`Cleaning up load balancer rules...\n`)
-            const { stdout: rulesOutput } = await execAsync(
-              `${awsProfile} aws elbv2 describe-rules --listener-arn \$(aws elbv2 describe-listeners --load-balancer-arn \$(aws elbv2 describe-load-balancers --names prequel-dev --query 'LoadBalancers[0].LoadBalancerArn' --output text --region ${awsRegion}) --query 'Listeners[?Port==\`443\`].ListenerArn' --output text --region ${awsRegion}) --query 'Rules[?contains(Conditions[0].Values[0], \`${interviewId}.\`)].RuleArn' --output text --region ${awsRegion} || echo ''`,
+            // Clean up dedicated ALB for this interview
+            streamData(
+              `Cleaning up dedicated ALB for interview-${interviewId}...\n`
+            )
+            const albName = `interview-${interviewId}-alb`.substring(0, 32)
+            await execAsync(
+              `${awsProfile} aws elbv2 delete-load-balancer --load-balancer-arn \$(aws elbv2 describe-load-balancers --names ${albName} --query 'LoadBalancers[0].LoadBalancerArn' --output text --region ${awsRegion}) --region ${awsRegion} || true`,
               { timeout: 30000 }
             )
 
-            if (rulesOutput.trim()) {
-              await execAsync(
-                `${awsProfile} aws elbv2 delete-rule --rule-arn ${rulesOutput.trim()} --region ${awsRegion} || true`,
-                { timeout: 30000 }
-              )
-            }
+            // Clean up Route53 record for subdomain
+            streamData(
+              `Cleaning up Route53 record for ${interviewId}.your-domain.com...\n`
+            )
+            await execAsync(
+              `${awsProfile} aws route53 list-resource-record-sets --hosted-zone-id \$(aws route53 list-hosted-zones --query 'HostedZones[?Name==\`blend360.app.\`].Id' --output text | cut -d'/' -f3 --region ${awsRegion}) --query 'ResourceRecordSets[?Name==\`${interviewId}.your-domain.com.\`]' --output json --region ${awsRegion} | jq -r '.[0] | if . then "{\\"Action\\": \\"DELETE\\", \\"ResourceRecordSet\\": .}" else empty end' | if read change; then aws route53 change-resource-record-sets --hosted-zone-id \$(aws route53 list-hosted-zones --query 'HostedZones[?Name==\`blend360.app.\`].Id' --output text | cut -d'/' -f3) --change-batch "{\\"Changes\\": [\$change]}" --region ${awsRegion}; fi || true`,
+              { timeout: 30000 }
+            )
+
+            // Clean up security groups for the ALB and ECS
+            streamData(`Cleaning up security groups for ALB and ECS...\n`)
+            await execAsync(
+              `${awsProfile} aws ec2 delete-security-group --group-id \$(aws ec2 describe-security-groups --filters "Name=group-name,Values=interview-${interviewId}-ecs" --query 'SecurityGroups[0].GroupId' --output text --region ${awsRegion}) --region ${awsRegion} || true`,
+              { timeout: 30000 }
+            )
+            await execAsync(
+              `${awsProfile} aws ec2 delete-security-group --group-id \$(aws ec2 describe-security-groups --filters "Name=group-name,Values=interview-${interviewId}-alb" --query 'SecurityGroups[0].GroupId' --output text --region ${awsRegion}) --region ${awsRegion} || true`,
+              { timeout: 30000 }
+            )
 
             // Clean up SSM parameter
             streamData(`Cleaning up SSM parameter...\n`)

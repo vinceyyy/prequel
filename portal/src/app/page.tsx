@@ -26,17 +26,16 @@ export default function Home() {
   const [notification, setNotification] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     candidateName: '',
-    scenario: 'javascript',
+    scenario: 'python',
   })
 
   // Use the operations hook for background operations
   const { createInterview, destroyInterview } = useOperations()
 
   const scenarios = [
-    { id: 'javascript', name: 'JavaScript/React' },
-    { id: 'python', name: 'Python/Data Science' },
-    { id: 'sql', name: 'SQL/Database' },
-    { id: 'fullstack', name: 'Full Stack' },
+    { id: 'python', name: 'Python' },
+    { id: 'sql', name: 'SQL' },
+    { id: 'javascript', name: 'JavaScript' },
   ]
 
   const loadInterviews = useCallback(async () => {
@@ -113,7 +112,7 @@ export default function Home() {
       await createInterview(formData.candidateName.trim(), formData.scenario)
 
       // Close the modal immediately since operation is now background
-      setFormData({ candidateName: '', scenario: 'javascript' })
+      setFormData({ candidateName: '', scenario: 'python' })
       setShowCreateForm(false)
 
       // Show notification

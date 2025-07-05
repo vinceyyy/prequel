@@ -154,8 +154,8 @@ test.describe('Prequel Portal E2E Tests', () => {
     // Check interview data is displayed
     await expect(page.getByText('John Doe')).toBeVisible()
     await expect(page.getByText('Jane Smith')).toBeVisible()
-    await expect(page.getByText('JavaScript/React')).toBeVisible()
-    await expect(page.getByText('Python/Data Science')).toBeVisible()
+    await expect(page.getByText('JavaScript')).toBeVisible()
+    await expect(page.getByText('Python')).toBeVisible()
     await expect(page.getByText('active')).toBeVisible()
     await expect(page.getByText('creating')).toBeVisible()
   })

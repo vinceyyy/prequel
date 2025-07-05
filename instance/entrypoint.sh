@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Set default scenario based on environment variable
-SCENARIO=${SCENARIO:-javascript}
+SCENARIO=${SCENARIO:-python}
 WORKSPACE_PATH="/workspaces/${SCENARIO}"
 
 # Ensure the workspace exists
 if [ ! -d "$WORKSPACE_PATH" ]; then
-    echo "Warning: Scenario '${SCENARIO}' not found, defaulting to javascript"
-    WORKSPACE_PATH="/workspaces/javascript"
+    echo "Warning: Scenario '${SCENARIO}' not found, defaulting to python"
+    WORKSPACE_PATH="/workspaces/python"
 fi
 
 echo "Starting code-server for scenario: ${SCENARIO}"
