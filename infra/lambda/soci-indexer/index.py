@@ -1,8 +1,5 @@
 import json
 import boto3
-import subprocess
-import os
-import tempfile
 import logging
 from typing import Dict, Any
 
@@ -12,7 +9,9 @@ logger.setLevel(logging.INFO)
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Lambda handler that generates SOCI index for newly pushed ECR images.
+    Lambda handler that logs ECR image pushes and provides foundation for SOCI indexing.
+    Note: Full SOCI index generation requires containerd which is not available in Lambda.
+    For production SOCI indexing, consider using AWS's official SOCI Index Builder.
     """
     try:
         logger.info(f"Received event: {json.dumps(event)}")
@@ -21,47 +20,63 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         detail = event.get('detail', {})
         repository_name = detail.get('repository-name')
         image_digest = detail.get('image-digest')
-        image_tag = detail.get('image-tag', 'latest')
+        image_tag = detail.get('image-tag') or 'latest'  # Handle empty string
+        result = detail.get('result')
+        action_type = detail.get('action-type')
         
-        if not repository_name or not image_digest:
-            logger.error("Missing required event data")
+        if not repository_name:
+            logger.error("Missing repository name in event")
             return {
                 'statusCode': 400,
-                'body': json.dumps('Missing repository name or image digest')
+                'body': json.dumps('Missing repository name')
+            }
+            
+        if result != 'SUCCESS':
+            logger.info(f"Skipping non-successful event: result={result}")
+            return {
+                'statusCode': 200,
+                'body': json.dumps('Skipped non-successful push event')
+            }
+            
+        if action_type != 'PUSH':
+            logger.info(f"Skipping non-push event: action_type={action_type}")
+            return {
+                'statusCode': 200,
+                'body': json.dumps('Skipped non-push event')
             }
         
-        logger.info(f"Processing SOCI index for {repository_name}:{image_tag}")
+        logger.info(f"Successfully processed ECR image push for {repository_name}")
+        logger.info(f"Image digest: {image_digest}")
+        logger.info(f"Image tag: {image_tag}")
         
-        # Get ECR repository URI
-        ecr_client = boto3.client('ecr')
+        # Get ECR repository URI for logging
         sts_client = boto3.client('sts')
-        
         account_id = sts_client.get_caller_identity()['Account']
-        region = boto3.Session().region_name
+        region = boto3.Session().region_name or 'your-aws-region'
         
         repository_uri = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{repository_name}"
-        image_uri = f"{repository_uri}:{image_tag}"
         
-        logger.info(f"Repository URI: {repository_uri}")
+        # Use image digest if tag is not available or is empty
+        if image_tag and image_tag != 'latest':
+            image_uri = f"{repository_uri}:{image_tag}"
+        elif image_digest:
+            image_uri = f"{repository_uri}@{image_digest}"
+        else:
+            image_uri = f"{repository_uri}:latest"
+        
         logger.info(f"Image URI: {image_uri}")
-        
-        # Install SOCI CLI in Lambda environment
-        install_soci()
-        
-        # Authenticate with ECR
-        authenticate_ecr(ecr_client, repository_uri)
-        
-        # Generate SOCI index
-        generate_soci_index(image_uri)
-        
-        logger.info("SOCI index generated successfully")
+        logger.info("ECR image push event processed successfully")
+        logger.info("Note: SOCI index generation requires AWS SOCI Index Builder for production use")
         
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'message': 'SOCI index generated successfully',
+                'message': 'ECR image push event processed successfully',
                 'repository': repository_name,
-                'image_tag': image_tag
+                'image_tag': image_tag,
+                'image_digest': image_digest,
+                'image_uri': image_uri,
+                'note': 'For SOCI indexing, consider using AWS SOCI Index Builder'
             })
         }
         
@@ -72,100 +87,5 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'body': json.dumps(f'Error: {str(e)}')
         }
 
-def install_soci():
-    """Install SOCI CLI in Lambda environment"""
-    logger.info("Installing SOCI CLI...")
-    
-    # Create temp directory
-    with tempfile.TemporaryDirectory() as temp_dir:
-        soci_path = os.path.join(temp_dir, 'soci.tar.gz')
-        
-        # Download SOCI CLI binary using urllib instead of curl
-        import urllib.request
-        
-        try:
-            logger.info("Downloading SOCI CLI...")
-            urllib.request.urlretrieve(
-                'https://github.com/awslabs/soci-snapshotter/releases/latest/download/soci-snapshotter-0.11.1-linux-amd64.tar.gz',
-                soci_path
-            )
-            logger.info("SOCI CLI downloaded successfully")
-            
-            # Extract the tar.gz using Python's tarfile module
-            import tarfile
-            import shutil
-            
-            with tarfile.open(soci_path, 'r:gz') as tar:
-                tar.extractall(path=temp_dir)
-            
-            # Make it executable and move to /tmp (which is writable in Lambda)
-            soci_binary = os.path.join(temp_dir, 'soci-snapshotter-0.11.1-linux-amd64', 'soci')
-            final_soci_path = '/tmp/soci'
-            
-            shutil.copy2(soci_binary, final_soci_path)
-            os.chmod(final_soci_path, 0o755)
-            
-            # Add to PATH
-            os.environ['PATH'] = f"/tmp:{os.environ.get('PATH', '')}"
-            
-            logger.info("SOCI CLI installed successfully")
-            
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to install SOCI CLI: {e}")
-            raise
-
-def authenticate_ecr(ecr_client, repository_uri: str):
-    """Authenticate Docker with ECR"""
-    logger.info("Authenticating with ECR...")
-    
-    try:
-        # Get ECR authorization token
-        auth_response = ecr_client.get_authorization_token()
-        auth_data = auth_response['authorizationData'][0]
-        
-        # Decode the authorization token
-        import base64
-        auth_token = base64.b64decode(auth_data['authorizationToken']).decode('utf-8')
-        username, password = auth_token.split(':')
-        
-        # Login to ECR using Docker
-        login_cmd = [
-            'docker', 'login',
-            '--username', username,
-            '--password-stdin',
-            auth_data['proxyEndpoint']
-        ]
-        
-        process = subprocess.Popen(login_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate(input=password.encode())
-        
-        if process.returncode != 0:
-            raise Exception(f"Docker login failed: {stderr.decode()}")
-            
-        logger.info("ECR authentication successful")
-        
-    except Exception as e:
-        logger.error(f"ECR authentication failed: {str(e)}")
-        raise
-
-def generate_soci_index(image_uri: str):
-    """Generate SOCI index for the given image"""
-    logger.info(f"Generating SOCI index for {image_uri}")
-    
-    try:
-        # Create SOCI index
-        create_cmd = ['/tmp/soci', 'create', image_uri]
-        result = subprocess.run(create_cmd, check=True, capture_output=True, text=True)
-        logger.info(f"SOCI create output: {result.stdout}")
-        
-        # Push SOCI index
-        push_cmd = ['/tmp/soci', 'push', image_uri]
-        result = subprocess.run(push_cmd, check=True, capture_output=True, text=True)
-        logger.info(f"SOCI push output: {result.stdout}")
-        
-        logger.info("SOCI index created and pushed successfully")
-        
-    except subprocess.CalledProcessError as e:
-        logger.error(f"SOCI index generation failed: {e}")
-        logger.error(f"SOCI stderr: {e.stderr}")
-        raise Exception(f"SOCI index generation failed: {e.stderr}")
+# Note: SOCI CLI functions removed as they require containerd which is not available in Lambda
+# For production SOCI indexing, use AWS's official SOCI Index Builder CloudFormation template
