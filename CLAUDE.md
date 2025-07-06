@@ -69,6 +69,7 @@ export AWS_REGION=your-aws-region             # AWS region (default: your-aws-re
 All build scripts use environment variables for AWS configuration:
 
 - `instance/build-and-push.sh` - Build and push instance Docker image
+- `instance/terraform/sync-to-s3.sh` - Sync instance terraform code to S3
 - `portal/build-push-deploy.sh` - Build, push and deploy portal
 - `challenge/sync-to-s3.sh` - Sync challenges to S3
 
@@ -138,30 +139,37 @@ npm run test:all     # Full test suite (5-10 minutes)
 - E2E tests: Use `npm run test:e2e:ui` for interactive debugging
 - Coverage reports: `npm run test:coverage`
 
-## Desired workflow
+## Desired User Flow
 
-1. Login to portal
-2. Create instance
-    1. Select a challenge (prebuilt or customized)
-    2. [Optional] Selecting instance (if needs special instance)
-    3. Manually create or scheduled
-3. Wait for instance to become `Active` - Scenario files will be copied from S3 to instance during the configuring stage
-4. When an instance become `Active`, copy the URL and password and send to the candidate
-5. Destroy the instance after an interview
-    1. Manually destroy or scheduled
-    2. Option to save all files (with ignore list) to s3, into candidate-named folder
+The checkbox indicates features to support the action is already built.
 
-## Instance state
+1. [ ] Login to portal
+2. [ ] Create instance
+    1. [X] The user can manually create an instance
+    2. [X] Select a challenge (prebuilt or customized)
+    3. [ ] Optionally, selecting instance if the user needs special instance
+    4. [ ] The user can also schedule an instance creation at a specific time to avoid waiting for the instance to spin
+       up
+3. [X] Wait for instance to become `Active` - Challenge files will be copied from S3 to instance during the configuring
+   stage
+4. [X] When an instance become `Active`, the user can copy the URL and password and send to the candidate
+5. [ ] Destroy the instance after an interview
+    1. [ ] The user can manually destroy the instance after the interview
+    2. [ ] The user can also schedule an instance destroy at a specific time to ensure cleanup
+    3. [ ] Option to save all files (with ignore list) to s3, into candidate-named folder
 
-1. Initializing - provisioning infra, not customizable by the interviewer
+## Instance Status
+
+1. Initializing - provisioning infra, not customizable by the user when creating instance
 2. Configuring
-    - Wait for ECS to boot
-    - Install extra extensions - customizable (basic extensions are already built into the image)
-    - Copy in settings - customizable
-    - Copy in scenario files and set workspace (work DIR) - customizable
-    - Start code-server
-3. Active - Code-server up and running, waiting for incoming connections
+    - Wait for the ECS container to boot up
+    - Install extra extensions - customizable by the user when creating the instance (basic extensions are already built
+      into the image)
+    - Copy in settings.json - customizable by the user when creating the instance
+    - Copy in challenge files and set workspace (work DIR) - customizable by the user when creating the instance
+    - Wait for code-server to start
+3. Active - Code-server up and running, allow for incoming connections
 4. Destroying
-    - Destroy all infrastructure
+    - Destroy all infrastructures
     - Delete terraform workspace files on S3
 5. Error
