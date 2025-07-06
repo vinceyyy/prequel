@@ -91,16 +91,19 @@ def install_soci():
             )
             logger.info("SOCI CLI downloaded successfully")
             
-            # Extract the tar.gz
-            extract_cmd = ['tar', '-xzf', soci_path, '-C', temp_dir]
-            subprocess.run(extract_cmd, check=True, capture_output=True)
+            # Extract the tar.gz using Python's tarfile module
+            import tarfile
+            import shutil
+            
+            with tarfile.open(soci_path, 'r:gz') as tar:
+                tar.extractall(path=temp_dir)
             
             # Make it executable and move to /tmp (which is writable in Lambda)
             soci_binary = os.path.join(temp_dir, 'soci-snapshotter-0.11.1-linux-amd64', 'soci')
             final_soci_path = '/tmp/soci'
             
-            subprocess.run(['cp', soci_binary, final_soci_path], check=True)
-            subprocess.run(['chmod', '+x', final_soci_path], check=True)
+            shutil.copy2(soci_binary, final_soci_path)
+            os.chmod(final_soci_path, 0o755)
             
             # Add to PATH
             os.environ['PATH'] = f"/tmp:{os.environ.get('PATH', '')}"
