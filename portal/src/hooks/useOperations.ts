@@ -8,7 +8,7 @@ interface Operation {
   status: 'pending' | 'running' | 'completed' | 'failed'
   interviewId: string
   candidateName?: string
-  scenario?: string
+  challenge?: string
   startedAt: string
   completedAt?: string
   result?: {
@@ -38,13 +38,13 @@ export function useOperations(interviewId?: string) {
   }, [interviewId])
 
   const createInterview = useCallback(
-    async (candidateName: string, scenario: string) => {
+    async (candidateName: string, challenge: string) => {
       try {
         setLoading(true)
         const response = await fetch('/api/interviews/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ candidateName, scenario }),
+          body: JSON.stringify({ candidateName, challenge }),
         })
 
         if (response.ok) {

@@ -11,7 +11,7 @@ Prequel is a coding interview platform that provisions on-demand VS Code instanc
 - **`infra/`** - Shared AWS infrastructure (VPC, ECS, ALB) via Terraform
 - **`portal/`** - NextJS web interface for managing interviews
 - **`instance/`** - Per-interview Terraform templates for ECS instances
-- **`scenario/`** - Interview coding challenges and environments
+- **`challenge/`** - Interview coding challenges and environments
 
 ## Development Commands
 
@@ -50,6 +50,7 @@ terraform destroy # Clean up resources
 **Environment Variables:**
 
 Set these environment variables for AWS configuration:
+
 ```bash
 export AWS_PROFILE=your-profile-name    # AWS profile to use
 export AWS_REGION=your-aws-region             # AWS region (default: your-aws-region)
@@ -66,9 +67,10 @@ export AWS_REGION=your-aws-region             # AWS region (default: your-aws-re
 **Build Scripts:**
 
 All build scripts use environment variables for AWS configuration:
+
 - `instance/build-and-push.sh` - Build and push instance Docker image
 - `portal/build-push-deploy.sh` - Build, push and deploy portal
-- `scenario/sync-to-s3.sh` - Sync scenarios to S3
+- `challenge/sync-to-s3.sh` - Sync challenges to S3
 
 **Interview Deployment:**
 
@@ -85,7 +87,7 @@ Current structure:
 - `portal/` - NextJS frontend
 - `infra/` - Shared AWS infrastructure code in terraform
 - `instance/` - Terraform code for provisioning code-server instance
-- `scenarios/` - Interview scenario files
+- `challenge/` - Interview challenge files
 
 ## Code Style
 
@@ -136,10 +138,30 @@ npm run test:all     # Full test suite (5-10 minutes)
 - E2E tests: Use `npm run test:e2e:ui` for interactive debugging
 - Coverage reports: `npm run test:coverage`
 
-## Key Features (Planned)
+## Desired workflow
 
-- [X] Per-candidate VS Code instance provisioning
-- [ ] Password-protected access to instances
-- [ ] Scenario-based file mounting (CSV for data science, DuckDB for SQL interviews)
-- [ ] AWS ECS-based deployment with automatic teardown
+1. Login to portal
+2. Create instance
+    1. Select a challenge (prebuilt or customized)
+    2. [Optional] Selecting instance (if needs special instance)
+    3. Manually create or scheduled
+3. Wait for instance to become `Active` - Scenario files will be copied from S3 to instance during the configuring stage
+4. When an instance become `Active`, copy the URL and password and send to the candidate
+5. Destroy the instance after an interview
+    1. Manually destroy or scheduled
+    2. Option to save all files (with ignore list) to s3, into candidate-named folder
 
+## Instance state
+
+1. Initializing - provisioning infra, not customizable by the interviewer
+2. Configuring
+    - Wait for ECS to boot
+    - Install extra extensions - customizable (basic extensions are already built into the image)
+    - Copy in settings - customizable
+    - Copy in scenario files and set workspace (work DIR) - customizable
+    - Start code-server
+3. Active - Code-server up and running, waiting for incoming connections
+4. Destroying
+    - Destroy all infrastructure
+    - Delete terraform workspace files on S3
+5. Error

@@ -27,7 +27,7 @@ test.describe('Prequel Portal E2E Tests', () => {
 
     await expect(page.getByText('Create New Interview')).toBeVisible()
     await expect(page.getByLabel('Candidate Name')).toBeVisible()
-    await expect(page.getByLabel('Interview Scenario')).toBeVisible()
+    await expect(page.getByLabel('Interview Challenge')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible()
   })
 
@@ -50,24 +50,24 @@ test.describe('Prequel Portal E2E Tests', () => {
     ).toBeEnabled()
   })
 
-  test('can select different scenarios', async ({ page }) => {
+  test('can select different challenges', async ({ page }) => {
     await page.goto('/')
 
     await page.getByRole('button', { name: 'Create New Interview' }).click()
 
-    const scenarioSelect = page.getByLabel('Interview Scenario')
-    await expect(scenarioSelect).toBeVisible()
+    const challengeSelect = page.getByLabel('Interview Challenge')
+    await expect(challengeSelect).toBeVisible()
 
     // Check default selection
-    await expect(scenarioSelect).toHaveValue('javascript')
+    await expect(challengeSelect).toHaveValue('javascript')
 
     // Change to Python
-    await scenarioSelect.selectOption('python')
-    await expect(scenarioSelect).toHaveValue('python')
+    await challengeSelect.selectOption('python')
+    await expect(challengeSelect).toHaveValue('python')
 
     // Change to SQL
-    await scenarioSelect.selectOption('sql')
-    await expect(scenarioSelect).toHaveValue('sql')
+    await challengeSelect.selectOption('sql')
+    await expect(challengeSelect).toHaveValue('sql')
   })
 
   test('can close create interview modal', async ({ page }) => {
@@ -90,7 +90,7 @@ test.describe('Prequel Portal E2E Tests', () => {
 
     // Check table headers
     await expect(page.getByText('Candidate')).toBeVisible()
-    await expect(page.getByText('Scenario')).toBeVisible()
+    await expect(page.getByText('Challenge')).toBeVisible()
     await expect(page.getByText('Status')).toBeVisible()
     await expect(page.getByText('Access Details')).toBeVisible()
     await expect(page.getByText('Actions')).toBeVisible()
@@ -131,7 +131,7 @@ test.describe('Prequel Portal E2E Tests', () => {
             {
               id: 'int-1',
               candidateName: 'John Doe',
-              scenario: 'javascript',
+              challenge: 'javascript',
               status: 'active',
               accessUrl: 'https://example.com/int-1',
               password: 'test123',
@@ -140,7 +140,7 @@ test.describe('Prequel Portal E2E Tests', () => {
             {
               id: 'int-2',
               candidateName: 'Jane Smith',
-              scenario: 'python',
+              challenge: 'python',
               status: 'creating',
               createdAt: '2024-01-01T11:00:00Z',
             },
@@ -171,7 +171,7 @@ test.describe('Prequel Portal E2E Tests', () => {
             {
               id: 'int-1',
               candidateName: 'John Doe',
-              scenario: 'javascript',
+              challenge: 'javascript',
               status: 'active',
               createdAt: '2024-01-01T10:00:00Z',
             },
@@ -258,7 +258,7 @@ test.describe('Prequel Portal E2E Tests', () => {
           interview: {
             id: 'new-int',
             candidateName: 'Test User',
-            scenario: 'javascript',
+            challenge: 'javascript',
             status: 'creating',
           },
         }),
@@ -281,7 +281,7 @@ test.describe('Prequel Portal E2E Tests', () => {
 
     // Fill form
     await page.getByLabel('Candidate Name').fill('Test User')
-    await page.getByLabel('Interview Scenario').selectOption('javascript')
+    await page.getByLabel('Interview Challenge').selectOption('javascript')
 
     // Submit form
     await page.getByRole('button', { name: 'Create Interview' }).click()

@@ -20,9 +20,6 @@ const eslintConfig = [
       'prettier/prettier': 'error',
     },
   },
-  {
-    ignores: ['src/scenarios/**/*'],
-  },
 ]
 
 export default eslintConfig

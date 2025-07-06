@@ -49,9 +49,9 @@ output "candidate_name" {
   value       = var.candidate_name
 }
 
-output "scenario" {
-  description = "Interview scenario"
-  value       = var.scenario
+output "challenge" {
+  description = "Interview challenge"
+  value       = var.challenge
 }
 
 output "created_at" {

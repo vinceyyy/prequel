@@ -33,7 +33,7 @@ locals {
   tags = {
     InterviewId    = local.interview_id
     CandidateName  = var.candidate_name
-    Scenario       = var.scenario
+    Challenge      = var.challenge
     Environment    = "interview"
     ManagedBy      = "terraform"
     CreatedAt      = timestamp()

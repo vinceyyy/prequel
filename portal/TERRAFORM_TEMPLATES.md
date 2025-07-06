@@ -15,7 +15,7 @@ prequel/
 │   ├── variables.tf
 │   ├── outputs.tf
 │   └── sync-to-s3.sh
-└── scenario/                       ← Interview scenario files
+└── challenge/                      ← Interview challenge files
     ├── python/
     ├── javascript/
     ├── sql/
@@ -31,7 +31,7 @@ S3 Bucket: prequel-instance
 │   ├── service.tf
 │   ├── variables.tf
 │   └── outputs.tf
-├── scenario/                       ← Scenario files
+├── challenge/                      ← Challenge files
 │   ├── python/
 │   ├── javascript/
 │   └── sql/
@@ -58,54 +58,14 @@ S3 Bucket: prequel-instance
 - Uses the saved workspace from `s3://prequel-instance/workspaces/{interview-id}/`
 - This ensures existing interviews aren't affected by template updates
 
-## Updating Templates and Scenarios
-
-### Method 1: Using the Sync Scripts (Recommended)
+## Updating Templates and Challenges - Using the Sync Scripts
 
 ```bash
-# From the project root
-./sync-to-s3.sh                    # Sync both instance and scenarios
-./sync-to-s3.sh --instance         # Sync only instance templates
-./sync-to-s3.sh --scenario         # Sync only scenarios
-
 # From the instance directory
 cd instance && ./sync-to-s3.sh
 
-# From the scenario directory
-cd scenario && ./sync-to-s3.sh
-```
-
-### Method 2: Manual Upload
-
-```bash
-# Instance templates
-AWS_PROFILE=<AWS_PROFILE> aws s3 sync instance/ s3://prequel-instance/instance/ \
-  --exclude "*.terraform*" \
-  --exclude ".terraform*" \
-  --exclude "terraform.tfstate*" \
-  --exclude "terraform.tfvars" \
-  --delete
-
-# Scenarios
-AWS_PROFILE=<AWS_PROFILE> aws s3 sync scenario/ s3://prequel-instance/scenario/ \
-  --exclude "*.md" \
-  --exclude "README*" \
-  --delete
-```
-
-### Method 3: Direct S3 Edit
-
-You can also edit files directly in the S3 console or using AWS CLI:
-
-```bash
-# Download a specific file
-aws s3 cp s3://prequel-instance/instance/service.tf service.tf
-
-# Edit the file locally
-vim service.tf
-
-# Upload back to S3
-aws s3 cp service.tf s3://prequel-instance/instance/service.tf
+# From the challenge directory
+cd challenge && ./sync-to-s3.sh
 ```
 
 ## Benefits

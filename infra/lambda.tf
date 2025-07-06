@@ -126,7 +126,7 @@ resource "aws_cloudwatch_event_rule" "ecr_image_push" {
     source      = ["aws.ecr"]
     detail-type = ["ECR Image Action"]
     detail = {
-      action-type = ["PUSH"]
+      action-type     = ["PUSH"]
       repository-name = [aws_ecr_repository.code_server.name]
     }
   })
@@ -159,13 +159,13 @@ data "archive_file" "soci_indexer_zip" {
 
 # Update Lambda function to use the archive
 resource "aws_lambda_function" "soci_indexer" {
-  filename         = data.archive_file.soci_indexer_zip.output_path
-  function_name    = "${local.name}-soci-indexer"
-  role            = aws_iam_role.soci_indexer.arn
-  handler         = "index.handler"
-  runtime         = "python3.11"
-  timeout         = 900 # 15 minutes
-  memory_size     = 1024
+  filename      = data.archive_file.soci_indexer_zip.output_path
+  function_name = "${local.name}-soci-indexer"
+  role          = aws_iam_role.soci_indexer.arn
+  handler       = "index.handler"
+  runtime       = "python3.11"
+  timeout       = 900 # 15 minutes
+  memory_size   = 1024
 
   environment {
     variables = {

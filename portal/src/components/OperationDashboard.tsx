@@ -8,7 +8,7 @@ interface Operation {
   status: 'pending' | 'running' | 'completed' | 'failed'
   interviewId: string
   candidateName?: string
-  scenario?: string
+  challenge?: string
   startedAt: string
   completedAt?: string
   logs: string[]
@@ -287,8 +287,8 @@ export default function OperationDashboard({
                     {operation.candidateName && (
                       <div>Candidate: {operation.candidateName}</div>
                     )}
-                    {operation.scenario && (
-                      <div>Scenario: {operation.scenario}</div>
+                    {operation.challenge && (
+                      <div>Challenge: {operation.challenge}</div>
                     )}
                     <div>Started: {formatTime(operation.startedAt)}</div>
                     <div>

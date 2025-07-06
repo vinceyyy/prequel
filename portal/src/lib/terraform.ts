@@ -16,7 +16,7 @@ export interface TerraformExecutionResult {
 export interface InterviewInstance {
   id: string
   candidateName: string
-  scenario: string
+  challenge: string
   password: string
   accessUrl?: string
   status: 'creating' | 'active' | 'destroying' | 'destroyed' | 'error'
@@ -396,7 +396,7 @@ class TerraformManager {
     const tfvarsContent = `
 interview_id = "${instance.id}"
 candidate_name = "${instance.candidateName}"
-scenario = "${instance.scenario}"
+challenge = "${instance.challenge}"
 password = "${instance.password}"
 aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
 `
@@ -896,7 +896,7 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
         const minimalTfvarsContent = `
 interview_id = "${interviewId}"
 candidate_name = "unknown"
-scenario = "javascript"
+challenge = "javascript"
 password = "destroy-temp-password"
 aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
 `
@@ -958,7 +958,7 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
               const minimalTfvarsContent = `
 interview_id = "${interviewId}"
 candidate_name = "unknown"
-scenario = "javascript"
+challenge = "javascript"
 password = "destroy-temp-password"
 aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
 `

@@ -35,7 +35,7 @@ prequel/
 ├── infra/           # Shared AWS infrastructure (Terraform)
 ├── portal/          # NextJS web interface  
 ├── instance/        # Per-interview Terraform templates
-└── scenario/        # Interview coding challenges
+└── challenges/      # Interview coding challenges
 ```
 
 **Tech Stack:** Next.js + TypeScript, AWS ECS, Terraform
@@ -43,7 +43,7 @@ prequel/
 ## Features
 
 - **On-demand instances** - Isolated VS Code containers per candidate
-- **Pre-configured scenarios** - JavaScript, Python, SQL
+- **Pre-configured challenges** - JavaScript, Python, SQL
 - **Automatic provisioning** - Infrastructure created/destroyed via Terraform
 - **Secure access** - Password-protected with temporary credentials
 - **Cost-effective** - Resources only run during interviews (~$0.50/hour)
@@ -84,15 +84,15 @@ npm run format       # Fix code formatting
 
 ## Interview Flow
 
-1. **Create Interview** - Select candidate name + scenario type
+1. **Create Interview** - Select candidate name + challenge type
 2. **Auto-provision** - Terraform creates isolated ECS instance
 3. **Share access** - Portal provides URL + password
 4. **Conduct interview** - Candidate codes in browser VS Code
 5. **Cleanup** - All resources automatically destroyed
 
-## Available Scenarios
+## Available Challenges
 
-| Scenario         | Tools                  | Challenge Type           |
+| Challenge        | Tools                  | Challenge Type           |
 |------------------|------------------------|--------------------------|
 | **JavaScript**   | React, TypeScript      | Todo list implementation |
 | **Python**       | Pandas, NumPy, Jupyter | Data analysis tasks      |
@@ -126,7 +126,7 @@ The portal runs on AWS ECS with:
 - **`infra/`** - VPC, ECS cluster, ALB, shared resources
 - **`portal/`** - Web UI, API routes, Terraform execution
 - **`instance/`** - Per-interview infrastructure templates
-- **`scenario/`** - Coding challenge files and environments
+- **`challenge/`** - Coding challenge files and environments
 
 ### Component Workflows
 
@@ -140,8 +140,8 @@ cd portal/ && ./build-and-push.sh
 # Template updates
 cd instance/ && ./sync-to-s3.sh
 
-# Scenario updates
-cd scenario/ && ./sync-to-s3.sh
+# challenge updates
+cd challenge/ && ./sync-to-s3.sh
 ```
 
 ## Security & Cost

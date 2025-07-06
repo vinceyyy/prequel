@@ -34,7 +34,7 @@ const mockInterviews = [
     id: 'int-1',
     candidateName: 'John Doe',
     status: 'active' as const,
-    scenario: 'javascript',
+    challenge: 'javascript',
     accessUrl: 'https://example.com/interview/int-1',
     password: 'test123',
     createdAt: '2024-01-01T10:00:00Z',
@@ -43,14 +43,14 @@ const mockInterviews = [
     id: 'int-2',
     candidateName: 'Jane Smith',
     status: 'creating' as const,
-    scenario: 'python',
+    challenge: 'python',
     createdAt: '2024-01-01T11:00:00Z',
   },
   {
     id: 'int-3',
     candidateName: 'Bob Wilson',
     status: 'error' as const,
-    scenario: 'sql',
+    challenge: 'sql',
     createdAt: '2024-01-01T12:00:00Z',
   },
 ]
@@ -70,10 +70,22 @@ describe('Home Page', () => {
   })
 
   it('renders the main page with title and header', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: [] }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          challenges: [
+            { id: 'javascript', name: 'Javascript' },
+            { id: 'python', name: 'Python' },
+            { id: 'sql', name: 'Sql' },
+          ],
+        }),
+      })
 
     render(<Home />)
 
@@ -88,10 +100,22 @@ describe('Home Page', () => {
   })
 
   it('loads and displays interviews on initial render', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: mockInterviews }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: mockInterviews }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          challenges: [
+            { id: 'javascript', name: 'Javascript' },
+            { id: 'python', name: 'Python' },
+            { id: 'sql', name: 'Sql' },
+          ],
+        }),
+      })
 
     render(<Home />)
 
@@ -117,10 +141,18 @@ describe('Home Page', () => {
   })
 
   it('shows empty state when no interviews exist', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: [] }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          challenges: [],
+        }),
+      })
 
     render(<Home />)
 
@@ -130,10 +162,21 @@ describe('Home Page', () => {
   })
 
   it('opens create interview modal when button is clicked', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: [] }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          challenges: [
+            { id: 'javascript', name: 'Javascript' },
+            { id: 'python', name: 'Python' },
+          ],
+        }),
+      })
 
     render(<Home />)
 
@@ -148,15 +191,26 @@ describe('Home Page', () => {
       .find(element => element.tagName === 'H2')
     expect(modalTitle).toBeInTheDocument()
     expect(screen.getByLabelText('Candidate Name')).toBeInTheDocument()
-    expect(screen.getByLabelText('Interview Scenario')).toBeInTheDocument()
+    expect(screen.getByLabelText('Interview Challenge')).toBeInTheDocument()
   })
 
   it('handles form input and submission', async () => {
     const user = userEvent.setup()
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: [] }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          challenges: [
+            { id: 'javascript', name: 'Javascript' },
+            { id: 'python', name: 'Python' },
+          ],
+        }),
+      })
 
     const mockCreateInterview = jest.fn().mockResolvedValue({})
     mockUseOperations.mockReturnValue({
@@ -177,10 +231,10 @@ describe('Home Page', () => {
 
     // Fill form
     const nameInput = screen.getByLabelText('Candidate Name')
-    const scenarioSelect = screen.getByLabelText('Interview Scenario')
+    const challengeSelect = screen.getByLabelText('Interview Challenge')
 
     await user.type(nameInput, 'Test Candidate')
-    await user.selectOptions(scenarioSelect, 'python')
+    await user.selectOptions(challengeSelect, 'python')
 
     // Submit form
     const submitButton = screen.getByRole('button', {
@@ -197,10 +251,15 @@ describe('Home Page', () => {
   })
 
   it('displays different status badges correctly', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: mockInterviews }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: mockInterviews }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, challenges: [] }),
+      })
 
     render(<Home />)
 
@@ -215,10 +274,15 @@ describe('Home Page', () => {
   })
 
   it('shows access details for active interviews', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: [mockInterviews[0]] }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: [mockInterviews[0]] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, challenges: [] }),
+      })
 
     render(<Home />)
 
@@ -231,10 +295,15 @@ describe('Home Page', () => {
   })
 
   it('handles stop interview action', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: [mockInterviews[0]] }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: [mockInterviews[0]] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, challenges: [] }),
+      })
 
     const mockDestroyInterview = jest.fn().mockResolvedValue({})
     mockUseOperations.mockReturnValue({
@@ -269,10 +338,15 @@ describe('Home Page', () => {
   })
 
   it('handles retry destroy for error state interviews', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: [mockInterviews[2]] }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: [mockInterviews[2]] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, challenges: [] }),
+      })
 
     const mockDestroyInterview = jest.fn().mockResolvedValue({})
     mockUseOperations.mockReturnValue({
@@ -307,10 +381,15 @@ describe('Home Page', () => {
   })
 
   it('opens logs modal when logs button is clicked', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: [mockInterviews[0]] }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: [mockInterviews[0]] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, challenges: [] }),
+      })
 
     render(<Home />)
 
@@ -326,9 +405,17 @@ describe('Home Page', () => {
   })
 
   it('refreshes interviews when refresh button is clicked', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: async () => ({ interviews: mockInterviews }),
+    ;(global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/api/challenges')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, challenges: [] }),
+        })
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ interviews: mockInterviews }),
+      })
     })
 
     render(<Home />)
@@ -346,10 +433,15 @@ describe('Home Page', () => {
   })
 
   it('validates form input - empty candidate name', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: [] }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, challenges: [] }),
+      })
 
     render(<Home />)
 
@@ -368,10 +460,15 @@ describe('Home Page', () => {
 
   it('shows notification after creating interview', async () => {
     jest.useFakeTimers()
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: [] }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, challenges: [] }),
+      })
 
     const mockCreateInterview = jest.fn().mockResolvedValue({})
     mockUseOperations.mockReturnValue({
@@ -417,10 +514,15 @@ describe('Home Page', () => {
   })
 
   it('shows error notification when destroy fails', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ interviews: [mockInterviews[0]] }),
-    })
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ interviews: [mockInterviews[0]] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, challenges: [] }),
+      })
 
     const mockDestroyInterview = jest
       .fn()

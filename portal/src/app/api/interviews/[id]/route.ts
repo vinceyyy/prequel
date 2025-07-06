@@ -24,7 +24,7 @@ export async function GET(
     const interview = {
       id,
       candidateName: outputs?.candidate_name?.value || 'Unknown',
-      scenario: outputs?.scenario?.value || 'unknown',
+      challenge: outputs?.challenge?.value || 'unknown',
       status: 'active',
       accessUrl: outputs?.access_url?.value,
       password: outputs?.password?.value,

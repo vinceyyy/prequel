@@ -14,12 +14,12 @@ variable "candidate_name" {
   type        = string
 }
 
-variable "scenario" {
-  description = "Interview scenario type"
+variable "challenge" {
+  description = "Interview challenge type"
   type        = string
   validation {
-    condition = contains(["javascript", "python", "sql", "fullstack"], var.scenario)
-    error_message = "Scenario must be one of: javascript, python, sql, fullstack"
+    condition = contains(["javascript", "python", "sql", "fullstack"], var.challenge)
+    error_message = "Challenge must be one of: javascript, python, sql, fullstack"
   }
 }
 

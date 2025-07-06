@@ -7,7 +7,7 @@ export interface Operation {
   status: 'pending' | 'running' | 'completed' | 'failed'
   interviewId: string
   candidateName?: string
-  scenario?: string
+  challenge?: string
   startedAt: Date
   completedAt?: Date
   logs: string[]
@@ -57,7 +57,7 @@ class OperationManager {
     type: 'create' | 'destroy',
     interviewId: string,
     candidateName?: string,
-    scenario?: string
+    challenge?: string
   ): string {
     const operationId = uuidv4()
 
@@ -67,7 +67,7 @@ class OperationManager {
       status: 'pending',
       interviewId,
       candidateName,
-      scenario,
+      challenge,
       startedAt: new Date(),
       logs: [],
     }

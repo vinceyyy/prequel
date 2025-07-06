@@ -78,17 +78,17 @@ def install_soci():
     
     # Create temp directory
     with tempfile.TemporaryDirectory() as temp_dir:
-        soci_path = os.path.join(temp_dir, 'soci')
+        soci_path = os.path.join(temp_dir, 'soci.tar.gz')
         
-        # Download SOCI CLI binary
-        # Using curl to download the latest release
-        download_cmd = [
-            'curl', '-L', '-o', soci_path,
-            'https://github.com/awslabs/soci-snapshotter/releases/latest/download/soci-snapshotter-0.11.1-linux-amd64.tar.gz'
-        ]
+        # Download SOCI CLI binary using urllib instead of curl
+        import urllib.request
         
         try:
-            subprocess.run(download_cmd, check=True, capture_output=True)
+            logger.info("Downloading SOCI CLI...")
+            urllib.request.urlretrieve(
+                'https://github.com/awslabs/soci-snapshotter/releases/latest/download/soci-snapshotter-0.11.1-linux-amd64.tar.gz',
+                soci_path
+            )
             logger.info("SOCI CLI downloaded successfully")
             
             # Extract the tar.gz

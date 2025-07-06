@@ -8,7 +8,7 @@ interface Interview {
   id: string
   candidateName: string
   status: 'creating' | 'active' | 'destroying' | 'destroyed' | 'error'
-  scenario: string
+  challenge: string
   accessUrl?: string
   password?: string
   createdAt: string
@@ -26,34 +26,30 @@ export default function Home() {
   const [notification, setNotification] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     candidateName: '',
-    scenario: 'python',
+    challenge: 'python',
   })
 
   // Use the operations hook for background operations
   const { createInterview, destroyInterview } = useOperations()
 
-  const [scenarios, setScenarios] = useState<
+  const [challenges, setChallenges] = useState<
     Array<{ id: string; name: string }>
-  >([
-    { id: 'python', name: 'Python' },
-    { id: 'sql', name: 'SQL' },
-    { id: 'javascript', name: 'JavaScript' },
-  ])
+  >([])
 
-  const loadScenarios = useCallback(async () => {
+  const loadChallenges = useCallback(async () => {
     try {
-      const response = await fetch('/api/scenarios')
+      const response = await fetch('/api/challenges')
       if (response.ok) {
         const data = await response.json()
-        if (data.success && data.scenarios) {
-          console.log('[DEBUG] Loaded scenarios from API:', data.scenarios)
-          setScenarios(data.scenarios)
+        if (data.success && data.challenges) {
+          console.log('[DEBUG] Loaded challenges from API:', data.challenges)
+          setChallenges(data.challenges)
         }
       } else {
-        console.warn('Failed to load scenarios, using fallback')
+        console.warn('Failed to load challenges, using fallback')
       }
     } catch (error) {
-      console.error('Error loading scenarios:', error)
+      console.error('Error loading challenges:', error)
     }
   }, [])
 
@@ -103,8 +99,8 @@ export default function Home() {
       '[DEBUG] Main page: Step 1 - Initial load, checking existing interviews (one-off request)'
     )
     loadInterviews()
-    loadScenarios()
-  }, [loadInterviews, loadScenarios])
+    loadChallenges()
+  }, [loadInterviews, loadChallenges])
 
   // NO AUTOMATIC POLLING - interviews endpoint is manual refresh only
 
@@ -129,10 +125,10 @@ export default function Home() {
     setLoading(true)
     try {
       // Use the background create API
-      await createInterview(formData.candidateName.trim(), formData.scenario)
+      await createInterview(formData.candidateName.trim(), formData.challenge)
 
       // Close the modal immediately since operation is now background
-      setFormData({ candidateName: '', scenario: 'python' })
+      setFormData({ candidateName: '', challenge: 'python' })
       setShowCreateForm(false)
 
       // Show notification
@@ -249,18 +245,18 @@ export default function Home() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Interview Scenario
+                    Interview Challenge
                   </label>
                   <select
-                    value={formData.scenario}
+                    value={formData.challenge}
                     onChange={e =>
-                      setFormData({ ...formData, scenario: e.target.value })
+                      setFormData({ ...formData, challenge: e.target.value })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                   >
-                    {scenarios.map(scenario => (
-                      <option key={scenario.id} value={scenario.id}>
-                        {scenario.name}
+                    {challenges.map(challenge => (
+                      <option key={challenge.id} value={challenge.id}>
+                        {challenge.name}
                       </option>
                     ))}
                   </select>
@@ -295,7 +291,7 @@ export default function Home() {
                     Candidate
                   </th>
                   <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Scenario
+                    Challenge
                   </th>
                   <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -342,7 +338,10 @@ export default function Home() {
                         </div>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {scenarios.find(s => s.id === interview.scenario)?.name}
+                        {
+                          challenges.find(c => c.id === interview.challenge)
+                            ?.name
+                        }
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                         <div>

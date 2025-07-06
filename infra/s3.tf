@@ -56,25 +56,25 @@ resource "aws_s3_bucket_lifecycle_configuration" "instance_code" {
   }
 }
 
-# S3 bucket for storing interview scenarios
-resource "aws_s3_bucket" "scenarios" {
-  bucket = "prequel-scenario"
+# S3 bucket for storing interview challenges
+resource "aws_s3_bucket" "challenges" {
+  bucket = "prequel-challenge"
 
   tags = merge(local.tags, {
-    Name        = "prequel-scenario"
-    Description = "Storage for interview scenario files"
+    Name        = "prequel-challenge"
+    Description = "Storage for interview challenge files"
   })
 }
 
-resource "aws_s3_bucket_versioning" "scenarios" {
-  bucket = aws_s3_bucket.scenarios.id
+resource "aws_s3_bucket_versioning" "challenges" {
+  bucket = aws_s3_bucket.challenges.id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "scenarios" {
-  bucket = aws_s3_bucket.scenarios.id
+resource "aws_s3_bucket_server_side_encryption_configuration" "challenges" {
+  bucket = aws_s3_bucket.challenges.id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -83,8 +83,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "scenarios" {
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "scenarios" {
-  bucket = aws_s3_bucket.scenarios.id
+resource "aws_s3_bucket_public_access_block" "challenges" {
+  bucket = aws_s3_bucket.challenges.id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -92,9 +92,9 @@ resource "aws_s3_bucket_public_access_block" "scenarios" {
   restrict_public_buckets = true
 }
 
-# Lifecycle configuration for scenarios
-resource "aws_s3_bucket_lifecycle_configuration" "scenarios" {
-  bucket = aws_s3_bucket.scenarios.id
+# Lifecycle configuration for challenges
+resource "aws_s3_bucket_lifecycle_configuration" "challenges" {
+  bucket = aws_s3_bucket.challenges.id
 
   rule {
     id     = "cleanup_old_versions"

@@ -11,7 +11,7 @@ const mockOperations = [
     status: 'completed' as const,
     interviewId: 'int-1',
     candidateName: 'John Doe',
-    scenario: 'javascript',
+    challenge: 'javascript',
     startedAt: '2024-01-01T10:00:00Z',
     completedAt: '2024-01-01T10:05:00Z',
     result: {
@@ -128,7 +128,7 @@ describe('useOperations', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         candidateName: 'Test User',
-        scenario: 'javascript',
+        challenge: 'javascript',
       }),
     })
   })

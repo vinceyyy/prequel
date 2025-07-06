@@ -202,12 +202,12 @@ resource "aws_ecs_task_definition" "interview" {
 
       environment = [
         {
-          name  = "SCENARIO"
-          value = var.scenario
+          name  = "CHALLENGE"
+          value = var.challenge
         },
         {
-          name  = "S3_SCENARIO_BUCKET"
-          value = data.terraform_remote_state.infrastructure.outputs.scenario_bucket_name
+          name  = "S3_CHALLENGE_BUCKET"
+          value = data.terraform_remote_state.infrastructure.outputs.challenge_bucket_name
         },
         {
           name  = "AWS_REGION"

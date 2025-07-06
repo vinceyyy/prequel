@@ -13,7 +13,7 @@ RUN apt-get update && \
     rm -rf awscliv2.zip aws && \
     rm -rf /var/lib/apt/lists/*
 
-# Create workspace directory (scenarios will be downloaded at runtime)
+# Create workspace directory (challenge will be downloaded at runtime)
 RUN mkdir -p /workspaces
 
 # Set proper ownership
@@ -27,7 +27,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 USER coder
 WORKDIR /workspaces
 
-# Install common VS Code extensions that work well with our scenarios
+# Install common VS Code extensions that work well with our challenges
 RUN code-server --install-extension ms-python.python \
     && code-server --install-extension ms-vscode.vscode-typescript-next \
     && code-server --install-extension esbenp.prettier-vscode \

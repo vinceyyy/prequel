@@ -5,10 +5,10 @@ import { v4 as uuidv4 } from 'uuid'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { candidateName, scenario } = body
+    const { candidateName, challenge } = body
 
-    if (!candidateName || !scenario) {
-      return new Response('candidateName and scenario are required', {
+    if (!candidateName || !challenge) {
+      return new Response('candidateName and challenge are required', {
         status: 400,
       })
     }
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const instance = {
       id: interviewId,
       candidateName,
-      scenario,
+      challenge,
       password,
     }
 
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
           type: 'metadata',
           interviewId,
           candidateName,
-          scenario,
+          challenge,
           password,
         }
         controller.enqueue(

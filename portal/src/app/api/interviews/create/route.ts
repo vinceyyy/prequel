@@ -6,11 +6,11 @@ import { v4 as uuidv4 } from 'uuid'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { candidateName, scenario } = body
+    const { candidateName, challenge } = body
 
-    if (!candidateName || !scenario) {
+    if (!candidateName || !challenge) {
       return NextResponse.json(
-        { error: 'candidateName and scenario are required' },
+        { error: 'candidateName and challenge are required' },
         { status: 400 }
       )
     }
@@ -23,13 +23,13 @@ export async function POST(request: NextRequest) {
       'create',
       interviewId,
       candidateName,
-      scenario
+      challenge
     )
 
     const instance = {
       id: interviewId,
       candidateName,
-      scenario,
+      challenge,
       password,
     }
 
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
           operationId,
           `Interview ID: ${interviewId}`
         )
-        operationManager.addOperationLog(operationId, `Scenario: ${scenario}`)
+        operationManager.addOperationLog(operationId, `Challenge: ${challenge}`)
 
         const result = await terraformManager.createInterviewStreaming(
           instance,
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       operationId,
       interviewId,
       candidateName,
-      scenario,
+      challenge,
       password,
       message: 'Interview creation started in background',
     })

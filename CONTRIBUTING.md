@@ -250,8 +250,8 @@ terraform apply  # Deploy changes (production)
 cd instance/
 ./sync-to-s3.sh  # Update Terraform templates
 
-cd scenario/
-./sync-to-s3.sh  # Update interview scenarios
+cd challange/
+./sync-to-s3.sh  # Update interview challenges
 ```
 
 ## 🎯 Best Practices
@@ -268,7 +268,7 @@ cd scenario/
 2. **Fast feedback** - Use watch modes and focused tests
 3. **Interactive debugging** - Use UI tools for E2E debugging
 4. **Mock external services** - Keep tests fast and reliable
-5. **Test user workflows** - E2E tests should test real scenarios
+5. **Test user workflows** - E2E tests should test real challenges
 
 ### Code Quality
 1. **Automatic formatting** - Let Prettier handle formatting

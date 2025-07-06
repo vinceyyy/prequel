@@ -9,7 +9,7 @@ interface SharedResult {
   completedInterviews: Array<{
     id: string
     candidateName: string
-    scenario: string
+    challenge: string
     status: string
     accessUrl?: string
     password?: string
@@ -30,13 +30,13 @@ async function performExpensiveQuery(): Promise<SharedResult> {
     if (status.success && status.outputs) {
       const outputs = status.outputs as Record<string, { value: string }>
 
-      // Only return interview if it has valid candidate name and scenario
+      // Only return interview if it has valid candidate name and challenge
       // This prevents malformed data during creation process
-      if (outputs.candidate_name?.value && outputs.scenario?.value) {
+      if (outputs.candidate_name?.value && outputs.challenge?.value) {
         return {
           id,
           candidateName: outputs.candidate_name.value,
-          scenario: outputs.scenario.value,
+          challenge: outputs.challenge.value,
           status: 'active',
           accessUrl: outputs.access_url?.value,
           password: outputs.password?.value,
@@ -61,7 +61,7 @@ async function performExpensiveQuery(): Promise<SharedResult> {
       return {
         id,
         candidateName: destroyOperation.candidateName || 'Unknown',
-        scenario: destroyOperation.scenario || 'unknown',
+        challenge: destroyOperation.challenge || 'unknown',
         status:
           destroyOperation.status === 'running'
             ? 'destroying'
@@ -76,7 +76,7 @@ async function performExpensiveQuery(): Promise<SharedResult> {
     return {
       id,
       candidateName: 'Unknown',
-      scenario: 'unknown',
+      challenge: 'unknown',
       status: 'error',
       createdAt: new Date().toISOString(),
     }
@@ -97,7 +97,7 @@ function getOperationInterviews(
     type: string
     interviewId: string
     candidateName?: string
-    scenario?: string
+    challenge?: string
     status: string
     result?: {
       success: boolean
@@ -112,7 +112,7 @@ function getOperationInterviews(
     .map(op => ({
       id: op.interviewId,
       candidateName: op.candidateName || 'Unknown',
-      scenario: op.scenario || 'unknown',
+      challenge: op.challenge || 'unknown',
       status:
         op.status === 'pending'
           ? 'creating'
@@ -133,7 +133,7 @@ function mergeAndDeduplicateInterviews(
   allInterviews: Array<{
     id: string
     candidateName: string
-    scenario: string
+    challenge: string
     status: string
     accessUrl?: string
     password?: string
@@ -278,11 +278,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { candidateName, scenario } = body
+    const { candidateName, challenge } = body
 
-    if (!candidateName || !scenario) {
+    if (!candidateName || !challenge) {
       return NextResponse.json(
-        { error: 'candidateName and scenario are required' },
+        { error: 'candidateName and challenge are required' },
         { status: 400 }
       )
     }
@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
     const instance = {
       id: interviewId,
       candidateName,
-      scenario,
+      challenge,
       password,
     }
 
@@ -319,7 +319,7 @@ export async function POST(request: NextRequest) {
       interview: {
         id: interviewId,
         candidateName,
-        scenario,
+        challenge,
         status: 'active',
         accessUrl: result.accessUrl,
         password,

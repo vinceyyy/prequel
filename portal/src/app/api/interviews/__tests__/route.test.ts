@@ -45,7 +45,7 @@ describe('/api/interviews', () => {
               success: true,
               outputs: {
                 candidate_name: { value: 'John Doe' },
-                scenario: { value: 'javascript' },
+                challenge: { value: 'javascript' },
                 access_url: { value: 'https://example.com/int-1' },
                 password: { value: 'test123' },
                 created_at: { value: '2024-01-01T10:00:00Z' },
@@ -64,7 +64,7 @@ describe('/api/interviews', () => {
       expect(data.interviews[0]).toMatchObject({
         id: 'int-1',
         candidateName: 'John Doe',
-        scenario: 'javascript',
+        challenge: 'javascript',
         status: 'active',
         accessUrl: 'https://example.com/int-1',
         password: 'test123',
@@ -78,7 +78,7 @@ describe('/api/interviews', () => {
           type: 'create',
           interviewId: 'int-1',
           candidateName: 'Jane Smith',
-          scenario: 'python',
+          challenge: 'python',
           status: 'completed',
           result: {
             success: true,
@@ -98,7 +98,7 @@ describe('/api/interviews', () => {
       expect(data.interviews[0]).toMatchObject({
         id: 'int-1',
         candidateName: 'Jane Smith',
-        scenario: 'python',
+        challenge: 'python',
         status: 'active',
         accessUrl: 'https://example.com/int-1',
         password: 'pass123',
@@ -112,7 +112,7 @@ describe('/api/interviews', () => {
           type: 'create',
           interviewId: 'int-1',
           candidateName: 'John Doe',
-          scenario: 'javascript',
+          challenge: 'javascript',
           status: 'completed',
           result: { success: true },
           startedAt: new Date('2024-01-01T10:00:00Z'),
@@ -123,7 +123,7 @@ describe('/api/interviews', () => {
         success: true,
         outputs: {
           candidate_name: { value: 'John Doe' },
-          scenario: { value: 'javascript' },
+          challenge: { value: 'javascript' },
           access_url: { value: 'https://example.com/int-1' },
           password: { value: 'test123' },
           created_at: { value: '2024-01-01T10:00:00Z' },
@@ -146,7 +146,7 @@ describe('/api/interviews', () => {
           type: 'create',
           interviewId: 'int-1',
           candidateName: 'John Doe',
-          scenario: 'javascript',
+          challenge: 'javascript',
           status: 'completed',
           result: { success: true },
           startedAt: new Date('2024-01-01T10:00:00Z'),
@@ -176,7 +176,7 @@ describe('/api/interviews', () => {
           type: 'create',
           interviewId: 'int-1',
           candidateName: 'John Doe',
-          scenario: 'javascript',
+          challenge: 'javascript',
           status: 'completed',
           result: { success: true },
           startedAt: new Date('2024-01-01T10:00:00Z'),
@@ -228,7 +228,7 @@ describe('/api/interviews', () => {
         method: 'POST',
         body: JSON.stringify({
           candidateName: 'John Doe',
-          scenario: 'javascript',
+          challenge: 'javascript',
         }),
       })
 
@@ -239,7 +239,7 @@ describe('/api/interviews', () => {
       expect(data.interview).toMatchObject({
         id: 'test-uuid',
         candidateName: 'John Doe',
-        scenario: 'javascript',
+        challenge: 'javascript',
         status: 'active',
         accessUrl: 'https://example.com/test-uuid-1',
       })
@@ -252,7 +252,7 @@ describe('/api/interviews', () => {
         method: 'POST',
         body: JSON.stringify({
           candidateName: 'John Doe',
-          // Missing scenario
+          // Missing challenge
         }),
       })
 
@@ -260,7 +260,7 @@ describe('/api/interviews', () => {
       const data = await response.json()
 
       expect(response.status).toBe(400)
-      expect(data.error).toBe('candidateName and scenario are required')
+      expect(data.error).toBe('candidateName and challenge are required')
     })
 
     it('handles terraform creation failure', async () => {
@@ -276,7 +276,7 @@ describe('/api/interviews', () => {
         method: 'POST',
         body: JSON.stringify({
           candidateName: 'John Doe',
-          scenario: 'javascript',
+          challenge: 'javascript',
         }),
       })
 
@@ -310,7 +310,7 @@ describe('/api/interviews', () => {
         method: 'POST',
         body: JSON.stringify({
           candidateName: 'John Doe',
-          scenario: 'javascript',
+          challenge: 'javascript',
         }),
       })
 
@@ -335,7 +335,7 @@ describe('/api/interviews', () => {
         method: 'POST',
         body: JSON.stringify({
           candidateName: 'Test User',
-          scenario: 'python',
+          challenge: 'python',
         }),
       })
 
@@ -344,7 +344,7 @@ describe('/api/interviews', () => {
       expect(mockTerraformManager.createInterview).toHaveBeenCalledWith({
         id: 'test-uuid',
         candidateName: 'Test User',
-        scenario: 'python',
+        challenge: 'python',
         password: expect.any(String),
       })
     })

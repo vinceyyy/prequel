@@ -86,8 +86,8 @@ resource "aws_iam_role" "ecs_task" {
   tags = local.tags
 }
 
-resource "aws_iam_role_policy" "ecs_task_s3_scenarios" {
-  name = "${local.name}-ecs-task-s3-scenarios-policy"
+resource "aws_iam_role_policy" "ecs_task_s3_challenges" {
+  name = "${local.name}-ecs-task-s3-challenges-policy"
   role = aws_iam_role.ecs_task.id
 
   policy = jsonencode({
@@ -100,8 +100,8 @@ resource "aws_iam_role_policy" "ecs_task_s3_scenarios" {
           "s3:ListBucket"
         ]
         Resource = [
-          aws_s3_bucket.scenarios.arn,
-          "${aws_s3_bucket.scenarios.arn}/*"
+          aws_s3_bucket.challenges.arn,
+          "${aws_s3_bucket.challenges.arn}/*"
         ]
       }
     ]
@@ -290,7 +290,7 @@ resource "aws_iam_role_policy" "portal_task" {
         Resource = [
           "arn:aws:s3:::prequel-terraform-state",
           aws_s3_bucket.instance_code.arn,
-          aws_s3_bucket.scenarios.arn
+          aws_s3_bucket.challenges.arn
         ]
       },
       {
@@ -305,7 +305,7 @@ resource "aws_iam_role_policy" "portal_task" {
         Resource = [
           "arn:aws:s3:::prequel-terraform-state/*",
           "${aws_s3_bucket.instance_code.arn}/*",
-          "${aws_s3_bucket.scenarios.arn}/*"
+          "${aws_s3_bucket.challenges.arn}/*"
         ]
       }
     ]
