@@ -4,7 +4,7 @@ import fs from 'fs/promises'
 export interface Operation {
   id: string
   type: 'create' | 'destroy'
-  status: 'pending' | 'running' | 'completed' | 'failed'
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
   interviewId: string
   candidateName?: string
   challenge?: string
@@ -121,6 +121,25 @@ class OperationManager {
       operation.completedAt = new Date()
       this.saveToDisk()
     }
+  }
+
+  cancelOperation(operationId: string): boolean {
+    const operation = this.operations.get(operationId)
+    if (
+      operation &&
+      (operation.status === 'pending' || operation.status === 'running')
+    ) {
+      operation.status = 'cancelled'
+      operation.completedAt = new Date()
+      operation.result = {
+        success: false,
+        error: 'Operation cancelled by user',
+      }
+      this.addOperationLog(operationId, 'Operation cancelled by user')
+      this.saveToDisk()
+      return true
+    }
+    return false
   }
 
   getOperationLogs(operationId: string): string[] {

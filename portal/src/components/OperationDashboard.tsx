@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 interface Operation {
   id: string
   type: 'create' | 'destroy'
-  status: 'pending' | 'running' | 'completed' | 'failed'
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
   interviewId: string
   candidateName?: string
   challenge?: string
@@ -34,6 +34,9 @@ export default function OperationDashboard({
     null
   )
   const [logs, setLogs] = useState<string[]>([])
+  const [cancellingOperations, setCancellingOperations] = useState<Set<string>>(
+    new Set()
+  )
   const terminalRef = useRef<HTMLDivElement>(null)
   const pollInterval = useRef<NodeJS.Timeout | null>(null)
   const logsPollInterval = useRef<NodeJS.Timeout | null>(null)
@@ -73,6 +76,33 @@ export default function OperationDashboard({
       console.error('Failed to load operation logs:', error)
     }
   }, [])
+
+  const cancelOperation = async (operationId: string) => {
+    setCancellingOperations(prev => new Set(prev).add(operationId))
+    try {
+      const response = await fetch(`/api/operations/${operationId}/cancel`, {
+        method: 'POST',
+      })
+
+      if (response.ok) {
+        // Refresh operations to see the updated status
+        await loadOperations()
+      } else {
+        const data = await response.json()
+        console.error('Failed to cancel operation:', data.error)
+        alert(`Failed to cancel operation: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error cancelling operation:', error)
+      alert('Error cancelling operation')
+    } finally {
+      setCancellingOperations(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(operationId)
+        return newSet
+      })
+    }
+  }
 
   useEffect(() => {
     loadOperations()
@@ -191,6 +221,8 @@ export default function OperationDashboard({
         return '✅'
       case 'failed':
         return '❌'
+      case 'cancelled':
+        return '🚫'
       default:
         return '❓'
     }
@@ -206,6 +238,8 @@ export default function OperationDashboard({
         return 'text-green-600 bg-green-50 border-green-200'
       case 'failed':
         return 'text-red-600 bg-red-50 border-red-200'
+      case 'cancelled':
+        return 'text-gray-600 bg-gray-50 border-gray-200'
       default:
         return 'text-gray-600 bg-gray-50 border-gray-200'
     }
@@ -297,8 +331,8 @@ export default function OperationDashboard({
                     </div>
                   </div>
 
-                  {operation.result?.accessUrl && (
-                    <div className="mt-2">
+                  <div className="mt-2 flex items-center justify-between">
+                    {operation.result?.accessUrl && (
                       <a
                         href={operation.result.accessUrl}
                         target="_blank"
@@ -308,8 +342,24 @@ export default function OperationDashboard({
                       >
                         🔗 Access Interview
                       </a>
-                    </div>
-                  )}
+                    )}
+
+                    {(operation.status === 'pending' ||
+                      operation.status === 'running') && (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          cancelOperation(operation.id)
+                        }}
+                        disabled={cancellingOperations.has(operation.id)}
+                        className="text-red-600 hover:text-red-800 text-sm px-2 py-1 rounded border border-red-200 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {cancellingOperations.has(operation.id)
+                          ? 'Cancelling...'
+                          : 'Cancel'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
