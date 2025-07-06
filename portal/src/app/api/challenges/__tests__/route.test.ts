@@ -69,7 +69,6 @@ describe('/api/challenges', () => {
       const mockS3Response = {
         CommonPrefixes: [
           { Prefix: 'python/' },
-          { Prefix: 'angular/' },
           { Prefix: 'javascript/' },
           { Prefix: 'sql/' },
         ],
@@ -81,8 +80,7 @@ describe('/api/challenges', () => {
       const data = await response.json()
 
       expect(response.status).toBe(200)
-      expect(data.challenges.map(c => c.name)).toEqual([
-        'Angular',
+      expect(data.challenges.map((c: { name: string }) => c.name)).toEqual([
         'Javascript',
         'Python',
         'Sql',
@@ -165,7 +163,10 @@ describe('/api/challenges', () => {
 
       expect(response.status).toBe(200)
       expect(data.challenges).toHaveLength(2)
-      expect(data.challenges.map(c => c.id)).toEqual(['javascript', 'python'])
+      expect(data.challenges.map((c: { id: string }) => c.id)).toEqual([
+        'javascript',
+        'python',
+      ])
     })
   })
 })
