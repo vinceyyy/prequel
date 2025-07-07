@@ -169,7 +169,9 @@ export default function Home() {
 
       // Add scheduling if enabled
       if (formData.enableScheduling && formData.scheduledAt) {
-        requestBody.scheduledAt = formData.scheduledAt
+        // Convert datetime-local to ISO string to preserve user's timezone
+        const localDate = new Date(formData.scheduledAt)
+        requestBody.scheduledAt = localDate.toISOString()
       }
 
       // Auto-destroy is always enabled and required

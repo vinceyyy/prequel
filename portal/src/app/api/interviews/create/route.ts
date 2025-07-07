@@ -26,10 +26,14 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Ensure scheduled time is in the future
-      if (scheduledDate <= new Date()) {
+      // Ensure scheduled time is in the future (comparing UTC times)
+      const now = new Date()
+      if (scheduledDate <= now) {
         return NextResponse.json(
-          { error: 'scheduledAt must be in the future' },
+          { 
+            error: 'scheduledAt must be in the future',
+            details: `Scheduled: ${scheduledDate.toISOString()}, Now: ${now.toISOString()}`
+          },
           { status: 400 }
         )
       }
