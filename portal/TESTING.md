@@ -96,10 +96,12 @@ npm run build
 ### Server-Sent Events (SSE)
 
 **Challenges:**
+
 - SSE requires browser APIs (EventSource) not available in Node test environment
 - Real-time connections need manual testing in development environment
 
 **Testing Approach:**
+
 ```bash
 # Start development server
 npm run dev
@@ -110,6 +112,7 @@ npm run dev
 ```
 
 **Manual Testing Checklist:**
+
 - [ ] SSE connection indicator shows "Live updates" (green dot)
 - [ ] Creating interview triggers immediate UI update
 - [ ] Scheduling interview shows correct scheduled time
@@ -120,6 +123,7 @@ npm run dev
 ### Background Operations
 
 **Testing scheduled operations:**
+
 ```bash
 # Create scheduled interview (set time 1-2 minutes in future)
 # Check operation logs show "scheduled" status
@@ -128,6 +132,7 @@ npm run dev
 ```
 
 **Testing auto-destroy:**
+
 ```bash
 # Create interview with 30-minute duration
 # Verify autoDestroyAt time is displayed correctly
@@ -137,6 +142,7 @@ npm run dev
 ### Operation Manager Events
 
 **Key test scenarios:**
+
 - Operation creation emits SSE event
 - Status updates (pending → running → completed) emit events
 - Operation completion with results emits event

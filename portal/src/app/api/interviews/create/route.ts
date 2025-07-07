@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
       const now = new Date()
       if (scheduledDate <= now) {
         return NextResponse.json(
-          { 
+          {
             error: 'scheduledAt must be in the future',
-            details: `Scheduled: ${scheduledDate.toISOString()}, Now: ${now.toISOString()}`
+            details: `Scheduled: ${scheduledDate.toISOString()}, Now: ${now.toISOString()}`,
           },
           { status: 400 }
         )
