@@ -6,12 +6,45 @@ import { v4 as uuidv4 } from 'uuid'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { candidateName, challenge } = body
+    const { candidateName, challenge, scheduledAt, autoDestroyMinutes } = body
 
     if (!candidateName || !challenge) {
       return NextResponse.json(
         { error: 'candidateName and challenge are required' },
         { status: 400 }
+      )
+    }
+
+    // Parse scheduled time if provided
+    let scheduledDate: Date | undefined
+    if (scheduledAt) {
+      scheduledDate = new Date(scheduledAt)
+      if (isNaN(scheduledDate.getTime())) {
+        return NextResponse.json(
+          { error: 'Invalid scheduledAt date format' },
+          { status: 400 }
+        )
+      }
+
+      // Ensure scheduled time is in the future
+      if (scheduledDate <= new Date()) {
+        return NextResponse.json(
+          { error: 'scheduledAt must be in the future' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Calculate auto-destroy time if specified
+    let autoDestroyDate: Date | undefined
+    if (
+      autoDestroyMinutes &&
+      typeof autoDestroyMinutes === 'number' &&
+      autoDestroyMinutes > 0
+    ) {
+      const baseTime = scheduledDate || new Date()
+      autoDestroyDate = new Date(
+        baseTime.getTime() + autoDestroyMinutes * 60 * 1000
       )
     }
 
@@ -23,7 +56,9 @@ export async function POST(request: NextRequest) {
       'create',
       interviewId,
       candidateName,
-      challenge
+      challenge,
+      scheduledDate,
+      autoDestroyDate
     )
 
     const instance = {
@@ -33,7 +68,32 @@ export async function POST(request: NextRequest) {
       password,
     }
 
-    // Start background operation
+    // If scheduled for later, don't start immediately
+    if (scheduledDate) {
+      operationManager.addOperationLog(
+        operationId,
+        `Interview scheduled for ${scheduledDate.toLocaleString()}`
+      )
+      if (autoDestroyDate) {
+        operationManager.addOperationLog(
+          operationId,
+          `Auto-destroy scheduled for ${autoDestroyDate.toLocaleString()}`
+        )
+      }
+
+      return NextResponse.json({
+        operationId,
+        interviewId,
+        candidateName,
+        challenge,
+        password,
+        scheduledAt: scheduledDate.toISOString(),
+        autoDestroyAt: autoDestroyDate?.toISOString(),
+        message: `Interview scheduled for ${scheduledDate.toLocaleString()}`,
+      })
+    }
+
+    // Start background operation immediately
     setImmediate(async () => {
       try {
         operationManager.updateOperationStatus(operationId, 'running')
@@ -107,6 +167,7 @@ export async function POST(request: NextRequest) {
       candidateName,
       challenge,
       password,
+      autoDestroyAt: autoDestroyDate?.toISOString(),
       message: 'Interview creation started in background',
     })
   } catch (error: unknown) {

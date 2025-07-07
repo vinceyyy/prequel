@@ -4,12 +4,20 @@ import fs from 'fs/promises'
 export interface Operation {
   id: string
   type: 'create' | 'destroy'
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  status:
+    | 'pending'
+    | 'running'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
+    | 'scheduled'
   interviewId: string
   candidateName?: string
   challenge?: string
   startedAt: Date
   completedAt?: Date
+  scheduledAt?: Date
+  autoDestroyAt?: Date
   logs: string[]
   result?: {
     success: boolean
@@ -36,6 +44,8 @@ class OperationManager {
         // Convert date strings back to Date objects
         op.startedAt = new Date(op.startedAt)
         if (op.completedAt) op.completedAt = new Date(op.completedAt)
+        if (op.scheduledAt) op.scheduledAt = new Date(op.scheduledAt)
+        if (op.autoDestroyAt) op.autoDestroyAt = new Date(op.autoDestroyAt)
         this.operations.set(op.id, op)
       }
       console.log(`Loaded ${operations.length} operations from disk`)
@@ -57,18 +67,22 @@ class OperationManager {
     type: 'create' | 'destroy',
     interviewId: string,
     candidateName?: string,
-    challenge?: string
+    challenge?: string,
+    scheduledAt?: Date,
+    autoDestroyAt?: Date
   ): string {
     const operationId = uuidv4()
 
     const operation: Operation = {
       id: operationId,
       type,
-      status: 'pending',
+      status: scheduledAt ? 'scheduled' : 'pending',
       interviewId,
       candidateName,
       challenge,
       startedAt: new Date(),
+      scheduledAt,
+      autoDestroyAt,
       logs: [],
     }
 
@@ -103,6 +117,24 @@ class OperationManager {
       }
       this.saveToDisk()
     }
+  }
+
+  getScheduledOperations(): Operation[] {
+    return Array.from(this.operations.values())
+      .filter(op => op.status === 'scheduled' && op.scheduledAt)
+      .sort((a, b) => a.scheduledAt!.getTime() - b.scheduledAt!.getTime())
+  }
+
+  getOperationsForAutoDestroy(): Operation[] {
+    const now = new Date()
+    return Array.from(this.operations.values()).filter(
+      op =>
+        op.status === 'completed' &&
+        op.autoDestroyAt &&
+        op.autoDestroyAt <= now &&
+        op.type === 'create' &&
+        op.result?.success
+    )
   }
 
   addOperationLog(operationId: string, logEntry: string) {
@@ -169,3 +201,15 @@ setInterval(
   },
   60 * 60 * 1000
 )
+
+// Initialize scheduler if in server environment
+if (typeof window === 'undefined') {
+  // Import and initialize scheduler on server-side only
+  import('./scheduler')
+    .then(() => {
+      console.log('Scheduler initialized')
+    })
+    .catch(error => {
+      console.error('Failed to initialize scheduler:', error)
+    })
+}

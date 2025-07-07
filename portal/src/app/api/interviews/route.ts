@@ -14,6 +14,8 @@ interface SharedResult {
     accessUrl?: string
     password?: string
     createdAt: string
+    scheduledAt?: string
+    autoDestroyAt?: string
   }>
 }
 
@@ -99,6 +101,8 @@ function getOperationInterviews(
     candidateName?: string
     challenge?: string
     status: string
+    scheduledAt?: Date
+    autoDestroyAt?: Date
     result?: {
       success: boolean
       accessUrl?: string
@@ -114,18 +118,22 @@ function getOperationInterviews(
       candidateName: op.candidateName || 'Unknown',
       challenge: op.challenge || 'unknown',
       status:
-        op.status === 'pending'
-          ? 'creating'
-          : op.status === 'running'
+        op.status === 'scheduled'
+          ? 'scheduled'
+          : op.status === 'pending'
             ? 'creating'
-            : op.status === 'completed'
-              ? op.result?.success
-                ? 'active'
-                : 'error'
-              : 'error',
+            : op.status === 'running'
+              ? 'creating'
+              : op.status === 'completed'
+                ? op.result?.success
+                  ? 'active'
+                  : 'error'
+                : 'error',
       accessUrl: op.result?.accessUrl,
       password: op.result?.password || '',
       createdAt: op.startedAt.toISOString(),
+      scheduledAt: op.scheduledAt?.toISOString(),
+      autoDestroyAt: op.autoDestroyAt?.toISOString(),
     }))
 }
 
@@ -138,6 +146,8 @@ function mergeAndDeduplicateInterviews(
     accessUrl?: string
     password?: string
     createdAt: string
+    scheduledAt?: string
+    autoDestroyAt?: string
   }>,
   operations: Array<{
     type: string

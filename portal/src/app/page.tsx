@@ -308,7 +308,7 @@ export default function Home() {
                 {initialLoading ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-3 sm:px-6 py-4 text-center text-gray-500"
                     >
                       <div className="flex items-center justify-center space-x-2">
@@ -320,7 +320,7 @@ export default function Home() {
                 ) : interviews.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-3 sm:px-6 py-4 text-center text-gray-500"
                     >
                       No interviews created yet
@@ -350,12 +350,12 @@ export default function Home() {
                               interview.status === 'active'
                                 ? 'bg-green-100 text-green-800'
                                 : interview.status === 'creating'
-                                ? 'bg-blue-100 text-blue-800'
-                                : interview.status === 'destroying'
-                                ? 'bg-orange-100 text-orange-800'
-                                : interview.status === 'error'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-800'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : interview.status === 'destroying'
+                                    ? 'bg-orange-100 text-orange-800'
+                                    : interview.status === 'error'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-gray-100 text-gray-800'
                             }`}
                           >
                             {interview.status}
