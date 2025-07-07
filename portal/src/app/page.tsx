@@ -3,15 +3,24 @@
 import { useState, useEffect, useCallback } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
 import { useOperations } from '@/hooks/useOperations'
+import { useSSE } from '@/hooks/useSSE'
 
 interface Interview {
   id: string
   candidateName: string
-  status: 'creating' | 'active' | 'destroying' | 'destroyed' | 'error'
+  status:
+    | 'creating'
+    | 'active'
+    | 'destroying'
+    | 'destroyed'
+    | 'error'
+    | 'scheduled'
   challenge: string
   accessUrl?: string
   password?: string
   createdAt: string
+  scheduledAt?: string
+  autoDestroyAt?: string
 }
 
 export default function Home() {
@@ -27,10 +36,17 @@ export default function Home() {
   const [formData, setFormData] = useState({
     candidateName: '',
     challenge: 'python',
+    scheduledAt: '',
+    autoDestroyMinutes: 30,
+    enableScheduling: false,
+    enableAutoDestroy: false,
   })
 
   // Use the operations hook for background operations
-  const { createInterview, destroyInterview } = useOperations()
+  const { destroyInterview } = useOperations()
+
+  // Use SSE for real-time updates
+  const { connected: sseConnected, lastEvent } = useSSE('/api/events')
 
   const [challenges, setChallenges] = useState<
     Array<{ id: string; name: string }>
@@ -102,6 +118,22 @@ export default function Home() {
     loadChallenges()
   }, [loadInterviews, loadChallenges])
 
+  // Listen for SSE events to refresh data
+  useEffect(() => {
+    if (lastEvent) {
+      console.log('Received SSE event:', lastEvent)
+
+      // Refresh interviews when operations complete or update
+      if (
+        lastEvent.type === 'operation_update' ||
+        lastEvent.type === 'scheduler_event'
+      ) {
+        console.log('Refreshing interviews due to SSE event')
+        loadInterviews()
+      }
+    }
+  }, [lastEvent, loadInterviews])
+
   // NO AUTOMATIC POLLING - interviews endpoint is manual refresh only
 
   // Debug: Monitor when interviews state changes
@@ -124,23 +156,68 @@ export default function Home() {
 
     setLoading(true)
     try {
-      // Use the background create API
-      await createInterview(formData.candidateName.trim(), formData.challenge)
+      // Prepare the request body
+      const requestBody: {
+        candidateName: string
+        challenge: string
+        scheduledAt?: string
+        autoDestroyMinutes?: number
+      } = {
+        candidateName: formData.candidateName.trim(),
+        challenge: formData.challenge,
+      }
+
+      // Add scheduling if enabled
+      if (formData.enableScheduling && formData.scheduledAt) {
+        requestBody.scheduledAt = formData.scheduledAt
+      }
+
+      // Add auto-destroy if enabled
+      if (formData.enableAutoDestroy && formData.autoDestroyMinutes) {
+        requestBody.autoDestroyMinutes = formData.autoDestroyMinutes
+      }
+
+      // Make the API call
+      const response = await fetch('/api/interviews/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create interview')
+      }
+
+      await response.json()
 
       // Close the modal immediately since operation is now background
-      setFormData({ candidateName: '', challenge: 'python' })
+      setFormData({
+        candidateName: '',
+        challenge: 'python',
+        scheduledAt: '',
+        autoDestroyMinutes: 30,
+        enableScheduling: false,
+        enableAutoDestroy: false,
+      })
       setShowCreateForm(false)
 
       // Show notification
-      setNotification(
-        `Interview creation started for ${formData.candidateName.trim()}`
-      )
+      const message = formData.enableScheduling
+        ? `Interview scheduled for ${formData.candidateName.trim()}`
+        : `Interview creation started for ${formData.candidateName.trim()}`
+      setNotification(message)
       setTimeout(() => setNotification(null), 5000) // Clear after 5 seconds
 
-      // NO automatic refresh - user will see progress via notifications and can manually refresh
+      // Refresh the interview list
+      loadInterviews()
     } catch (error) {
       console.error('Error creating interview:', error)
-      alert('Failed to start interview creation. Please try again.')
+      alert(
+        `Failed to start interview creation: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
     } finally {
       setLoading(false)
     }
@@ -202,7 +279,7 @@ export default function Home() {
           </p>
         </header>
 
-        <div className="mb-6 flex flex-wrap gap-3">
+        <div className="mb-6 flex flex-wrap gap-3 items-center">
           <button
             onClick={() => setShowCreateForm(true)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -215,6 +292,14 @@ export default function Home() {
           >
             Refresh
           </button>
+          <div className="flex items-center space-x-2">
+            <div
+              className={`w-2 h-2 rounded-full ${sseConnected ? 'bg-green-500' : 'bg-red-500'}`}
+            ></div>
+            <span className="text-sm text-gray-600">
+              {sseConnected ? 'Live updates' : 'Offline'}
+            </span>
+          </div>
         </div>
 
         {showCreateForm && (
@@ -261,15 +346,113 @@ export default function Home() {
                     ))}
                   </select>
                 </div>
+
+                {/* Scheduling Options */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="enableScheduling"
+                      checked={formData.enableScheduling}
+                      onChange={e =>
+                        setFormData({
+                          ...formData,
+                          enableScheduling: e.target.checked,
+                        })
+                      }
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label
+                      htmlFor="enableScheduling"
+                      className="text-sm font-medium text-gray-900"
+                    >
+                      Schedule for later
+                    </label>
+                  </div>
+
+                  {formData.enableScheduling && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-1">
+                        Scheduled Start Time
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.scheduledAt}
+                        onChange={e =>
+                          setFormData({
+                            ...formData,
+                            scheduledAt: e.target.value,
+                          })
+                        }
+                        min={new Date().toISOString().slice(0, 16)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="enableAutoDestroy"
+                      checked={formData.enableAutoDestroy}
+                      onChange={e =>
+                        setFormData({
+                          ...formData,
+                          enableAutoDestroy: e.target.checked,
+                        })
+                      }
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label
+                      htmlFor="enableAutoDestroy"
+                      className="text-sm font-medium text-gray-900"
+                    >
+                      Auto-destroy after completion
+                    </label>
+                  </div>
+
+                  {formData.enableAutoDestroy && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-1">
+                        Auto-destroy timeout (minutes)
+                      </label>
+                      <select
+                        value={formData.autoDestroyMinutes}
+                        onChange={e =>
+                          setFormData({
+                            ...formData,
+                            autoDestroyMinutes: parseInt(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      >
+                        <option value={15}>15 minutes</option>
+                        <option value={30}>30 minutes</option>
+                        <option value={45}>45 minutes</option>
+                        <option value={60}>1 hour</option>
+                        <option value={90}>1.5 hours</option>
+                        <option value={120}>2 hours</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={handleCreateInterview}
-                  disabled={!formData.candidateName.trim() || loading}
+                  disabled={
+                    !formData.candidateName.trim() ||
+                    loading ||
+                    (formData.enableScheduling && !formData.scheduledAt)
+                  }
                   className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
                 >
-                  {loading ? 'Creating...' : 'Create Interview'}
+                  {loading
+                    ? 'Creating...'
+                    : formData.enableScheduling
+                      ? 'Schedule Interview'
+                      : 'Create Interview'}
                 </button>
                 <button
                   onClick={() => setShowCreateForm(false)}
@@ -295,6 +478,9 @@ export default function Home() {
                   </th>
                   <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
+                  </th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Schedule
                   </th>
                   <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Access Details
@@ -353,9 +539,11 @@ export default function Home() {
                                   ? 'bg-blue-100 text-blue-800'
                                   : interview.status === 'destroying'
                                     ? 'bg-orange-100 text-orange-800'
-                                    : interview.status === 'error'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-gray-100 text-gray-800'
+                                    : interview.status === 'scheduled'
+                                      ? 'bg-purple-100 text-purple-800'
+                                      : interview.status === 'error'
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-gray-100 text-gray-800'
                             }`}
                           >
                             {interview.status}
@@ -366,6 +554,33 @@ export default function Home() {
                             </div>
                           )}
                         </div>
+                      </td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {interview.scheduledAt && (
+                          <div>
+                            <div className="text-xs text-gray-500">
+                              Scheduled:
+                            </div>
+                            <div>
+                              {new Date(interview.scheduledAt).toLocaleString()}
+                            </div>
+                          </div>
+                        )}
+                        {interview.autoDestroyAt && (
+                          <div className="mt-1">
+                            <div className="text-xs text-gray-500">
+                              Auto-destroy:
+                            </div>
+                            <div>
+                              {new Date(
+                                interview.autoDestroyAt
+                              ).toLocaleString()}
+                            </div>
+                          </div>
+                        )}
+                        {!interview.scheduledAt && !interview.autoDestroyAt && (
+                          <span className="text-gray-400">Immediate</span>
+                        )}
                       </td>
                       <td className="px-3 sm:px-6 py-4 text-sm text-gray-900">
                         {interview.accessUrl ? (
