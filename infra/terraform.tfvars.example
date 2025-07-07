@@ -7,7 +7,7 @@ environment = "dev"
 # Networking
 vpc_cidr = "10.0.0.0/16"
 
-# Domain Configuration (optional - for custom domain)
+# Domain Configuration (required - for custom domain)
 # Terraform will create and validate the SSL certificate automatically
 domain_name = "your-domain.com"
 

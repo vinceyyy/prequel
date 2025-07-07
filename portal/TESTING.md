@@ -1,6 +1,6 @@
 # Local Testing Guide
 
-This guide covers how to run tests locally for the Prequel Portal project.
+This guide covers testing for the Prequel Portal project, including real-time features like SSE and background operations.
 
 ## 🚀 Quick Reference
 
@@ -90,6 +90,57 @@ npm run lint
 # Build check
 npm run build
 ```
+
+## Testing Real-time Features
+
+### Server-Sent Events (SSE)
+
+**Challenges:**
+- SSE requires browser APIs (EventSource) not available in Node test environment
+- Real-time connections need manual testing in development environment
+
+**Testing Approach:**
+```bash
+# Start development server
+npm run dev
+
+# In browser, open DevTools > Network tab
+# Look for /api/events connection with "event-stream" type
+# Should show persistent connection with periodic heartbeat events
+```
+
+**Manual Testing Checklist:**
+- [ ] SSE connection indicator shows "Live updates" (green dot)
+- [ ] Creating interview triggers immediate UI update
+- [ ] Scheduling interview shows correct scheduled time
+- [ ] Status changes (initializing → configuring → active) update instantly
+- [ ] Auto-destroy countdown displays correctly
+- [ ] Connection reconnects automatically if interrupted
+
+### Background Operations
+
+**Testing scheduled operations:**
+```bash
+# Create scheduled interview (set time 1-2 minutes in future)
+# Check operation logs show "scheduled" status
+# Wait for scheduled time - should automatically start
+# Monitor real-time status updates via SSE
+```
+
+**Testing auto-destroy:**
+```bash
+# Create interview with 30-minute duration
+# Verify autoDestroyAt time is displayed correctly
+# Check scheduler processes auto-destroy operations
+```
+
+### Operation Manager Events
+
+**Key test scenarios:**
+- Operation creation emits SSE event
+- Status updates (pending → running → completed) emit events
+- Operation completion with results emits event
+- Failed operations emit appropriate events
 
 ## Test Types & Locations
 

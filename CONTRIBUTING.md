@@ -1,6 +1,6 @@
 # Contributing to Prequel
 
-This guide is for developers contributing code to the Prequel project. It covers local development setup, testing, code quality, and submission guidelines.
+This guide is for developers contributing code to the Prequel project with real-time SSE features. It covers local development setup, testing, code quality, and submission guidelines for the scheduling and live-update system.
 
 ## 🚀 Quick Start for Contributors
 
@@ -89,12 +89,17 @@ npm run test:coverage # Unit tests with coverage report
 
 **Unit Tests:** `src/**/*.test.{ts,tsx}`
 - Component tests: `src/components/__tests__/`
-- Hook tests: `src/hooks/__tests__/`
-- API tests: `src/app/api/**/__tests__/`
+- Hook tests: `src/hooks/__tests__/` (includes `useSSE`, `useOperations`)
+- API tests: `src/app/api/**/__tests__/` (includes SSE events, scheduling)
 - Page tests: `src/app/__tests__/`
 
 **E2E Tests:** `e2e/*.spec.ts`
-- User workflows: `e2e/portal.spec.ts`
+- User workflows: `e2e/portal.spec.ts` (includes scheduling and real-time features)
+
+**Real-time Feature Testing:**
+- SSE connections require manual testing in development environment
+- EventSource API not available in Node.js test environment
+- Background operations tested via operation manager unit tests
 
 ### Writing Tests
 
@@ -138,10 +143,15 @@ npm run lint         # Run ESLint code quality checks
 - **TypeScript**: Strict type checking enabled
 
 ### Architecture Guidelines
-- Follow existing code patterns and conventions
-- Use existing libraries and utilities
-- Check neighboring files for style consistency
-- Never assume library availability - check package.json first
+
+**General Development Guidelines**
+Follow existing code patterns and conventions throughout the codebase. Use existing libraries and utilities rather than introducing new dependencies. Check neighboring files for style consistency and never assume library availability without checking package.json first.
+
+**Real-time Architecture Requirements**
+Use `operationManager.emit()` for all operation status changes to ensure SSE events are properly triggered. All long-running tasks must use the background operations system, while time-based execution should be scheduled via `SchedulerService`. UI updates must be driven by SSE events only - avoid manual polling patterns. Always implement auto-destroy functionality to prevent resource waste.
+
+**Key Architecture Components**
+The system relies on several core components: `src/lib/operations.ts` handles operation management with SSE event emission, `src/lib/scheduler.ts` provides background scheduler service with 30-second polling, `src/app/api/events/route.ts` serves as the SSE endpoint for real-time updates, `src/hooks/useSSE.ts` manages client-side SSE connections with auto-reconnection, and `src/hooks/useOperations.ts` provides background operation management hooks.
 
 ## 🔧 Commit Guidelines
 
@@ -195,6 +205,62 @@ test: add E2E tests for interview workflow
 ./scripts/test-watch.sh      # Same as npm run test:dev
 ./scripts/setup-git-hooks.sh # Setup automatic pre-commit testing
 ```
+
+## ⚡ Testing Real-time Features
+
+### Manual Testing Checklist
+
+Since SSE and scheduling features require browser APIs not available in Node test environment, manual testing is essential:
+
+**SSE Connection Testing:**
+```bash
+# Start development server
+npm run dev
+
+# In browser DevTools > Network tab:
+# 1. Look for /api/events connection with "event-stream" type
+# 2. Should show persistent connection with periodic heartbeat events
+# 3. Check connection indicator shows "Live updates" (green dot)
+```
+
+**Scheduling Feature Testing:**
+```bash
+# Test scheduled interview creation:
+# 1. Create interview with future scheduled time (1-2 minutes ahead)
+# 2. Verify interview shows "scheduled" status with correct times
+# 3. Wait for scheduled time - should automatically start
+# 4. Monitor real-time status updates via SSE
+# 5. Verify auto-destroy countdown displays correctly
+```
+
+**Background Operations Testing:**
+```bash
+# Test real-time operation updates:
+# 1. Create interview (immediate or scheduled)
+# 2. Open browser DevTools > Network > event-stream connections
+# 3. Watch for operation_update events as status changes
+# 4. Verify UI updates instantly without manual refresh
+# 5. Check operation logs update in real-time
+```
+
+**Auto-destroy Testing:**
+```bash
+# Test mandatory auto-destroy:
+# 1. Create interview with short duration (30 minutes)
+# 2. Verify autoDestroyAt time is calculated and displayed correctly
+# 3. Check that auto-destroy cannot be disabled
+# 4. Monitor scheduled destruction in operation logs
+```
+
+### Real-time Development Workflow
+
+When working on SSE or scheduling features:
+
+1. **Start with unit tests** for operation manager logic
+2. **Use manual testing** for SSE connection verification
+3. **Test edge cases** like connection loss and reconnection
+4. **Verify timing** for scheduled operations and auto-destroy
+5. **Check browser compatibility** for EventSource support
 
 ## 🐛 Troubleshooting
 
@@ -256,26 +322,14 @@ cd challange/
 
 ## 🎯 Best Practices
 
-### Development
-1. **Test locally first** - Don't rely on CI for testing
-2. **Use watch modes** - `npm run test:dev` during development
-3. **Quick feedback** - Run `test:quick` frequently
-4. **Write tests** - Add tests for new functionality
-5. **Follow conventions** - Match existing code style
+### Development Best Practices
+Test locally first rather than relying on CI for testing feedback. Use watch modes like `npm run test:dev` during development for continuous feedback. Run `test:quick` frequently for rapid validation. Always add tests for new functionality and follow existing code conventions throughout the codebase.
 
-### Testing
-1. **Local-first approach** - All tests should run locally
-2. **Fast feedback** - Use watch modes and focused tests
-3. **Interactive debugging** - Use UI tools for E2E debugging
-4. **Mock external services** - Keep tests fast and reliable
-5. **Test user workflows** - E2E tests should test real challenges
+### Testing Philosophy
+Embrace a local-first approach where all tests run locally for immediate feedback. Use watch modes and focused tests for fast development cycles. Leverage interactive debugging tools like UI interfaces for E2E debugging. Mock external services to keep tests fast and reliable, while ensuring E2E tests cover real user workflows and challenges.
 
-### Code Quality
-1. **Automatic formatting** - Let Prettier handle formatting
-2. **Strict typing** - Use TypeScript strictly
-3. **Consistent patterns** - Follow existing code conventions
-4. **Clear naming** - Use descriptive variable and function names
-5. **Security first** - Never commit secrets or credentials
+### Code Quality Standards
+Let Prettier handle automatic formatting to maintain consistency. Use TypeScript strictly with proper type definitions throughout. Follow consistent patterns that match existing code conventions. Use descriptive variable and function names for clarity. Always prioritize security by never committing secrets or credentials to the repository.
 
 ## 📖 Additional Resources
 

@@ -1,197 +1,172 @@
 # Prequel
 
-A platform for conducting coding interviews using on-demand VS Code instances in the browser.
+A real-time coding interview platform that provisions on-demand VS Code instances in the browser for candidates.
+
+## What is Prequel?
+
+Prequel enables companies to conduct coding interviews using isolated, pre-configured VS Code environments that
+candidates access directly in their browser. Each interview gets its own containerized environment with the necessary
+tools and challenges.
+
+The platform provides zero setup for candidates who need only a browser, ensuring consistent environments with the same
+tools and versions for all candidates. Real-time management capabilities offer live status updates and scheduling
+features, while cost-effective resource usage means infrastructure only runs during interviews at approximately $0.50
+per hour. Security and isolation are maintained through separate containers for each interview with automatic cleanup.
+
+## User Flow
+
+1. **Login to portal** (authentication not yet implemented)
+2. **Create an interview**
+    - Select a challenge from S3. The challenge files will be available when the candidate opens the editor.
+    - Optionally, the interview can be scheduled for a future time
+    - **Mandatory**: set a duration (30min-4hrs) - interviews are automatically destroyed when time expires
+3. **Wait for provisioning** - AWS infrastructure is created automatically via Terraform
+    - Status changes from "Scheduled" → "Initializing" → "Configuring" → "Active"
+4. **Share access details** - Copy the URL and password from the portal and send to the candidate
+5. **Conduct the interview** - Candidate accesses the full VS Code environment in their browser
+6. **Automatic cleanup** - Resources are destroyed automatically when the duration expires or manually destroyed
+
+## Project Structure
+
+```
+prequel/
+├── infra/           # Shared AWS infrastructure (VPC, ECS, ALB)
+├── portal/          # NextJS web interface
+├── instance/        # Interview runtime image and deployment template  
+└── challenge/       # Interview coding challenges
+```
+
+Each component includes detailed documentation in its respective folder.
 
 ## Quick Start
 
 ### Prerequisites
 
-- AWS account with appropriate permissions
-- Node.js (>= 18), Terraform (>= 1.0)
-- AWS CLI configured with SSO profile `<AWS_PROFILE>`
+- AWS account with ECS, ALB, and Route53 permissions
+- Domain name configured in Route53 hosted zone
+- Local tools: Node.js 18+, AWS CLI, Terraform 1.0+
 
-### Setup
+### Deployment Steps
 
-```bash
-# 1. Clone and install
-git clone <repository-url>
-cd prequel/portal
-npm install
+1. **Configure AWS authentication**
+   ```bash
+   aws configure sso --profile <your-profile>
+   aws sso login --profile <your-profile>
+   export AWS_PROFILE=<your-profile>
+   ```
 
-# 2. Configure AWS
-aws configure sso --profile <AWS_PROFILE>
-aws sso login --profile <AWS_PROFILE>
-export AWS_PROFILE=<AWS_PROFILE>
+2. **Deploy infrastructure**
+   ```bash
+   cd infra/
+   cp terraform.tfvars.example terraform.tfvars
+   # Edit terraform.tfvars with your configuration
+   terraform init
+   terraform apply
+   ```
 
-# 3. Start development
-npm run dev          # Development server at http://localhost:3000
-npm run test:dev     # Continuous testing (recommended)
-```
+3. **Deploy portal**
+   ```bash
+   cd portal/
+   ./build-push-deploy.sh
+   ```
 
-## Architecture
+4. **Deploy instance runtime**
+   ```bash
+   cd instance/
+   ./build-and-push.sh
+   ```
 
-```
-prequel/
-├── infra/           # Shared AWS infrastructure (Terraform)
-├── portal/          # NextJS web interface  
-├── instance/        # Per-interview Terraform templates
-└── challenges/      # Interview coding challenges
-```
+5. **Sync challenges**
+   ```bash
+   cd challenge/
+   ./sync-to-s3.sh
+   ```
 
-**Tech Stack:** Next.js + TypeScript, AWS ECS, Terraform
+Your Prequel platform will now be available at your configured domain.
 
-## Features
+## AWS Resources Required
 
-- **On-demand instances** - Isolated VS Code containers per candidate
-- **Pre-configured challenges** - JavaScript, Python, SQL
-- **Automatic provisioning** - Infrastructure created/destroyed via Terraform
-- **Secure access** - Password-protected with temporary credentials
-- **Cost-effective** - Resources only run during interviews (~$0.50/hour)
+The platform requires several AWS services for proper operation:
 
-## Usage
+**Core Infrastructure:**
 
-### Running the Application
+- ECS cluster for running interview containers
+- Application Load Balancer for traffic routing with health checks
+- VPC with public/private subnets for network isolation
+- Route53 for DNS management and subdomain routing
+- ECR repository for container image storage
 
-```bash
-cd portal/
-npm run dev          # Start development server
-```
+**Storage & Processing:**
 
-Access the portal at http://localhost:3000 to:
-
-- Create new coding interviews
-- Monitor interview status
-- Manage VS Code instances
-- Access interview logs
-
-### Basic Commands
-
-```bash
-# Application
-npm run dev          # Development server
-npm run build        # Production build
-npm run start        # Production server
-
-# Quality checks
-npm run lint         # Code quality check
-npm run format       # Fix code formatting
-```
-
-**📚 Developer Resources:**
-
-- `CONTRIBUTING.md` - Development setup, testing, code guidelines
-- `portal/TESTING.md` - Detailed testing documentation
-
-## Interview Flow
-
-1. **Create Interview** - Select candidate name + challenge type
-2. **Auto-provision** - Terraform creates isolated ECS instance
-3. **Share access** - Portal provides URL + password
-4. **Conduct interview** - Candidate codes in browser VS Code
-5. **Cleanup** - All resources automatically destroyed
-
-## Available Challenges
-
-| Challenge        | Tools                  | Challenge Type           |
-|------------------|------------------------|--------------------------|
-| **JavaScript**   | React, TypeScript      | Todo list implementation |
-| **Python**       | Pandas, NumPy, Jupyter | Data analysis tasks      |
-| **SQL/Database** | SQLite, sample data    | Complex queries          |
-| **Full Stack**   | React + Node.js        | Complete app development |
-
-## Production Deployment
-
-### Infrastructure Setup
-
-```bash
-cd infra/
-terraform init
-cp terraform.tfvars.example terraform.tfvars
-# Configure domain_name in terraform.tfvars
-terraform apply
-```
-
-### Portal Deployment
-
-The portal runs on AWS ECS with:
-
-- ECS Task Role (no AWS_PROFILE needed)
-- Environment: `NODE_ENV=production`
-- Auto-scaling based on demand
-
-## Project Structure Details
-
-### Component Responsibilities
-
-- **`infra/`** - VPC, ECS cluster, ALB, shared resources
-- **`portal/`** - Web UI, API routes, Terraform execution
-- **`instance/`** - Per-interview infrastructure templates
-- **`challenge/`** - Coding challenge files and environments
-
-### Component Workflows
-
-```bash
-# Infrastructure changes
-cd infra/ && terraform apply
-
-# Portal deployment
-cd portal/ && ./build-and-push.sh
-
-# Template updates
-cd instance/ && ./sync-to-s3.sh
-
-# challenge updates
-cd challenge/ && ./sync-to-s3.sh
-```
-
-## Security & Cost
+- S3 buckets for challenge files, Terraform state, and container templates
+- Lambda functions for SOCI container indexing (faster startup times)
+- CloudWatch for logging and monitoring
 
 **Security:**
 
-- Network isolation (private subnets)
-- Password-protected instances
-- Temporary access credentials
-- No data persistence
+- IAM roles with least-privilege permissions for ECS tasks
+- Security groups for network access control
+- TLS certificates for HTTPS encryption via ACM
 
-**Cost Management:**
+## How It Works
 
-- Resources only exist during interviews
-- Automatic cleanup on completion
-- ~$0.50/hour per active interview
-- ~$50/month base infrastructure
+### Component Integration
 
-## Troubleshooting
+The platform orchestrates four main components to deliver seamless coding interviews. The **portal** (NextJS
+application) serves as your control center with Server-Sent Events providing real-time status updates. When you create
+an interview, the portal downloads Terraform templates from S3 and provisions dedicated AWS resources.
 
-**Common Issues:**
+The **infrastructure** component uses a two-tier approach: shared AWS infrastructure (VPC, ECS cluster, ALB) remains
+always provisioned, while interview-specific resources (ECS services, Route53 records) are created on-demand using
+Terraform. This hybrid approach keeps base costs around $50/month while adding only $0.50/hour per active interview.
 
-```bash
-# AWS authentication
-aws sso login --profile <AWS_PROFILE>
-export AWS_PROFILE=<AWS_PROFILE>
+**Interview instances** run as isolated ECS Fargate containers with pre-configured VS Code environments. Each candidate
+gets a dedicated container with 1 vCPU and 2GB RAM, completely isolated from other interviews. SOCI indexing via Lambda
+functions ensures faster container startup. Containers are automatically destroyed after the configured duration (
+30min-4hrs).
 
-# Test failures
-npm install && npx playwright install
-npm run test:quick
+**Challenges** are stored in S3 and automatically synchronized to each interview environment during the "configuring"
+phase. The system supports JavaScript (Node.js + React), Python (Pandas + Jupyter), and SQL (SQLite) environments.
+Challenge files become available in the candidate's VS Code workspace once the status reaches "active".
 
-# Build issues
-npm run format && npm run lint
-```
+### Technical Workflow
 
-**Getting Help:**
+**For New Interviews:**
 
-- Check `CONTRIBUTING.md` for development issues
-- Review `portal/TESTING.md` for detailed testing guidance
-- Check CloudWatch logs for production issues
-- Review GitHub issues for known problems
+1. Portal downloads Terraform templates from `s3://prequel-instance/instance/`
+2. Replaces `INTERVIEW_ID_PLACEHOLDER` with actual interview ID
+3. Creates interview-specific `terraform.tfvars` configuration
+4. Uploads complete workspace to `s3://prequel-instance/workspaces/{interview-id}/`
+5. Terraform provisions ECS service, Route53 subdomain, and security groups
+6. Container starts, challenge files sync from S3, VS Code becomes accessible
+
+**For Scheduled Interviews:**
+The background scheduler (30-second polling) processes scheduled operations and auto-destroy timeouts. All status
+changes trigger immediate SSE events to update the portal UI in real-time without page refresh.
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+We welcome contributions to the project. The CONTRIBUTING.md file provides comprehensive guidance covering development
+environment setup, testing strategies and commands, code quality standards and architecture guidelines, pull request
+process and review guidelines, and troubleshooting for common development issues.
 
-- Development environment setup
-- Testing guidelines and commands
-- Code quality standards
-- Pull request process
-- Troubleshooting guide
+Our development philosophy emphasizes local-first testing with comprehensive validation before code submission.
 
-**Philosophy:** Local-first development with comprehensive testing before submission.
+## Troubleshooting
+
+### Common Issues
+
+For AWS authentication problems, run `aws sso login --profile <your-profile>` and `export AWS_PROFILE=<your-profile>`.
+Development server issues can typically be resolved by navigating to the portal directory, running `npm install`, and
+starting the development server with `npm run dev`. Build and test failures often require running `npm run format` to
+fix code formatting, `npm run lint` to check code quality, and `npm run test:quick` to run the validation suite.
+
+### Getting Help
+
+Several resources are available for assistance. Development issues should be addressed by consulting CONTRIBUTING.md.
+Component-specific questions can be answered through the respective component README files. Production issues can be
+diagnosed through CloudWatch logs, while known issues are tracked in GitHub Issues.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE.txt file for details.
