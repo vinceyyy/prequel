@@ -237,8 +237,8 @@ export default function Home() {
     }
 
     try {
-      // Use the background destroy API
-      await destroyInterview(id)
+      // Use the background destroy API with interview metadata
+      await destroyInterview(id, interview?.candidateName, interview?.challenge)
 
       // Show notification
       const candidateName = interview?.candidateName || 'Unknown'

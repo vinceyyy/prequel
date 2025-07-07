@@ -73,11 +73,18 @@ export function useOperations(interviewId?: string) {
   )
 
   const destroyInterview = useCallback(
-    async (interviewId: string) => {
+    async (interviewId: string, candidateName?: string, challenge?: string) => {
       try {
         setLoading(true)
         const response = await fetch(`/api/interviews/${interviewId}/destroy`, {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            candidateName,
+            challenge,
+          }),
         })
 
         if (response.ok) {

@@ -99,8 +99,26 @@ export async function POST(
   try {
     const { id: interviewId } = await params
 
+    // Get interview details from the request body for better operation tracking
+    let candidateName: string | undefined
+    let challenge: string | undefined
+
+    try {
+      const body = await request.json()
+      candidateName = body.candidateName
+      challenge = body.challenge
+    } catch {
+      // If no body provided, operation will still work but without metadata
+      console.log('No interview metadata provided in destroy request')
+    }
+
     // Create operation to track progress
-    const operationId = operationManager.createOperation('destroy', interviewId)
+    const operationId = operationManager.createOperation(
+      'destroy',
+      interviewId,
+      candidateName,
+      challenge
+    )
 
     // Start background operation
     setImmediate(async () => {
