@@ -213,7 +213,9 @@ export default function Home() {
     } catch (error) {
       console.error('Error creating interview:', error)
       alert(
-        `Failed to start interview creation: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to start interview creation: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
       )
     } finally {
       setLoading(false)
@@ -291,7 +293,9 @@ export default function Home() {
           </button>
           <div className="flex items-center space-x-2">
             <div
-              className={`w-2 h-2 rounded-full ${sseConnected ? 'bg-green-500' : 'bg-red-500'}`}
+              className={`w-2 h-2 rounded-full ${
+                sseConnected ? 'bg-green-500' : 'bg-red-500'
+              }`}
             ></div>
             <span className="text-sm text-gray-600">
               {sseConnected ? 'Live updates' : 'Offline'}
@@ -616,7 +620,7 @@ export default function Home() {
                         )}
                       </td>
                       <td className="px-3 sm:px-6 py-4 text-sm font-medium">
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 items-center">
                           {interview.status === 'active' && (
                             <button
                               onClick={() => stopInterview(interview.id)}

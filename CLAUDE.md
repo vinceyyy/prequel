@@ -4,14 +4,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Prequel is a coding interview platform that provisions on-demand VS Code instances in the browser for candidates.
+Prequel is a coding interview platform that provisions on-demand VS Code instances in the browser for candidates. Features include:
+
+- **Scheduled Interviews**: Create interviews for future execution with configurable auto-destroy timers
+- **Real-time Updates**: Live SSE-powered status updates without manual refresh
+- **Background Operations**: Non-blocking interview creation and destruction with detailed logs
+- **Auto-destroy Protection**: Mandatory resource cleanup to prevent AWS cost overruns
+
+## Real-time Architecture
+
+**Server-Sent Events (SSE) System:**
+- `/api/events` - SSE endpoint providing real-time updates
+- `OperationManager` - Emits events on all operation status changes
+- `SchedulerService` - 30-second polling for scheduled operations with event emission
+- `useSSE` hook - Client-side SSE connection with auto-reconnection
+- Live status indicator in UI showing connection health
+
+**Background Operations:**
+- All interview creation/destruction happens in background
+- Detailed operation logs with streaming updates
+- Non-blocking UI - users can continue working while operations run
+- Persistent operation storage in `/tmp/prequel-operations.json`
+
+**Scheduling System:**
+- Built-in scheduler running within NextJS container (no external dependencies)
+- Processes scheduled interviews and auto-destroy timeouts
+- Mandatory auto-destroy prevents forgotten resources
+- Configurable durations: 30min, 45min, 1hr, 1.5hr, 2hr, 3hr, 4hr
 
 ## Architecture
 
 - **`infra/`** - Shared AWS infrastructure (VPC, ECS, ALB) via Terraform
-- **`portal/`** - NextJS web interface for managing interviews
+- **`portal/`** - NextJS web interface with real-time SSE updates for managing interviews
 - **`instance/`** - Per-interview Terraform templates for ECS instances
-- **`challenge/`** - Interview coding challenges and environments
+- **`challenge/`** - Interview coding challenges and environments stored in S3
 
 ## Development Commands
 
@@ -69,7 +95,6 @@ export AWS_REGION=your-aws-region             # AWS region (default: your-aws-re
 All build scripts use environment variables for AWS configuration:
 
 - `instance/build-and-push.sh` - Build and push instance Docker image
-- `instance/terraform/sync-to-s3.sh` - Sync instance terraform code to S3
 - `portal/build-push-deploy.sh` - Build, push and deploy portal
 - `challenge/sync-to-s3.sh` - Sync challenges to S3
 
@@ -85,10 +110,14 @@ Access at http://localhost:8443 with password "password"
 
 Current structure:
 
-- `portal/` - NextJS frontend
+- `portal/` - NextJS frontend with SSE real-time updates
+  - `src/app/` - Next.js app router pages and API routes
+  - `src/components/` - Reusable React components
+  - `src/hooks/` - Custom React hooks (useSSE, useOperations)
+  - `src/lib/` - Core business logic (operations, scheduler, terraform)
 - `infra/` - Shared AWS infrastructure code in terraform
 - `instance/` - Terraform code for provisioning code-server instance
-- `challenge/` - Interview challenge files
+- `challenge/` - Interview challenge files stored in S3
 
 ## Code Style
 
@@ -139,37 +168,61 @@ npm run test:all     # Full test suite (5-10 minutes)
 - E2E tests: Use `npm run test:e2e:ui` for interactive debugging
 - Coverage reports: `npm run test:coverage`
 
-## Desired User Flow
+## User Flow
 
-The checkbox indicates features to support the action is already built.
+The checkbox indicates features that are currently implemented.
 
-1. [ ] Login to portal
-2. [ ] Create instance
-    1. [X] The user can manually create an instance
-    2. [X] Select a challenge (prebuilt or customized)
-    3. [ ] Optionally, selecting instance if the user needs special instance
-    4. [ ] The user can also schedule an instance creation at a specific time to avoid waiting for the instance to spin
-       up
-3. [X] Wait for instance to become `Active` - Challenge files will be copied from S3 to instance during the configuring
-   stage
-4. [X] When an instance become `Active`, the user can copy the URL and password and send to the candidate
-5. [ ] Destroy the instance after an interview
-    1. [ ] The user can manually destroy the instance after the interview
-    2. [ ] The user can also schedule an instance destroy at a specific time to ensure cleanup
-    3. [ ] Option to save all files (with ignore list) to s3, into candidate-named folder
+1. [ ] Login to portal (authentication not yet implemented)
+2. [X] Create instance
+    1. [X] Manually create an instance immediately
+    2. [X] Select a challenge from S3-stored options (javascript, python, sql, etc.)
+    3. [X] Schedule instance creation for future execution
+    4. [X] **Mandatory**: Choose interview duration (30min-4hrs) with automatic destruction
+    5. [X] Real-time status updates via SSE (no manual refresh needed)
+3. [X] Wait for instance to become `Active`
+   - [X] Challenge files are automatically copied from S3 during configuring stage
+   - [X] Live status updates show progression through states
+4. [X] Access active instance
+   - [X] Copy URL and password from the portal
+   - [X] Send credentials to candidate
+5. [X] Destroy instance
+    1. [X] Manual destruction via portal interface
+    2. [X] **Automatic destruction** based on configured timeout
+    3. [X] Background operations with detailed logs
+    4. [ ] Option to save candidate files to S3 (not yet implemented)
 
 ## Instance Status
 
-1. Initializing - provisioning infra, not customizable by the user when creating instance
-2. Configuring
-    - Wait for the ECS container to boot up
-    - Install extra extensions - customizable by the user when creating the instance (basic extensions are already built
-      into the image)
-    - Copy in settings.json - customizable by the user when creating the instance
-    - Copy in challenge files and set workspace (work DIR) - customizable by the user when creating the instance
-    - Wait for code-server to start
-3. Active - Code-server up and running, allow for incoming connections
-4. Destroying
-    - Destroy all infrastructures
-    - Delete terraform workspace files on S3
-5. Error
+**Live status updates via Server-Sent Events (SSE) - no manual refresh required**
+
+1. **Scheduled** - Interview scheduled for future execution
+   - Displayed with scheduled start time and auto-destroy time
+   - Purple status indicator in UI
+
+2. **Initializing** - Provisioning AWS infrastructure (not customizable)
+   - Terraform creating ECS service, ALB target group, etc.
+   - Blue status indicator in UI
+
+3. **Configuring** - Setting up VS Code environment
+   - ECS container booting up
+   - Installing extensions (basic extensions built into image)
+   - Copying challenge files from S3 to workspace
+   - Starting code-server service
+   - Yellow status indicator in UI
+
+4. **Active** - Ready for candidate access
+   - Code-server running and accepting connections
+   - URL and password available for sharing
+   - Green status indicator in UI
+
+5. **Destroying** - Cleaning up resources
+   - Destroying all AWS infrastructure
+   - Deleting terraform workspace files from S3
+   - Orange status indicator in UI
+
+6. **Error** - Something went wrong
+   - Resources may need manual cleanup
+   - Retry destroy option available
+   - Red status indicator in UI
+
+**Status changes trigger immediate SSE events for real-time UI updates**

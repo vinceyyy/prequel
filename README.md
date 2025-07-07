@@ -36,8 +36,6 @@ prequel/
 └── challenge/       # Interview coding challenges
 ```
 
-Each component includes detailed documentation in its respective folder.
-
 ## Quick Start
 
 ### Prerequisites

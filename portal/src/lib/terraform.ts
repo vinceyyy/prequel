@@ -87,17 +87,30 @@ class TerraformManager {
       env.AWS_PROFILE = awsProfile
       env.AWS_EC2_METADATA_DISABLED = 'true'
 
-      // Check if AWS SSO credentials are available
-      if (!process.env.AWS_ACCESS_KEY_ID && !process.env.AWS_SESSION_TOKEN) {
-        const errorMsg = `AWS SSO credentials not found. Please run: aws sso login --profile ${awsProfile}`
+      // Check if AWS credentials are available (works with both SSO and regular credentials)
+      try {
+        await execAsync(`aws sts get-caller-identity --profile ${awsProfile}`, {
+          timeout: 10000,
+        })
+        console.log(
+          `[Terraform] AWS credentials validated for profile: ${awsProfile}`
+        )
+      } catch (credentialError: unknown) {
+        const errorMsg = `AWS credentials not available or expired. Please run: aws sso login --profile ${awsProfile}`
         console.error(`[Terraform] ${errorMsg}`)
+        console.error(
+          `[Terraform] Credential check error:`,
+          credentialError instanceof Error
+            ? credentialError.message
+            : String(credentialError)
+        )
 
         return {
           success: false,
           output: '',
           error: errorMsg,
           command,
-          fullOutput: `Command: ${command}\nDirectory: ${cwd}\n\n--- ERROR ---\n${errorMsg}\n\nTo fix this:\n1. aws sso login --profile ${awsProfile}\n2. export AWS_PROFILE=${awsProfile}\n3. Restart the portal`,
+          fullOutput: `Command: ${command}\nDirectory: ${cwd}\n\n--- ERROR ---\n${errorMsg}\n\nCredential check failed: ${credentialError instanceof Error ? credentialError.message : String(credentialError)}\n\nTo fix this:\n1. aws sso login --profile ${awsProfile}\n2. export AWS_PROFILE=${awsProfile}\n3. Restart the portal`,
         }
       }
     }
@@ -207,17 +220,30 @@ class TerraformManager {
       env.AWS_PROFILE = awsProfile
       env.AWS_EC2_METADATA_DISABLED = 'true'
 
-      // Check if AWS SSO credentials are available
-      if (!process.env.AWS_ACCESS_KEY_ID && !process.env.AWS_SESSION_TOKEN) {
-        const errorMsg = `AWS SSO credentials not found. Please run: aws sso login --profile ${awsProfile}`
+      // Check if AWS credentials are available (works with both SSO and regular credentials)
+      try {
+        await execAsync(`aws sts get-caller-identity --profile ${awsProfile}`, {
+          timeout: 10000,
+        })
+        console.log(
+          `[Terraform] AWS credentials validated for profile: ${awsProfile}`
+        )
+      } catch (credentialError: unknown) {
+        const errorMsg = `AWS credentials not available or expired. Please run: aws sso login --profile ${awsProfile}`
         console.error(`[Terraform] ${errorMsg}`)
+        console.error(
+          `[Terraform] Credential check error:`,
+          credentialError instanceof Error
+            ? credentialError.message
+            : String(credentialError)
+        )
 
         return {
           success: false,
           output: '',
           error: errorMsg,
           command,
-          fullOutput: `Command: ${command}\nDirectory: ${cwd}\n\n--- ERROR ---\n${errorMsg}\n\nTo fix this:\n1. aws sso login --profile ${awsProfile}\n2. export AWS_PROFILE=${awsProfile}\n3. Restart the portal`,
+          fullOutput: `Command: ${command}\nDirectory: ${cwd}\n\n--- ERROR ---\n${errorMsg}\n\nCredential check failed: ${credentialError instanceof Error ? credentialError.message : String(credentialError)}\n\nTo fix this:\n1. aws sso login --profile ${awsProfile}\n2. export AWS_PROFILE=${awsProfile}\n3. Restart the portal`,
         }
       }
     }

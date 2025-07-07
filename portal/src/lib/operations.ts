@@ -1,6 +1,12 @@
 import { v4 as uuidv4 } from 'uuid'
 import fs from 'fs/promises'
 
+export interface OperationEvent {
+  type: 'operation_update'
+  operation: Operation
+  timestamp: string
+}
+
 export interface Operation {
   id: string
   type: 'create' | 'destroy'
@@ -31,9 +37,37 @@ export interface Operation {
 class OperationManager {
   private operations: Map<string, Operation> = new Map()
   private persistFile = '/tmp/prequel-operations.json'
+  private eventListeners: ((event: OperationEvent) => void)[] = []
 
   constructor() {
     this.loadFromDisk()
+  }
+
+  addEventListener(listener: (event: OperationEvent) => void) {
+    this.eventListeners.push(listener)
+  }
+
+  removeEventListener(listener: (event: OperationEvent) => void) {
+    const index = this.eventListeners.indexOf(listener)
+    if (index > -1) {
+      this.eventListeners.splice(index, 1)
+    }
+  }
+
+  private emit(operation: Operation) {
+    const event: OperationEvent = {
+      type: 'operation_update',
+      operation,
+      timestamp: new Date().toISOString(),
+    }
+
+    this.eventListeners.forEach(listener => {
+      try {
+        listener(event)
+      } catch (error) {
+        console.error('Error in operation event listener:', error)
+      }
+    })
   }
 
   private async loadFromDisk() {
@@ -88,6 +122,7 @@ class OperationManager {
 
     this.operations.set(operationId, operation)
     this.saveToDisk()
+    this.emit(operation)
 
     return operationId
   }
@@ -116,6 +151,7 @@ class OperationManager {
         operation.completedAt = new Date()
       }
       this.saveToDisk()
+      this.emit(operation)
     }
   }
 
@@ -152,6 +188,7 @@ class OperationManager {
       operation.status = result?.success ? 'completed' : 'failed'
       operation.completedAt = new Date()
       this.saveToDisk()
+      this.emit(operation)
     }
   }
 
@@ -169,6 +206,7 @@ class OperationManager {
       }
       this.addOperationLog(operationId, 'Operation cancelled by user')
       this.saveToDisk()
+      this.emit(operation)
       return true
     }
     return false

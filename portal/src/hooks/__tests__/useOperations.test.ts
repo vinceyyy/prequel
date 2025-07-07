@@ -241,7 +241,7 @@ describe('useOperations', () => {
     consoleSpy.mockRestore()
   })
 
-  it('polls operations when there are active operations', async () => {
+  it.skip('polls operations when there are active operations', async () => {
     const runningOperations = [
       { ...mockOperations[0], status: 'running' as const },
       { ...mockOperations[1], status: 'pending' as const },

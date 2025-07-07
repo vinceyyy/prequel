@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { operationManager } from '@/lib/operations'
+import { operationManager, type OperationEvent } from '@/lib/operations'
 import { scheduler, type SchedulerEvent } from '@/lib/scheduler'
 
 export async function GET(request: NextRequest) {
@@ -72,13 +72,41 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Listen for operation events (status changes)
+      const operationEventListener = (event: OperationEvent) => {
+        try {
+          const eventData = JSON.stringify({
+            type: 'operation_update',
+            timestamp: new Date().toISOString(),
+            operation: {
+              id: event.operation.id,
+              type: event.operation.type,
+              status: event.operation.status,
+              interviewId: event.operation.interviewId,
+              candidateName: event.operation.candidateName,
+              challenge: event.operation.challenge,
+              scheduledAt: event.operation.scheduledAt,
+              autoDestroyAt: event.operation.autoDestroyAt,
+              startedAt: event.operation.startedAt,
+              completedAt: event.operation.completedAt,
+              result: event.operation.result,
+            },
+          })
+          controller.enqueue(encoder.encode(`data: ${eventData}\n\n`))
+        } catch (error) {
+          console.error('Error sending operation event:', error)
+        }
+      }
+
       scheduler.addEventListener(schedulerEventListener)
+      operationManager.addEventListener(operationEventListener)
 
       // Clean up on close
       const cleanup = () => {
         clearInterval(heartbeatInterval)
         clearInterval(statusInterval)
         scheduler.removeEventListener(schedulerEventListener)
+        operationManager.removeEventListener(operationEventListener)
         try {
           controller.close()
         } catch (error) {
