@@ -4,14 +4,18 @@ FROM codercom/code-server:4.99.3
 # Switch to root to install additional packages
 USER root
 
-# Install Python3, pip, Node.js, and AWS CLI
+# Install Python3, pip, Node.js, and AWS CLI (optimized for smaller size)
 RUN apt-get update && \
-    apt-get install -y python3 python3-pip python3-venv nodejs npm curl unzip && \
+    apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-venv nodejs npm curl unzip && \
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
     unzip awscliv2.zip && \
     ./aws/install && \
     rm -rf awscliv2.zip aws && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
+    find /usr/share/doc -depth -type f ! -name copyright | xargs rm || true && \
+    find /usr/share/man -depth -type f | xargs rm || true
 
 # Create workspace directory (challenge will be downloaded at runtime)
 RUN mkdir -p /workspaces
@@ -29,13 +33,11 @@ WORKDIR /workspaces
 
 # Install common VS Code extensions that work well with our challenges
 RUN code-server --install-extension ms-python.python \
-    && code-server --install-extension ms-vscode.vscode-typescript-next \
-    && code-server --install-extension esbenp.prettier-vscode \
-    && code-server --install-extension bradlc.vscode-tailwindcss \
     && code-server --install-extension ms-toolsai.jupyter \
+    && code-server --install-extension ms-vscode.vscode-typescript-next \
     && code-server --install-extension dbcode.dbcode
 
-# Copy in settings
+# Copy user settings
 COPY settings.json /home/coder/.local/share/code-server/User/settings.json
 
 # Expose code-server port
