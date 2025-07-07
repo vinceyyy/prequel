@@ -38,9 +38,8 @@ export default function Home() {
     candidateName: '',
     challenge: 'python',
     scheduledAt: '',
-    autoDestroyMinutes: 30,
+    autoDestroyMinutes: 60,
     enableScheduling: false,
-    enableAutoDestroy: false,
   })
 
   // Use the operations hook for background operations
@@ -173,10 +172,8 @@ export default function Home() {
         requestBody.scheduledAt = formData.scheduledAt
       }
 
-      // Add auto-destroy if enabled
-      if (formData.enableAutoDestroy && formData.autoDestroyMinutes) {
-        requestBody.autoDestroyMinutes = formData.autoDestroyMinutes
-      }
+      // Auto-destroy is always enabled and required
+      requestBody.autoDestroyMinutes = formData.autoDestroyMinutes
 
       // Make the API call
       const response = await fetch('/api/interviews/create', {
@@ -199,9 +196,8 @@ export default function Home() {
         candidateName: '',
         challenge: 'python',
         scheduledAt: '',
-        autoDestroyMinutes: 30,
+        autoDestroyMinutes: 60,
         enableScheduling: false,
-        enableAutoDestroy: false,
       })
       setShowCreateForm(false)
 
@@ -391,51 +387,34 @@ export default function Home() {
                     </div>
                   )}
 
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="enableAutoDestroy"
-                      checked={formData.enableAutoDestroy}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                      Interview Duration <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.autoDestroyMinutes}
                       onChange={e =>
                         setFormData({
                           ...formData,
-                          enableAutoDestroy: e.target.checked,
+                          autoDestroyMinutes: parseInt(e.target.value),
                         })
                       }
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <label
-                      htmlFor="enableAutoDestroy"
-                      className="text-sm font-medium text-gray-900"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      required
                     >
-                      Auto-destroy after completion
-                    </label>
+                      <option value={30}>30 minutes</option>
+                      <option value={45}>45 minutes</option>
+                      <option value={60}>1 hour</option>
+                      <option value={90}>1.5 hours</option>
+                      <option value={120}>2 hours</option>
+                      <option value={180}>3 hours</option>
+                      <option value={240}>4 hours</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Required: Interview will auto-destroy after this duration
+                      to prevent resource waste
+                    </p>
                   </div>
-
-                  {formData.enableAutoDestroy && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-1">
-                        Auto-destroy timeout (minutes)
-                      </label>
-                      <select
-                        value={formData.autoDestroyMinutes}
-                        onChange={e =>
-                          setFormData({
-                            ...formData,
-                            autoDestroyMinutes: parseInt(e.target.value),
-                          })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      >
-                        <option value={15}>15 minutes</option>
-                        <option value={30}>30 minutes</option>
-                        <option value={45}>45 minutes</option>
-                        <option value={60}>1 hour</option>
-                        <option value={90}>1.5 hours</option>
-                        <option value={120}>2 hours</option>
-                      </select>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -559,30 +538,63 @@ export default function Home() {
                         </div>
                       </td>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {interview.scheduledAt && (
+                        {interview.status === 'scheduled' &&
+                        interview.scheduledAt ? (
+                          <div className="space-y-2">
+                            <div className="bg-purple-50 p-2 rounded border border-purple-200">
+                              <div className="text-xs font-medium text-purple-700">
+                                Starts:
+                              </div>
+                              <div className="text-sm font-semibold text-purple-900">
+                                {new Date(
+                                  interview.scheduledAt
+                                ).toLocaleString()}
+                              </div>
+                            </div>
+                            {interview.autoDestroyAt && (
+                              <div className="bg-red-50 p-2 rounded border border-red-200">
+                                <div className="text-xs font-medium text-red-700">
+                                  Auto-destroy:
+                                </div>
+                                <div className="text-sm font-semibold text-red-900">
+                                  {new Date(
+                                    interview.autoDestroyAt
+                                  ).toLocaleString()}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
                           <div>
-                            <div className="text-xs text-gray-500">
-                              Scheduled:
-                            </div>
-                            <div>
-                              {new Date(interview.scheduledAt).toLocaleString()}
-                            </div>
+                            {interview.scheduledAt && (
+                              <div className="mb-1">
+                                <div className="text-xs text-gray-500">
+                                  Started:
+                                </div>
+                                <div className="text-sm">
+                                  {new Date(
+                                    interview.scheduledAt
+                                  ).toLocaleString()}
+                                </div>
+                              </div>
+                            )}
+                            {interview.autoDestroyAt && (
+                              <div className="bg-yellow-50 p-1 rounded border border-yellow-200">
+                                <div className="text-xs text-yellow-700">
+                                  Auto-destroy:
+                                </div>
+                                <div className="text-xs font-medium text-yellow-900">
+                                  {new Date(
+                                    interview.autoDestroyAt
+                                  ).toLocaleString()}
+                                </div>
+                              </div>
+                            )}
+                            {!interview.scheduledAt &&
+                              !interview.autoDestroyAt && (
+                                <span className="text-gray-400">Immediate</span>
+                              )}
                           </div>
-                        )}
-                        {interview.autoDestroyAt && (
-                          <div className="mt-1">
-                            <div className="text-xs text-gray-500">
-                              Auto-destroy:
-                            </div>
-                            <div>
-                              {new Date(
-                                interview.autoDestroyAt
-                              ).toLocaleString()}
-                            </div>
-                          </div>
-                        )}
-                        {!interview.scheduledAt && !interview.autoDestroyAt && (
-                          <span className="text-gray-400">Immediate</span>
                         )}
                       </td>
                       <td className="px-3 sm:px-6 py-4 text-sm text-gray-900">

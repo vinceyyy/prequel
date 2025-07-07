@@ -35,18 +35,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Calculate auto-destroy time if specified
-    let autoDestroyDate: Date | undefined
+    // Auto-destroy is required for all interviews
     if (
-      autoDestroyMinutes &&
-      typeof autoDestroyMinutes === 'number' &&
-      autoDestroyMinutes > 0
+      !autoDestroyMinutes ||
+      typeof autoDestroyMinutes !== 'number' ||
+      autoDestroyMinutes <= 0
     ) {
-      const baseTime = scheduledDate || new Date()
-      autoDestroyDate = new Date(
-        baseTime.getTime() + autoDestroyMinutes * 60 * 1000
+      return NextResponse.json(
+        {
+          error: 'autoDestroyMinutes is required and must be a positive number',
+        },
+        { status: 400 }
       )
     }
+
+    const baseTime = scheduledDate || new Date()
+    const autoDestroyDate = new Date(
+      baseTime.getTime() + autoDestroyMinutes * 60 * 1000
+    )
 
     const interviewId = uuidv4().substring(0, 8)
     const password = Math.random().toString(36).substring(2, 12)
@@ -88,7 +94,7 @@ export async function POST(request: NextRequest) {
         challenge,
         password,
         scheduledAt: scheduledDate.toISOString(),
-        autoDestroyAt: autoDestroyDate?.toISOString(),
+        autoDestroyAt: autoDestroyDate.toISOString(),
         message: `Interview scheduled for ${scheduledDate.toLocaleString()}`,
       })
     }
