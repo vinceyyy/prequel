@@ -42,7 +42,7 @@ const mockInterviews = [
   {
     id: 'int-2',
     candidateName: 'Jane Smith',
-    status: 'creating' as const,
+    status: 'initializing' as const,
     challenge: 'python',
     createdAt: '2024-01-01T11:00:00Z',
   },
@@ -265,7 +265,7 @@ describe('Home Page', () => {
 
     await waitFor(() => {
       expect(screen.getByText('active')).toBeInTheDocument()
-      expect(screen.getByText('creating')).toBeInTheDocument()
+      expect(screen.getByText('initializing')).toBeInTheDocument()
       expect(screen.getByText('error')).toBeInTheDocument()
     })
 

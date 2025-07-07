@@ -121,9 +121,9 @@ function getOperationInterviews(
         op.status === 'scheduled'
           ? 'scheduled'
           : op.status === 'pending'
-            ? 'creating'
+            ? 'initializing'
             : op.status === 'running'
-              ? 'creating'
+              ? 'configuring' // Running operations are in the configuring phase
               : op.status === 'completed'
                 ? op.result?.success
                   ? 'active'

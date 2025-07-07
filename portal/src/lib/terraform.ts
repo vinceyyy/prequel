@@ -19,7 +19,14 @@ export interface InterviewInstance {
   challenge: string
   password: string
   accessUrl?: string
-  status: 'creating' | 'active' | 'destroying' | 'destroyed' | 'error'
+  status:
+    | 'scheduled'
+    | 'initializing'
+    | 'configuring'
+    | 'active'
+    | 'destroying'
+    | 'destroyed'
+    | 'error'
   createdAt: Date
 }
 

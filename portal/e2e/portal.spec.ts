@@ -141,7 +141,7 @@ test.describe('Prequel Portal E2E Tests', () => {
               id: 'int-2',
               candidateName: 'Jane Smith',
               challenge: 'python',
-              status: 'creating',
+              status: 'initializing',
               createdAt: '2024-01-01T11:00:00Z',
             },
           ],
@@ -157,7 +157,7 @@ test.describe('Prequel Portal E2E Tests', () => {
     await expect(page.getByText('JavaScript')).toBeVisible()
     await expect(page.getByText('Python')).toBeVisible()
     await expect(page.getByText('active')).toBeVisible()
-    await expect(page.getByText('creating')).toBeVisible()
+    await expect(page.getByText('initializing')).toBeVisible()
   })
 
   test('can open logs modal for interview', async ({ page }) => {
@@ -259,7 +259,7 @@ test.describe('Prequel Portal E2E Tests', () => {
             id: 'new-int',
             candidateName: 'Test User',
             challenge: 'javascript',
-            status: 'creating',
+            status: 'initializing',
           },
         }),
       })

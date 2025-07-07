@@ -9,12 +9,13 @@ interface Interview {
   id: string
   candidateName: string
   status:
-    | 'creating'
+    | 'scheduled'
+    | 'initializing'
+    | 'configuring'
     | 'active'
     | 'destroying'
     | 'destroyed'
     | 'error'
-    | 'scheduled'
   challenge: string
   accessUrl?: string
   password?: string
@@ -533,17 +534,19 @@ export default function Home() {
                         <div>
                           <span
                             className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              interview.status === 'active'
-                                ? 'bg-green-100 text-green-800'
-                                : interview.status === 'creating'
+                              interview.status === 'scheduled'
+                                ? 'bg-purple-100 text-purple-800'
+                                : interview.status === 'initializing'
                                   ? 'bg-blue-100 text-blue-800'
-                                  : interview.status === 'destroying'
-                                    ? 'bg-orange-100 text-orange-800'
-                                    : interview.status === 'scheduled'
-                                      ? 'bg-purple-100 text-purple-800'
-                                      : interview.status === 'error'
-                                        ? 'bg-red-100 text-red-800'
-                                        : 'bg-gray-100 text-gray-800'
+                                  : interview.status === 'configuring'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : interview.status === 'active'
+                                      ? 'bg-green-100 text-green-800'
+                                      : interview.status === 'destroying'
+                                        ? 'bg-orange-100 text-orange-800'
+                                        : interview.status === 'error'
+                                          ? 'bg-red-100 text-red-800'
+                                          : 'bg-gray-100 text-gray-800'
                             }`}
                           >
                             {interview.status}
@@ -610,8 +613,20 @@ export default function Home() {
                               Stop & Destroy
                             </button>
                           )}
-                          {interview.status === 'creating' && (
-                            <span className="text-blue-600">Creating...</span>
+                          {interview.status === 'scheduled' && (
+                            <span className="text-purple-600">
+                              Scheduled...
+                            </span>
+                          )}
+                          {interview.status === 'initializing' && (
+                            <span className="text-blue-600">
+                              Initializing...
+                            </span>
+                          )}
+                          {interview.status === 'configuring' && (
+                            <span className="text-yellow-600">
+                              Configuring...
+                            </span>
                           )}
                           {interview.status === 'destroying' && (
                             <span className="text-orange-600">
