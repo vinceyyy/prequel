@@ -9,7 +9,9 @@ interface Operation {
   interviewId: string
   candidateName?: string
   challenge?: string
-  startedAt: string
+  createdAt?: string // When the operation was scheduled/created
+  startedAt?: string // Legacy field for backward compatibility
+  executionStartedAt?: string // When execution actually began
   completedAt?: string
   logs: string[]
   result?: {
@@ -246,11 +248,43 @@ export default function OperationDashboard({
   }
 
   const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString()
+    return new Date(dateString).toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
   }
 
-  const getDuration = (startedAt: string, completedAt?: string) => {
-    const start = new Date(startedAt)
+  const formatLogTimestamp = (logLine: string) => {
+    // Log format: [2024-01-15T09:00:00Z] Message
+    const timestampMatch = logLine.match(/^\[([^\]]+)\](.*)$/)
+    if (timestampMatch) {
+      const utcTimestamp = timestampMatch[1]
+      const message = timestampMatch[2]
+      try {
+        const localTime = new Date(utcTimestamp).toLocaleString(undefined, {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+        return `[${localTime}]${message}`
+      } catch {
+        // If timestamp parsing fails, return original
+        return logLine
+      }
+    }
+    return logLine
+  }
+
+  const getDuration = (executionStartedAt?: string, completedAt?: string) => {
+    if (!executionStartedAt) {
+      return 'Not started'
+    }
+
+    const start = new Date(executionStartedAt)
     const end = completedAt ? new Date(completedAt) : new Date()
     const duration = Math.floor((end.getTime() - start.getTime()) / 1000)
 
@@ -324,10 +358,26 @@ export default function OperationDashboard({
                     {operation.challenge && (
                       <div>Challenge: {operation.challenge}</div>
                     )}
-                    <div>Started: {formatTime(operation.startedAt)}</div>
+                    <div>
+                      Created:{' '}
+                      {formatTime(
+                        operation.createdAt ||
+                          operation.startedAt ||
+                          new Date().toISOString()
+                      )}
+                    </div>
+                    {operation.executionStartedAt && (
+                      <div>
+                        Execution started:{' '}
+                        {formatTime(operation.executionStartedAt)}
+                      </div>
+                    )}
                     <div>
                       Duration:{' '}
-                      {getDuration(operation.startedAt, operation.completedAt)}
+                      {getDuration(
+                        operation.executionStartedAt,
+                        operation.completedAt
+                      )}
                     </div>
                   </div>
 
@@ -382,7 +432,9 @@ export default function OperationDashboard({
                 ref={terminalRef}
                 className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm whitespace-pre-wrap"
               >
-                {logs.length > 0 ? logs.join('\n') : 'No logs available yet...'}
+                {logs.length > 0
+                  ? logs.map(formatLogTimestamp).join('\n')
+                  : 'No logs available yet...'}
               </div>
             ) : (
               <div className="flex items-center justify-center flex-1 text-gray-500">

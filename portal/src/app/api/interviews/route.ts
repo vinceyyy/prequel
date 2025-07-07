@@ -57,7 +57,7 @@ async function performExpensiveQuery(): Promise<SharedResult> {
     const operations = operationManager.getAllOperations()
     const destroyOperation = operations
       .filter(op => op.type === 'destroy' && op.interviewId === id)
-      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
 
     if (destroyOperation) {
       return {
@@ -70,7 +70,7 @@ async function performExpensiveQuery(): Promise<SharedResult> {
             : destroyOperation.status === 'failed'
               ? 'error'
               : 'error',
-        createdAt: destroyOperation.startedAt.toISOString(),
+        createdAt: destroyOperation.createdAt.toISOString(),
       }
     }
 
@@ -108,7 +108,7 @@ function getOperationInterviews(
       accessUrl?: string
       password?: string
     }
-    startedAt: Date
+    createdAt: Date
   }>
 ) {
   return operations
@@ -131,7 +131,7 @@ function getOperationInterviews(
                 : 'error',
       accessUrl: op.result?.accessUrl,
       password: op.result?.password || '',
-      createdAt: op.startedAt.toISOString(),
+      createdAt: op.createdAt.toISOString(),
       scheduledAt: op.scheduledAt?.toISOString(),
       autoDestroyAt: op.autoDestroyAt?.toISOString(),
     }))
@@ -156,7 +156,7 @@ function mergeAndDeduplicateInterviews(
     result?: {
       success: boolean
     }
-    startedAt: Date
+    createdAt: Date
   }>
 ) {
   // Apply destroy operation status updates
@@ -165,7 +165,7 @@ function mergeAndDeduplicateInterviews(
     .filter(op => op.type === 'destroy')
     .forEach(op => {
       const existing = destroyOperationUpdates.get(op.interviewId)
-      if (!existing || op.startedAt.getTime() > existing.startedAt.getTime()) {
+      if (!existing || op.createdAt.getTime() > existing.createdAt.getTime()) {
         destroyOperationUpdates.set(op.interviewId, op)
       }
     })

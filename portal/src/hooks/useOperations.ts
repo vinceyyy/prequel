@@ -5,11 +5,19 @@ import { useState, useEffect, useCallback } from 'react'
 interface Operation {
   id: string
   type: 'create' | 'destroy'
-  status: 'pending' | 'running' | 'completed' | 'failed'
+  status:
+    | 'pending'
+    | 'running'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
+    | 'scheduled'
   interviewId: string
   candidateName?: string
   challenge?: string
-  startedAt: string
+  createdAt?: string // When the operation was scheduled/created
+  startedAt?: string // Legacy field for backward compatibility
+  executionStartedAt?: string // When execution actually began
   completedAt?: string
   result?: {
     success: boolean

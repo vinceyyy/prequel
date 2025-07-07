@@ -20,7 +20,8 @@ export interface Operation {
   interviewId: string
   candidateName?: string
   challenge?: string
-  startedAt: Date
+  createdAt: Date // When the operation was scheduled/created
+  executionStartedAt?: Date // When execution actually began
   completedAt?: Date
   scheduledAt?: Date
   autoDestroyAt?: Date
@@ -73,14 +74,24 @@ class OperationManager {
   private async loadFromDisk() {
     try {
       const data = await fs.readFile(this.persistFile, 'utf-8')
-      const operations = JSON.parse(data) as Operation[]
+      const operations = JSON.parse(data) as Array<
+        Operation & { startedAt?: string | Date }
+      >
       for (const op of operations) {
         // Convert date strings back to Date objects
-        op.startedAt = new Date(op.startedAt)
+        // Handle migration from old startedAt to new createdAt field
+        if (op.startedAt && !op.createdAt) {
+          op.createdAt = new Date(op.startedAt)
+          delete op.startedAt
+        } else {
+          op.createdAt = new Date(op.createdAt)
+        }
+        if (op.executionStartedAt)
+          op.executionStartedAt = new Date(op.executionStartedAt)
         if (op.completedAt) op.completedAt = new Date(op.completedAt)
         if (op.scheduledAt) op.scheduledAt = new Date(op.scheduledAt)
         if (op.autoDestroyAt) op.autoDestroyAt = new Date(op.autoDestroyAt)
-        this.operations.set(op.id, op)
+        this.operations.set(op.id, op as Operation)
       }
       console.log(`Loaded ${operations.length} operations from disk`)
     } catch {
@@ -114,7 +125,7 @@ class OperationManager {
       interviewId,
       candidateName,
       challenge,
-      startedAt: new Date(),
+      createdAt: new Date(),
       scheduledAt,
       autoDestroyAt,
       logs: [],
@@ -133,20 +144,24 @@ class OperationManager {
 
   getAllOperations(): Operation[] {
     return Array.from(this.operations.values()).sort(
-      (a, b) => b.startedAt.getTime() - a.startedAt.getTime()
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
     )
   }
 
   getOperationsByInterview(interviewId: string): Operation[] {
     return Array.from(this.operations.values())
       .filter(op => op.interviewId === interviewId)
-      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
   }
 
   updateOperationStatus(operationId: string, status: Operation['status']) {
     const operation = this.operations.get(operationId)
     if (operation) {
       operation.status = status
+      // Mark execution start time when operation starts running
+      if (status === 'running' && !operation.executionStartedAt) {
+        operation.executionStartedAt = new Date()
+      }
       if (status === 'completed' || status === 'failed') {
         operation.completedAt = new Date()
       }
