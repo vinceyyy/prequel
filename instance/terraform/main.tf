@@ -9,7 +9,7 @@ terraform {
   backend "s3" {
     bucket = "prequel-terraform-state"
     key    = "interview-instances/INTERVIEW_ID_PLACEHOLDER.tfstate"
-    region = "your-aws-region"
+    region = "us-east-1"
   }
 }
 

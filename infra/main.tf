@@ -10,7 +10,7 @@ terraform {
     # Note: Backend bucket must be manually created before terraform apply
     bucket       = "prequel-terraform-state"
     key          = "prequel"
-    region       = "your-aws-region"
+    region       = "us-east-1"
     use_lockfile = true
   }
 }

@@ -1,19 +1,18 @@
 # Prequel
 
-A real-time coding interview platform that provisions on-demand VS Code instances in the browser for candidates.
+A coding interview platform that provisions on-demand VS Code instances in the browser for candidates.
 
 ## What is Prequel?
 
 Prequel enables companies to conduct coding interviews using isolated, pre-configured VS Code environments that
 candidates access directly in their browser. Each interview gets its own containerized environment with the necessary
-tools and challenges.
+tools and challenges with zero setup. Security and isolation are maintained through separate containers for each
+interview with automatic cleanup.
 
-The platform provides zero setup for candidates who need only a browser, ensuring consistent environments with the same
-tools and versions for all candidates. Real-time management capabilities offer live status updates and scheduling
-features, while cost-effective resource usage means infrastructure only runs during interviews at approximately $0.50
-per hour. Security and isolation are maintained through separate containers for each interview with automatic cleanup.
+Although it is also possible to leverage this tool for provisioning web-based VS Code for internal use, it is better to
+use other tools that suit better for that purpose such as [Coder](https://coder.com/).
 
-## User Flow
+## User Flow (interviewer)
 
 1. **Login to portal** (authentication not yet implemented)
 2. **Create an interview**
@@ -23,7 +22,8 @@ per hour. Security and isolation are maintained through separate containers for 
 3. **Wait for provisioning** - AWS infrastructure is created automatically via Terraform
     - Status changes from "Scheduled" → "Initializing" → "Configuring" → "Active"
 4. **Share access details** - Copy the URL and password from the portal and send to the candidate
-5. **Conduct the interview** - Candidate accesses the full VS Code environment in their browser
+5. **Conduct the interview** - Candidate accesses the full VS Code environment in their browser and shares the screen
+   with the interviewer while solving the challenge
 6. **Automatic cleanup** - Resources are destroyed automatically when the duration expires or manually destroyed
 
 ## Project Structure
@@ -44,8 +44,8 @@ prequel/
 - Domain name configured in Route53 hosted zone
 - Local tools: Node.js 18+, AWS CLI, Terraform 1.0+
 - **S3 bucket for Terraform state**: Create an S3 bucket for storing Terraform state
-  - Bucket name can be anything (e.g., `my-terraform-state`, `company-prequel-tfstate`)
-  - Must enable versioning and encryption (recommended)
+    - Bucket name can be anything (e.g., `my-terraform-state`, `company-prequel-tfstate`)
+    - Must enable versioning and encryption
 
 ### Deployment Steps
 
