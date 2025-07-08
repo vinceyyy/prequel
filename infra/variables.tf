@@ -4,10 +4,22 @@ variable "aws_region" {
   default     = "your-aws-region"
 }
 
+variable "project_prefix" {
+  description = "Project prefix for resource naming"
+  type        = string
+  default     = "prequel"
+}
+
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
   default     = "dev"
+}
+
+variable "terraform_state_bucket" {
+  description = "S3 bucket name for Terraform state (must match backend configuration)"
+  type        = string
+  default     = "prequel-terraform-state"
 }
 
 variable "vpc_cidr" {

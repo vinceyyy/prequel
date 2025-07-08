@@ -470,3 +470,17 @@ override.tf.json
 terraform.rc
 
 .idea/
+
+# dependencies
+/.pnp
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# typescript
+next-env.d.ts

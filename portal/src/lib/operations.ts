@@ -37,7 +37,7 @@ export interface Operation {
 
 class OperationManager {
   private operations: Map<string, Operation> = new Map()
-  private persistFile = '/tmp/prequel-operations.json'
+  private persistFile = `/tmp/${process.env.PROJECT_PREFIX || 'prequel'}-operations.json`
   private eventListeners: ((event: OperationEvent) => void)[] = []
 
   constructor() {

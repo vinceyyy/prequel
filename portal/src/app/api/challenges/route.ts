@@ -5,7 +5,8 @@ const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'your-aws-region',
 })
 
-const BUCKET_NAME = 'prequel-challenge'
+const PROJECT_PREFIX = process.env.PROJECT_PREFIX || 'prequel'
+const BUCKET_NAME = `${PROJECT_PREFIX}-challenge`
 
 interface ChallengeInfo {
   id: string

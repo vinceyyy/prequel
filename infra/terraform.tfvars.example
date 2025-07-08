@@ -2,7 +2,13 @@
 
 # AWS Configuration
 aws_region = "your-aws-region"
-environment = "dev"
+environment = "dev"  # Must match ENVIRONMENT in .env.local
+
+# Project Configuration (used for resource naming)
+project_prefix = "prequel"  # Must match PROJECT_PREFIX in .env.local
+
+# Terraform Backend Configuration
+terraform_state_bucket = "prequel-terraform-state"  # Must match backend bucket in main.tf
 
 # Networking
 vpc_cidr = "10.0.0.0/16"

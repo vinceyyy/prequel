@@ -12,10 +12,17 @@
 
 set -e
 
+# Load environment variables from .env.local if it exists (check root directory)
+if [ -f ../.env.local ]; then
+  export $(cat ../.env.local | grep -v '^#' | xargs)
+fi
+
 # Configuration - use environment variables
 AWS_REGION=${AWS_REGION:-"your-aws-region"}
 AWS_PROFILE=${AWS_PROFILE:-"default"}
-REPOSITORY_NAME="prequel-dev-code-server"
+PROJECT_PREFIX=${PROJECT_PREFIX:-"prequel"}
+ENVIRONMENT=${ENVIRONMENT:-"dev"}
+REPOSITORY_NAME="${PROJECT_PREFIX}-${ENVIRONMENT}-code-server"
 
 # Get account ID using current AWS configuration
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)

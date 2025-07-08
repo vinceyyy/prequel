@@ -43,14 +43,19 @@ prequel/
 - AWS account with ECS, ALB, and Route53 permissions
 - Domain name configured in Route53 hosted zone
 - Local tools: Node.js 18+, AWS CLI, Terraform 1.0+
+- **S3 bucket for Terraform state**: Create an S3 bucket for storing Terraform state
+  - Bucket name can be anything (e.g., `my-terraform-state`, `company-prequel-tfstate`)
+  - Must enable versioning and encryption (recommended)
 
 ### Deployment Steps
 
-1. **Configure AWS authentication**
+1. **Configure AWS authentication and environment**
    ```bash
    aws configure sso --profile <your-profile>
    aws sso login --profile <your-profile>
-   export AWS_PROFILE=<your-profile>
+
+   cp .env.example .env.local
+   # Edit .env.local with your AWS configuration
    ```
 
 2. **Deploy infrastructure**
@@ -58,6 +63,18 @@ prequel/
    cd infra/
    cp terraform.tfvars.example terraform.tfvars
    # Edit terraform.tfvars with your configuration
+   # IMPORTANT: Make sure project_prefix and environment match your .env.local
+   
+   # Update custom backend bucket/key names:
+   # 1. Edit terraform.tfvars: terraform_state_bucket = "your-bucket-name"
+   # 2. Edit main.tf backend config: 
+   #    bucket = "your-bucket-name"
+   #    key = "your-project-key" (optional, defaults to "prequel")
+   # 3. Edit instance/terraform/main.tf (6 places):
+   #    bucket = "your-bucket-name" (lines 10, 23)
+   #    key = "your-project-key" (line 24, must match main.tf)
+   #    region = "your-region" (lines 12, 25)
+   
    terraform init
    terraform apply
    ```

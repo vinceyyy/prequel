@@ -130,3 +130,13 @@ output "code_server_security_group_id" {
   value       = aws_security_group.code_server.id
 }
 
+output "project_prefix" {
+  description = "Project prefix used for resource naming"
+  value       = var.project_prefix
+}
+
+output "environment" {
+  description = "Environment name (dev, staging, prod)"
+  value       = var.environment
+}
+

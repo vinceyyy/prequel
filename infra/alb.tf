@@ -56,7 +56,7 @@ resource "aws_lb_listener" "http" {
       for_each = var.domain_name == "" ? [1] : []
       content {
         content_type = "text/plain"
-        message_body = "Prequel Interview Platform - Access via provided link"
+        message_body = "Interview Platform - Access via provided link"
         status_code  = "200"
       }
     }

@@ -60,7 +60,7 @@ resource "aws_iam_role_policy" "ecs_execution_ssm" {
         ]
         Resource = [
           "arn:aws:ssm:${var.aws_region}:*:parameter/${local.name}/*",
-          "arn:aws:ssm:${var.aws_region}:*:parameter/prequel/*"
+          "arn:aws:ssm:${var.aws_region}:*:parameter/${var.project_prefix}/*"
         ]
       }
     ]
@@ -288,7 +288,7 @@ resource "aws_iam_role_policy" "portal_task" {
           "s3:GetBucketVersioning"
         ]
         Resource = [
-          "arn:aws:s3:::prequel-terraform-state",
+          "arn:aws:s3:::${var.terraform_state_bucket}",
           aws_s3_bucket.instance_code.arn,
           aws_s3_bucket.challenges.arn
         ]
@@ -303,7 +303,7 @@ resource "aws_iam_role_policy" "portal_task" {
           "s3:ListObjectsV2"
         ]
         Resource = [
-          "arn:aws:s3:::prequel-terraform-state/*",
+          "arn:aws:s3:::${var.terraform_state_bucket}/*",
           "${aws_s3_bucket.instance_code.arn}/*",
           "${aws_s3_bucket.challenges.arn}/*"
         ]
@@ -337,7 +337,7 @@ resource "aws_ecs_task_definition" "portal" {
       environment = [
         {
           name  = "NODE_ENV"
-          value = "production"
+          value = var.environment == "dev" ? "development" : "production"
         },
         {
           name  = "AWS_REGION"

@@ -24,7 +24,7 @@ Prequel is a coding interview platform that provisions on-demand VS Code instanc
 - All interview creation/destruction happens in background
 - Detailed operation logs with streaming updates
 - Non-blocking UI - users can continue working while operations run
-- Persistent operation storage in `/tmp/prequel-operations.json`
+- Persistent operation storage in `/tmp/${PROJECT_PREFIX}-operations.json`
 
 **Scheduling System:**
 - Built-in scheduler running within NextJS container (no external dependencies)
@@ -73,36 +73,111 @@ terraform destroy # Clean up resources
 
 ## Local Development
 
-**Environment Variables:**
+**Environment Setup:**
 
-Set these environment variables for AWS configuration:
+1. **Project Configuration:**
+   ```bash
+   # Copy environment template
+   cp .env.example .env.local
+   # Edit .env.local with your AWS configuration:
+   # AWS_PROFILE=your-aws-profile
+   # AWS_REGION=your-aws-region
+   # PROJECT_PREFIX=prequel
+   # DOMAIN_NAME=your-domain.com
+   ```
 
-```bash
-export AWS_PROFILE=your-profile-name    # AWS profile to use
-export AWS_REGION=your-aws-region             # AWS region (default: your-aws-region)
-```
+2. **Infrastructure Configuration:**
+   ```bash
+   cd infra
+   cp terraform.tfvars.example terraform.tfvars
+   # Edit terraform.tfvars with your deployment values
+   ```
 
-**Portal Setup:**
+3. **AWS Setup:**
+   ```bash
+   aws configure sso --profile <your-aws-profile>
+   aws sso login --profile <your-aws-profile>
+   ```
 
-1. Configure AWS SSO: `aws configure sso --profile <AWS_PROFILE>`
-2. Login to AWS: `aws sso login --profile <AWS_PROFILE>`
-3. Copy environment file: `cp portal/.env.example portal/.env.local`
-4. Set AWS profile: `export AWS_PROFILE=<AWS_PROFILE>`
-5. Start portal: `cd portal && npm run dev`
+4. **Start Development:**
+   ```bash
+   cd portal && npm run dev
+   ```
+
+**⚠️ Important: Terraform Backend Bucket**
+
+Before running `terraform init`, you must:
+1. Create an S3 bucket for Terraform state (bucket name can be anything)
+2. Update backend configuration in **TWO** files:
+   
+   **`infra/main.tf`** (lines 11-13):
+   ```hcl
+   backend "s3" {
+     bucket = "your-bucket-name"
+     key    = "your-project-key"  # Optional: defaults to "prequel"
+     region = "your-aws-region"
+   }
+   ```
+   
+   **`instance/terraform/main.tf`** (lines 10-12, 23-25):
+   ```hcl
+   backend "s3" {
+     bucket = "your-bucket-name"  # Line 10
+     key    = "interview-instances/INTERVIEW_ID_PLACEHOLDER.tfstate"  # Line 11 (usually no change needed)
+     region = "your-aws-region"   # Line 12
+   }
+   
+   data "terraform_remote_state" "infrastructure" {
+     config = {
+       bucket = "your-bucket-name"  # Line 23  
+       key    = "your-project-key"  # Line 24 (must match infra/main.tf key)
+       region = "your-aws-region"   # Line 25
+     }
+   }
+   ```
+
+   **`infra/terraform.tfvars`**:
+   ```hcl
+   terraform_state_bucket = "your-bucket-name"  # Must match above
+   ```
 
 **Build Scripts:**
 
-All build scripts use environment variables for AWS configuration:
+All build scripts automatically load environment variables from `.env.local`:
 
 - `instance/build-and-push.sh` - Build and push instance Docker image
 - `portal/build-push-deploy.sh` - Build, push and deploy portal
 - `challenge/sync-to-s3.sh` - Sync challenges to S3
 
-**Interview Deployment:**
+**Configuration Notes:**
 
-- Uses ECS IAM task roles for AWS authentication
-- No need for AWS_PROFILE or SSO in production
-- Credentials provided automatically via ECS metadata service
+- `PROJECT_PREFIX` defaults to "prequel" but can be customized for different deployments
+- `ENVIRONMENT` defaults to "dev" but can be set to "staging", "prod", etc. 
+- All AWS resources (S3 buckets, ECS clusters, etc.) use the project prefix and environment for naming
+- `.env.local` is gitignored and contains your personal configuration (located at project root)
+- `.env.example` shows the required configuration structure (located at project root)
+- All build scripts automatically load environment variables from the root `.env.local`
+
+**⚠️ Critical: Environment Consistency**
+
+The `ENVIRONMENT` variable in `.env.local` MUST match the `environment` variable in `infra/terraform.tfvars`:
+
+```bash
+# .env.local
+ENVIRONMENT=prod
+
+# infra/terraform.tfvars  
+environment = "prod"
+```
+
+If these don't match, build scripts will try to deploy to `{PROJECT_PREFIX}-{ENVIRONMENT}` resources that don't exist.
+
+**Deployment Contexts:**
+
+- **Local development**: Uses AWS SSO profiles (requires `aws sso login`)
+- **ECS deployment**: Uses ECS IAM task roles (any environment: dev/staging/prod)
+- **Credential detection**: Automatically detects ECS vs local via `AWS_EXECUTION_ENV`
+- **No manual configuration**: Credentials handled automatically per context
 
 Access at http://localhost:8443 with password "password"
 

@@ -5,6 +5,9 @@ import fs from 'fs/promises'
 
 const execAsync = promisify(exec)
 
+const PROJECT_PREFIX = process.env.PROJECT_PREFIX || 'prequel'
+const ENVIRONMENT = process.env.ENVIRONMENT || 'dev'
+
 export interface TerraformExecutionResult {
   success: boolean
   output: string
@@ -60,13 +63,17 @@ class TerraformManager {
     console.log(`[Terraform] Executing: ${command}`)
     console.log(`[Terraform] Working directory: ${cwd}`)
 
-    // Determine environment and credential strategy
-    const isProduction = process.env.NODE_ENV === 'production'
+    // Determine deployment context and credential strategy
+    // Note: We detect ECS vs local deployment context, not prod vs dev environment
+    // Any environment (dev/staging/prod) can run either locally or in ECS
+    const isRunningInECS =
+      process.env.AWS_EXECUTION_ENV === 'AWS_ECS_FARGATE' ||
+      process.env.AWS_EXECUTION_ENV === 'AWS_ECS_EC2'
     const awsProfile = process.env.AWS_PROFILE
     const awsRegion = process.env.AWS_REGION || 'your-aws-region'
 
     console.log(
-      `[Terraform] Environment: ${isProduction ? 'production' : 'development'}`
+      `[Terraform] Deployment context: ${isRunningInECS ? 'ECS' : 'local'}`
     )
     console.log(`[Terraform] AWS Region: ${awsRegion}`)
 
@@ -77,12 +84,12 @@ class TerraformManager {
       NO_COLOR: '1',
     }
 
-    if (isProduction) {
-      // Production: Use IAM roles (ECS task role)
+    if (isRunningInECS) {
+      // ECS: Use IAM roles (ECS task role)
       console.log(`[Terraform] Using ECS IAM role for credentials`)
       env.AWS_EC2_METADATA_DISABLED = 'false'
     } else {
-      // Development: Use AWS SSO profile
+      // Local: Use AWS SSO profile
       console.log(`[Terraform] Using AWS SSO profile: ${awsProfile}`)
       env.AWS_PROFILE = awsProfile
       env.AWS_EC2_METADATA_DISABLED = 'true'
@@ -195,13 +202,17 @@ class TerraformManager {
     console.log(`[Terraform] Executing: ${command}`)
     console.log(`[Terraform] Working directory: ${cwd}`)
 
-    // Determine environment and credential strategy
-    const isProduction = process.env.NODE_ENV === 'production'
+    // Determine deployment context and credential strategy
+    // Note: We detect ECS vs local deployment context, not prod vs dev environment
+    // Any environment (dev/staging/prod) can run either locally or in ECS
+    const isRunningInECS =
+      process.env.AWS_EXECUTION_ENV === 'AWS_ECS_FARGATE' ||
+      process.env.AWS_EXECUTION_ENV === 'AWS_ECS_EC2'
     const awsProfile = process.env.AWS_PROFILE
     const awsRegion = process.env.AWS_REGION || 'your-aws-region'
 
     console.log(
-      `[Terraform] Environment: ${isProduction ? 'production' : 'development'}`
+      `[Terraform] Deployment context: ${isRunningInECS ? 'ECS' : 'local'}`
     )
     console.log(`[Terraform] AWS Region: ${awsRegion}`)
 
@@ -210,12 +221,12 @@ class TerraformManager {
       AWS_REGION: awsRegion,
     }
 
-    if (isProduction) {
-      // Production: Use IAM roles (ECS task role)
+    if (isRunningInECS) {
+      // ECS: Use IAM roles (ECS task role)
       console.log(`[Terraform] Using ECS IAM role for credentials`)
       env.AWS_EC2_METADATA_DISABLED = 'false'
     } else {
-      // Development: Use AWS SSO profile
+      // Local: Use AWS SSO profile
       console.log(`[Terraform] Using AWS SSO profile: ${awsProfile}`)
       env.AWS_PROFILE = awsProfile
       env.AWS_EC2_METADATA_DISABLED = 'true'
@@ -316,7 +327,7 @@ class TerraformManager {
     try {
       // Upload entire workspace directory to S3
       await execAsync(
-        `aws s3 sync "${workspaceDir}" "s3://prequel-instance/${s3Key}"`,
+        `aws s3 sync "${workspaceDir}" "s3://${PROJECT_PREFIX}-instance/${s3Key}"`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 60000,
@@ -341,14 +352,14 @@ class TerraformManager {
 
     try {
       // Check if workspace exists in S3
-      await execAsync(`aws s3 ls "s3://prequel-instance/${s3Key}"`, {
+      await execAsync(`aws s3 ls "s3://${PROJECT_PREFIX}-instance/${s3Key}"`, {
         env: process.env as NodeJS.ProcessEnv,
         timeout: 30000,
       })
 
       // Download workspace from S3
       await execAsync(
-        `aws s3 sync "s3://prequel-instance/${s3Key}" "${workspaceDir}"`,
+        `aws s3 sync "s3://${PROJECT_PREFIX}-instance/${s3Key}" "${workspaceDir}"`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 60000,
@@ -370,7 +381,7 @@ class TerraformManager {
     try {
       // Download template files from S3
       await execAsync(
-        `aws s3 sync "s3://prequel-instance/terraform/" "${workspaceDir}"`,
+        `aws s3 sync "s3://${PROJECT_PREFIX}-instance/terraform/" "${workspaceDir}"`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 60000,
@@ -728,7 +739,7 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
     try {
       // First, check if workspace actually exists to avoid unnecessary deletion attempts
       const listResult = await execAsync(
-        `aws s3 ls "s3://prequel-instance/${s3Key}"`,
+        `aws s3 ls "s3://${PROJECT_PREFIX}-instance/${s3Key}"`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 30000,
@@ -748,7 +759,7 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
 
       // Delete workspace from S3
       await execAsync(
-        `aws s3 rm "s3://prequel-instance/${s3Key}" --recursive`,
+        `aws s3 rm "s3://${PROJECT_PREFIX}-instance/${s3Key}" --recursive`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 60000,
@@ -779,10 +790,12 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
       const { promisify } = await import('util')
       const execAsync = promisify(exec)
 
-      const awsProfile =
-        process.env.NODE_ENV === 'production'
-          ? ''
-          : `AWS_PROFILE=${process.env.AWS_PROFILE}`
+      const isRunningInECS =
+        process.env.AWS_EXECUTION_ENV === 'AWS_ECS_FARGATE' ||
+        process.env.AWS_EXECUTION_ENV === 'AWS_ECS_EC2'
+      const awsProfile = isRunningInECS
+        ? ''
+        : `AWS_PROFILE=${process.env.AWS_PROFILE}`
       const awsRegion = process.env.AWS_REGION || 'your-aws-region'
 
       try {
@@ -792,14 +805,14 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
         // First, try to scale down the service to 0
         streamData(`Scaling down service ${serviceName} to 0...\n`)
         await execAsync(
-          `${awsProfile} aws ecs update-service --cluster prequel-dev --service ${serviceName} --desired-count 0 --region ${awsRegion}`,
+          `${awsProfile} aws ecs update-service --cluster ${PROJECT_PREFIX}-${ENVIRONMENT} --service ${serviceName} --desired-count 0 --region ${awsRegion}`,
           { timeout: 30000 }
         )
 
         // Wait for tasks to stop
         streamData(`Waiting for service tasks to stop...\n`)
         await execAsync(
-          `${awsProfile} aws ecs wait services-stable --cluster prequel-dev --services ${serviceName} --region ${awsRegion}`,
+          `${awsProfile} aws ecs wait services-stable --cluster ${PROJECT_PREFIX}-${ENVIRONMENT} --services ${serviceName} --region ${awsRegion}`,
           { timeout: 120000 }
         )
 
@@ -842,7 +855,7 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
             // Clean up ECS service
             streamData(`Cleaning up ECS service interview-${interviewId}...\n`)
             await execAsync(
-              `${awsProfile} aws ecs delete-service --cluster prequel-dev --service interview-${interviewId} --force --region ${awsRegion} || true`,
+              `${awsProfile} aws ecs delete-service --cluster ${PROJECT_PREFIX}-${ENVIRONMENT} --service interview-${interviewId} --force --region ${awsRegion} || true`,
               { timeout: 30000 }
             )
 
@@ -888,7 +901,7 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
             // Clean up SSM parameter
             streamData(`Cleaning up SSM parameter...\n`)
             await execAsync(
-              `${awsProfile} aws ssm delete-parameter --name /prequel/interviews/${interviewId}/password --region ${awsRegion} || true`,
+              `${awsProfile} aws ssm delete-parameter --name /${PROJECT_PREFIX}/interviews/${interviewId}/password --region ${awsRegion} || true`,
               { timeout: 30000 }
             )
 
@@ -1022,7 +1035,7 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
                 `Terraform destroy failed, preserving S3 workspace for retry\n`
               )
               streamData(
-                `S3 workspace preserved at: s3://prequel-instance/workspaces/${interviewId}/\n`
+                `S3 workspace preserved at: s3://${PROJECT_PREFIX}-instance/workspaces/${interviewId}/\n`
               )
             }
 
@@ -1070,7 +1083,7 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
           `Terraform destroy failed, preserving S3 workspace for retry\n`
         )
         streamData(
-          `S3 workspace preserved at: s3://prequel-instance/workspaces/${interviewId}/\n`
+          `S3 workspace preserved at: s3://${PROJECT_PREFIX}-instance/workspaces/${interviewId}/\n`
         )
       }
 
@@ -1169,10 +1182,13 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
 
       // First check if the workspaces directory exists
       try {
-        await execAsync('aws s3 ls s3://prequel-instance/workspaces/', {
-          env: process.env as NodeJS.ProcessEnv,
-          timeout: 15000,
-        })
+        await execAsync(
+          `aws s3 ls s3://${PROJECT_PREFIX}-instance/workspaces/`,
+          {
+            env: process.env as NodeJS.ProcessEnv,
+            timeout: 15000,
+          }
+        )
       } catch {
         console.log(
           '[Terraform] Workspaces directory does not exist in S3, creating it...'
@@ -1181,7 +1197,7 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
         // Create the workspaces directory by creating a placeholder file
         try {
           await execAsync(
-            'echo "Workspaces directory for Prequel interviews" | aws s3 cp - s3://prequel-instance/workspaces/.directory',
+            `echo "Workspaces directory for ${PROJECT_PREFIX} interviews" | aws s3 cp - s3://${PROJECT_PREFIX}-instance/workspaces/.directory`,
             {
               env: process.env as NodeJS.ProcessEnv,
               timeout: 15000,
@@ -1201,7 +1217,7 @@ aws_region = "${process.env.AWS_REGION || 'your-aws-region'}"
 
       // List workspaces from S3
       const { stdout } = await execAsync(
-        'aws s3 ls s3://prequel-instance/workspaces/ --recursive',
+        `aws s3 ls s3://${PROJECT_PREFIX}-instance/workspaces/ --recursive`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 30000,

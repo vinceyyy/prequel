@@ -4,7 +4,8 @@ set -e
 
 # Set default challenge based on environment variable
 CHALLENGE=${CHALLENGE:-python}
-S3_BUCKET=${S3_CHALLENGE_BUCKET:-prequel-challenge}
+PROJECT_PREFIX=${PROJECT_PREFIX:-prequel}
+S3_BUCKET=${S3_CHALLENGE_BUCKET:-${PROJECT_PREFIX}-challenge}
 AWS_REGION=${AWS_REGION:-your-aws-region}
 WORKSPACE_PATH="/workspaces/${CHALLENGE}"
 

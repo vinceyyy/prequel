@@ -1,9 +1,9 @@
 # S3 bucket for storing interview instance terraform code
 resource "aws_s3_bucket" "instance_code" {
-  bucket = "prequel-instance"
+  bucket = "${var.project_prefix}-instance"
 
   tags = merge(local.tags, {
-    Name        = "prequel-instance"
+    Name        = "${var.project_prefix}-instance"
     Description = "Storage for interview instance terraform code"
   })
 }
@@ -58,10 +58,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "instance_code" {
 
 # S3 bucket for storing interview challenges
 resource "aws_s3_bucket" "challenges" {
-  bucket = "prequel-challenge"
+  bucket = "${var.project_prefix}-challenge"
 
   tags = merge(local.tags, {
-    Name        = "prequel-challenge"
+    Name        = "${var.project_prefix}-challenge"
     Description = "Storage for interview challenge files"
   })
 }

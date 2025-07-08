@@ -7,6 +7,7 @@ terraform {
     }
   }
   backend "s3" {
+    # Note: Backend bucket must be manually created before terraform apply
     bucket       = "prequel-terraform-state"
     key          = "prequel"
     region       = "your-aws-region"
@@ -23,10 +24,10 @@ data "aws_availability_zones" "available" {
 }
 
 locals {
-  name = "prequel-${var.environment}"
+  name = "${var.project_prefix}-${var.environment}"
   tags = {
     Environment = var.environment
-    Project     = "prequel"
+    Project     = var.project_prefix
     ManagedBy   = "terraform"
   }
 }

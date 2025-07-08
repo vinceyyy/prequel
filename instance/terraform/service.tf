@@ -1,15 +1,13 @@
 resource "aws_ssm_parameter" "interview_password" {
-  name  = "/prequel/interviews/${local.interview_id}/password"
+  name  = "/${data.terraform_remote_state.infrastructure.outputs.project_prefix}/interviews/${local.interview_id}/password"
   type  = "SecureString"
   value = var.password
 
   tags = local.tags
 }
 
-# Custom code-server ECR repository
-data "aws_ecr_repository" "code_server" {
-  name = "prequel-dev-code-server"
-}
+# Use the code-server ECR repository from infrastructure
+# (No data source needed - using repository_url from remote state)
 
 # Security group for the interview ALB
 resource "aws_security_group" "interview_alb" {
@@ -190,7 +188,7 @@ resource "aws_ecs_task_definition" "interview" {
   container_definitions = jsonencode([
     {
       name  = "code-server"
-      image = "${data.aws_ecr_repository.code_server.repository_url}:latest"
+      image = "${data.terraform_remote_state.infrastructure.outputs.code_server_ecr_repository_url}:latest"
 
       portMappings = [
         {

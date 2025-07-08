@@ -9,10 +9,17 @@
 # Use environment variables for AWS configuration:
 # - AWS_PROFILE: AWS profile to use (optional)
 # - AWS_REGION: AWS region (default: your-aws-region)
+# - PROJECT_PREFIX: Project prefix for bucket naming (default: prequel)
 
 set -e
 
-BUCKET_NAME="prequel-challenge"
+# Load environment variables from .env.local if it exists (check root directory)
+if [ -f ../.env.local ]; then
+  export $(cat ../.env.local | grep -v '^#' | xargs)
+fi
+
+PROJECT_PREFIX=${PROJECT_PREFIX:-"prequel"}
+BUCKET_NAME="${PROJECT_PREFIX}-challenge"
 REGION=${AWS_REGION:-your-aws-region}
 
 echo "Syncing challenges to S3 bucket: ${BUCKET_NAME}"

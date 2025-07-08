@@ -4,8 +4,15 @@
 
 set -e
 
+# Load environment variables from .env.local if it exists (check root directory)
+if [ -f ../.env.local ]; then
+  export $(cat ../.env.local | grep -v '^#' | xargs)
+fi
+
 # Configuration - use environment variables
 AWS_REGION=${AWS_REGION:-"your-aws-region"}
+PROJECT_PREFIX=${PROJECT_PREFIX:-"prequel"}
+ENVIRONMENT=${ENVIRONMENT:-"dev"}
 
 # Get ECR repository URL from Terraform output
 ECR_URI=$(cd ../infra && terraform output -raw ecr_repository_url)
@@ -25,8 +32,8 @@ docker buildx build --platform=linux/amd64 -t "$ECR_URI:latest" --push .
 # Force ECS service deployment
 echo "Triggering ECS service deployment..."
 aws ecs update-service \
-  --cluster prequel-dev \
-  --service prequel-dev-portal \
+  --cluster ${PROJECT_PREFIX}-${ENVIRONMENT} \
+  --service ${PROJECT_PREFIX}-${ENVIRONMENT}-portal \
   --force-new-deployment \
   --region $AWS_REGION > /dev/null
 
@@ -37,8 +44,8 @@ if [ $? -eq 0 ]; then
   # Wait for deployment to complete (with timeout)
   echo "Waiting for deployment to complete..."
   aws ecs wait services-stable \
-    --cluster prequel-dev \
-    --services prequel-dev-portal \
+    --cluster ${PROJECT_PREFIX}-${ENVIRONMENT} \
+    --services ${PROJECT_PREFIX}-${ENVIRONMENT}-portal \
     --region $AWS_REGION \
     --cli-read-timeout 600 \
     --cli-connect-timeout 60
@@ -56,4 +63,4 @@ fi
 echo ""
 echo "🚀 Build, push, and deployment completed!"
 echo "Image: $ECR_URI:latest"
-echo "Service: prequel-dev-portal"
+echo "Service: ${PROJECT_PREFIX}-${ENVIRONMENT}-portal"
