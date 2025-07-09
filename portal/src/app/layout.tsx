@@ -22,6 +22,21 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Debug: Print environment variables on server start
+  if (typeof window === 'undefined') {
+    console.log('🔧 Environment Variables:')
+    console.log('NODE_ENV:', process.env.NODE_ENV)
+    console.log('ENVIRONMENT:', process.env.ENVIRONMENT)
+    console.log('PROJECT_PREFIX:', process.env.PROJECT_PREFIX)
+    console.log('AWS_REGION:', process.env.AWS_REGION)
+    console.log('ENABLE_AUTH:', process.env.ENABLE_AUTH)
+    console.log(
+      'AUTH_PASSCODE:',
+      process.env.AUTH_PASSCODE ? '[SET]' : '[NOT SET]'
+    )
+    console.log('NEXT_PUBLIC_ENABLE_AUTH:', process.env.NEXT_PUBLIC_ENABLE_AUTH)
+  }
+
   return (
     <html lang="en">
       <body

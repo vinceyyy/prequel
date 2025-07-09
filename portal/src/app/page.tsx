@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
+import AuthStatus from '@/components/AuthStatus'
 import { useOperations } from '@/hooks/useOperations'
 import { useSSE } from '@/hooks/useSSE'
 
@@ -274,10 +275,17 @@ export default function Home() {
 
       <div className="max-w-6xl mx-auto w-full">
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Prequel Portal</h1>
-          <p className="text-gray-600 mt-2">
-            Manage coding interviews and VS Code instances
-          </p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Prequel Portal
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Manage coding interviews and VS Code instances
+              </p>
+            </div>
+            <AuthStatus />
+          </div>
         </header>
 
         <div className="mb-6 flex flex-wrap gap-3 items-center">
