@@ -35,8 +35,8 @@ setup_challenge() {
     fi
     
     # Install dependencies based on challenge type
-    case "$challenge_name" in
-        "python")
+    case "python" in
+        *$challenge_name*)
             if [ -f "$workspace_dir/requirements.txt" ]; then
                 echo "Installing Python dependencies..."
                 cd "$workspace_dir"

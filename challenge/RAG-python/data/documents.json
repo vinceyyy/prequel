@@ -1,0 +1,32 @@
+[
+  {
+    "id": "doc_1",
+    "title": "Getting Started with Machine Learning",
+    "content": "Machine learning is a subset of artificial intelligence that focuses on algorithms that can learn from data. The most common types include supervised learning, unsupervised learning, and reinforcement learning. Supervised learning uses labeled data to train models that can make predictions on new data.",
+    "category": "ml_basics"
+  },
+  {
+    "id": "doc_2",
+    "title": "Deep Learning Fundamentals",
+    "content": "Deep learning uses neural networks with multiple layers to model complex patterns in data. Key architectures include convolutional neural networks (CNNs) for image processing, recurrent neural networks (RNNs) for sequential data, and transformers for natural language processing.",
+    "category": "deep_learning"
+  },
+  {
+    "id": "doc_3",
+    "title": "Natural Language Processing Basics",
+    "content": "Natural Language Processing (NLP) involves teaching computers to understand and generate human language. Common tasks include tokenization, part-of-speech tagging, named entity recognition, and sentiment analysis. Modern NLP relies heavily on transformer models like BERT and GPT.",
+    "category": "nlp"
+  },
+  {
+    "id": "doc_4",
+    "title": "Model Deployment Best Practices",
+    "content": "Deploying machine learning models requires careful consideration of scalability, monitoring, and maintenance. Key practices include containerization with Docker, API design, model versioning, A/B testing, and continuous monitoring for model drift and performance degradation.",
+    "category": "deployment"
+  },
+  {
+    "id": "doc_5",
+    "title": "Data Preprocessing Techniques",
+    "content": "Data preprocessing is crucial for model performance. Common techniques include handling missing values, feature scaling, encoding categorical variables, and feature engineering. For text data, preprocessing involves tokenization, stemming, and removing stop words.",
+    "category": "data_prep"
+  }
+]

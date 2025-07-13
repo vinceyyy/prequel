@@ -8,7 +8,7 @@
 # 
 # Use environment variables for AWS configuration:
 # - AWS_PROFILE: AWS profile to use (optional)
-# - AWS_REGION: AWS region (default: your-aws-region)
+# - AWS_REGION: AWS region (default: us-east-1n)
 # - PROJECT_PREFIX: Project prefix for bucket naming (default: prequel)
 
 set -e
@@ -20,7 +20,7 @@ fi
 
 PROJECT_PREFIX=${PROJECT_PREFIX:-"prequel"}
 BUCKET_NAME="${PROJECT_PREFIX}-challenge"
-REGION=${AWS_REGION:-your-aws-region}
+REGION=${AWS_REGION:-"us-east-1"}
 
 echo "Syncing challenges to S3 bucket: ${BUCKET_NAME}"
 echo "AWS Profile: ${AWS_PROFILE:-default}"
