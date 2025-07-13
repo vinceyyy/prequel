@@ -80,37 +80,3 @@ resource "aws_cloudwatch_log_group" "soci_index_generator" {
 
   tags = var.tags
 }
-
-# EventBridge rule to trigger Lambda on ECR image push
-resource "aws_cloudwatch_event_rule" "ecr_image_push" {
-  name        = "${var.name_prefix}-ecr-image-push"
-  description = "Trigger SOCI index generator when image is pushed to ECR"
-
-  event_pattern = jsonencode({
-    source      = ["aws.ecr"]
-    detail-type = ["ECR Image Action"]
-    detail = {
-      action-type     = ["PUSH"]
-      result          = ["SUCCESS"]
-      repository-name = [var.ecr_repository_name]
-    }
-  })
-
-  tags = var.tags
-}
-
-# EventBridge target to invoke the event filtering Lambda (not the SOCI generator directly)
-resource "aws_cloudwatch_event_target" "ecr_event_filtering" {
-  rule      = aws_cloudwatch_event_rule.ecr_image_push.name
-  target_id = "ECREventFilteringTarget"
-  arn       = aws_lambda_function.ecr_event_filtering.arn
-}
-
-# Permission for EventBridge to invoke the event filtering Lambda
-resource "aws_lambda_permission" "allow_eventbridge_filtering" {
-  statement_id  = "AllowExecutionFromEventBridge"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.ecr_event_filtering.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.ecr_image_push.arn
-}

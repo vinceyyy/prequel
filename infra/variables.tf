@@ -63,3 +63,17 @@ variable "max_instances" {
   type        = number
   default     = 10
 }
+
+# Authentication Configuration
+variable "enable_auth" {
+  description = "Enable password authentication for portal"
+  type        = bool
+  default     = true
+}
+
+variable "auth_passcode" {
+  description = "Shared passcode for portal access"
+  type        = string
+  default     = "change-me-secure-passcode"
+  sensitive   = true
+}

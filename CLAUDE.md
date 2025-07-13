@@ -247,7 +247,7 @@ npm run test:all     # Full test suite (5-10 minutes)
 
 The checkbox indicates features that are currently implemented.
 
-1. [ ] Login to portal (authentication not yet implemented)
+1. [X] Login to portal
 2. [X] Create instance
     1. [X] Manually create an instance immediately
     2. [X] Select a challenge from S3-stored options (javascript, python, sql, etc.)

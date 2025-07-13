@@ -22,7 +22,7 @@ resource "aws_lb_target_group" "portal" {
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200"
-    path                = "/"
+    path                = "/api/health"
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 5

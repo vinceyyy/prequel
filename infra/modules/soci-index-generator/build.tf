@@ -62,17 +62,17 @@ data "local_file" "soci_zip_hash" {
 # Zip-based Go Lambda function
 resource "aws_lambda_function" "soci_index_generator" {
   function_name = "${var.name_prefix}-soci-index-generator"
-  role         = aws_iam_role.soci_index_generator.arn
+  role          = aws_iam_role.soci_index_generator.arn
   filename      = "${var.lambda_source_path}/soci-index-generator/soci_index_generator_lambda.zip"
   handler       = "bootstrap"
   runtime       = "provided.al2"
   timeout       = var.lambda_timeout
   memory_size   = var.lambda_memory_size
-  
+
   ephemeral_storage {
     size = 10240 # 10GB temporary storage for large images
   }
-  
+
   source_code_hash = data.local_file.soci_zip_hash.content_base64sha256
 
   environment {

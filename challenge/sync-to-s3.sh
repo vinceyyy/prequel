@@ -15,7 +15,7 @@ set -e
 
 # Load environment variables from .env.local if it exists (check root directory)
 if [ -f ../.env.local ]; then
-  export $(cat ../.env.local | grep -v '^#' | xargs)
+  export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
 fi
 
 PROJECT_PREFIX=${PROJECT_PREFIX:-"prequel"}

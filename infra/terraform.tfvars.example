@@ -27,3 +27,7 @@ code_server_memory = 2048
 
 # Scaling
 max_instances = 10
+
+# Authentication Configuration (for production ECS container)
+enable_auth = true
+auth_passcode = "your-production-secure-passcode"

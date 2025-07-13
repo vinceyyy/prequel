@@ -14,7 +14,7 @@ use other tools that suit better for that purpose such as [Coder](https://coder.
 
 ## User Flow (interviewer)
 
-1. **Login to portal** (authentication not yet implemented)
+1. **Login to portal**
 2. **Create an interview**
     - Select a challenge from S3. The challenge files will be available when the candidate opens the editor.
     - Optionally, the interview can be scheduled for a future time
