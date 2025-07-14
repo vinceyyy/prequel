@@ -1,6 +1,33 @@
 import { operationManager } from './operations'
 import { terraformManager } from './terraform'
 
+/**
+ * Background scheduler service for processing scheduled operations and auto-destroy timeouts.
+ *
+ * This service runs continuously in the background (30-second polling interval) to:
+ * 1. Process scheduled interview creation/destruction operations
+ * 2. Handle auto-destroy timeouts for active interviews
+ * 3. Emit events for SSE clients to track scheduler activities
+ *
+ * The scheduler ensures that interviews are created/destroyed at their scheduled times
+ * and prevents resource waste by automatically cleaning up expired interviews.
+ *
+ * Key Features:
+ * - **Scheduled Operations**: Executes operations at their scheduled time
+ * - **Auto-destroy**: Mandatory cleanup of interviews after timeout
+ * - **Event Emission**: SSE events for real-time scheduler status
+ * - **Error Handling**: Robust error handling with detailed logging
+ *
+ * @example
+ * ```typescript
+ * // Listen for scheduler events
+ * scheduler.addEventListener((event) => {
+ *   if (event.type === 'auto_destroy_triggered') {
+ *     console.log(`Auto-destroying interview ${event.interviewId}`)
+ *   }
+ * })
+ * ```
+ */
 export class SchedulerService {
   private checkInterval: NodeJS.Timeout | null = null
   private eventListeners: ((event: SchedulerEvent) => void)[] = []
@@ -9,6 +36,10 @@ export class SchedulerService {
     this.start()
   }
 
+  /**
+   * Starts the scheduler service with 30-second polling interval.
+   * Automatically called in constructor.
+   */
   start() {
     if (this.checkInterval) {
       clearInterval(this.checkInterval)
@@ -23,6 +54,9 @@ export class SchedulerService {
     console.log('Scheduler service started')
   }
 
+  /**
+   * Stops the scheduler service and clears the polling interval.
+   */
   stop() {
     if (this.checkInterval) {
       clearInterval(this.checkInterval)
@@ -31,10 +65,18 @@ export class SchedulerService {
     console.log('Scheduler service stopped')
   }
 
+  /**
+   * Adds an event listener for scheduler events.
+   * @param listener - Function to call when scheduler events occur
+   */
   addEventListener(listener: (event: SchedulerEvent) => void) {
     this.eventListeners.push(listener)
   }
 
+  /**
+   * Removes an event listener.
+   * @param listener - The listener function to remove
+   */
   removeEventListener(listener: (event: SchedulerEvent) => void) {
     const index = this.eventListeners.indexOf(listener)
     if (index > -1) {
@@ -42,6 +84,10 @@ export class SchedulerService {
     }
   }
 
+  /**
+   * Emits a scheduler event to all registered listeners.
+   * @param event - The scheduler event to emit
+   */
   private emit(event: SchedulerEvent) {
     this.eventListeners.forEach(listener => {
       try {
@@ -52,6 +98,10 @@ export class SchedulerService {
     })
   }
 
+  /**
+   * Processes operations scheduled to start at or before the current time.
+   * Called every 30 seconds to check for due operations.
+   */
   private async processScheduledOperations() {
     const scheduledOps = operationManager.getScheduledOperations()
     const now = new Date()
@@ -96,6 +146,11 @@ export class SchedulerService {
     }
   }
 
+  /**
+   * Processes interviews that have reached their auto-destroy timeout.
+   * Creates destroy operations for expired interviews to prevent resource waste.
+   * Called every 30 seconds to check for expired interviews.
+   */
   private async processAutoDestroyOperations() {
     const autoDestroyOps = operationManager.getOperationsForAutoDestroy()
 

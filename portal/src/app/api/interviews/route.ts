@@ -20,6 +20,15 @@ interface SharedResult {
 
 let activeQuery: Promise<SharedResult> | null = null // Shared promise for concurrent requests
 
+/**
+ * Performs expensive S3 and Terraform queries to get interview status.
+ *
+ * This function is shared between concurrent requests to avoid duplicate expensive operations.
+ * It queries S3 for workspace data and Terraform for interview status, which can take
+ * several seconds to complete.
+ *
+ * @returns Promise resolving to workspace interviews and completed interview data
+ */
 async function performExpensiveQuery(): Promise<SharedResult> {
   // Use S3 workspaces as source of truth for what interviews exist (EXPENSIVE)
   const workspaceInterviews = await terraformManager.listActiveInterviews()
@@ -93,6 +102,22 @@ async function performExpensiveQuery(): Promise<SharedResult> {
   return { workspaceInterviews, completedInterviews }
 }
 
+/**
+ * Converts operation data into interview format with proper status mapping.
+ *
+ * Maps operation statuses to interview statuses:
+ * - scheduled → scheduled (waiting for scheduled time)
+ * - pending → initializing (operation not yet started)
+ * - running + !infrastructureReady → initializing (Terraform provisioning resources)
+ * - running + infrastructureReady → configuring (ECS container booting up)
+ * - completed + success + healthCheckPassed → active (fully ready)
+ * - completed + success + !healthCheckPassed → configuring (infrastructure ready but service not accessible)
+ * - completed + !success → error (creation failed)
+ * - failed → error (operation failed)
+ *
+ * @param operations - Array of operation objects to convert
+ * @returns Array of interview objects with mapped statuses
+ */
 function getOperationInterviews(
   operations: Array<{
     type: string
@@ -107,6 +132,7 @@ function getOperationInterviews(
       accessUrl?: string
       password?: string
       healthCheckPassed?: boolean
+      infrastructureReady?: boolean
     }
     createdAt: Date
   }>
@@ -123,7 +149,9 @@ function getOperationInterviews(
           : op.status === 'pending'
             ? 'initializing'
             : op.status === 'running'
-              ? 'configuring' // Running operations are in the configuring phase
+              ? op.result?.infrastructureReady
+                ? 'configuring' // Infrastructure ready, ECS container booting up
+                : 'initializing' // Still running Terraform to provision resources
               : op.status === 'completed'
                 ? op.result?.success
                   ? op.result?.healthCheckPassed
@@ -139,6 +167,19 @@ function getOperationInterviews(
     }))
 }
 
+/**
+ * Merges interviews from multiple sources and applies destroy operation status updates.
+ *
+ * Handles deduplication by:
+ * - Preferring active interviews over non-active ones
+ * - Applying latest destroy operation status updates
+ * - Filtering out destroyed interviews
+ * - Sorting by creation time (newest first)
+ *
+ * @param allInterviews - Combined interviews from operations and terraform
+ * @param operations - All operations for applying destroy status updates
+ * @returns Deduplicated and sorted array of interviews
+ */
 function mergeAndDeduplicateInterviews(
   allInterviews: Array<{
     id: string

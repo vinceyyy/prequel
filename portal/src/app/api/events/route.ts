@@ -2,6 +2,28 @@ import { NextRequest } from 'next/server'
 import { operationManager, type OperationEvent } from '@/lib/operations'
 import { scheduler, type SchedulerEvent } from '@/lib/scheduler'
 
+/**
+ * Server-Sent Events (SSE) endpoint for real-time updates.
+ *
+ * Provides a persistent connection that streams real-time events to clients including:
+ * - Connection acknowledgment
+ * - Periodic heartbeats (every 30 seconds)
+ * - Operation status updates (every 5 seconds for active operations)
+ * - Immediate operation state changes
+ * - Scheduler events for background processing
+ *
+ * Event Types:
+ * - `connection`: Initial connection acknowledgment
+ * - `heartbeat`: Keep-alive ping every 30 seconds
+ * - `operation_status`: Periodic status of active/scheduled operations
+ * - `operation_update`: Immediate updates when operations change state
+ * - `scheduler_event`: Background scheduler processing notifications
+ *
+ * The connection automatically cleans up when the client disconnects.
+ *
+ * @param request - NextRequest object (used for abort signal detection)
+ * @returns Response with text/event-stream content type for SSE
+ */
 export async function GET(request: NextRequest) {
   // Create a readable stream for SSE
   const encoder = new TextEncoder()

@@ -1,6 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { operationManager } from '@/lib/operations'
 
+/**
+ * Cancels a running or pending operation.
+ *
+ * Only operations with status 'pending' or 'running' can be cancelled.
+ * Once cancelled, the operation status changes to 'cancelled' and it
+ * will not execute. This triggers SSE events to notify connected clients.
+ *
+ * Note: This cancels the operation tracking but may not stop already
+ * running infrastructure operations (like Terraform commands).
+ *
+ * @param request - NextRequest object (unused)
+ * @param params - Route parameters containing the operation ID
+ * @returns JSON response indicating success/failure of cancellation
+ *
+ * @example
+ * ```typescript
+ * const response = await fetch('/api/operations/op-123/cancel', {
+ *   method: 'POST'
+ * })
+ * const result = await response.json()
+ * if (result.success) {
+ *   console.log('Operation cancelled')
+ * }
+ * ```
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

@@ -8,32 +8,93 @@ const execAsync = promisify(exec)
 const PROJECT_PREFIX = process.env.PROJECT_PREFIX || 'prequel'
 const ENVIRONMENT = process.env.ENVIRONMENT || 'dev'
 
+/**
+ * Result of a Terraform command execution.
+ *
+ * Contains the execution status, output, and any error information
+ * from running Terraform commands like init, plan, apply, or destroy.
+ */
 export interface TerraformExecutionResult {
-  success: boolean
-  output: string
-  error?: string
-  fullOutput?: string
-  command?: string
+  success: boolean // Whether the command executed successfully
+  output: string // Primary command output (usually stdout)
+  error?: string // Error message if command failed
+  fullOutput?: string // Complete output including stderr and metadata
+  command?: string // The original command that was executed
 }
 
+/**
+ * Represents a coding interview instance with its infrastructure and metadata.
+ *
+ * This interface defines the complete structure of an interview including
+ * AWS infrastructure details, candidate information, and current status.
+ */
 export interface InterviewInstance {
-  id: string
-  candidateName: string
-  challenge: string
-  password: string
-  openai_api_key?: string
-  accessUrl?: string
+  id: string // Unique interview identifier (8-character UUID)
+  candidateName: string // Name of the candidate taking the interview
+  challenge: string // Challenge name (e.g., 'javascript', 'python')
+  password: string // Generated password for VS Code access
+  openai_api_key?: string // Optional OpenAI API key for AI assistance
+  accessUrl?: string // Full URL to access the VS Code instance
   status:
-    | 'scheduled'
-    | 'initializing'
-    | 'configuring'
-    | 'active'
-    | 'destroying'
-    | 'destroyed'
-    | 'error'
-  createdAt: Date
+    | 'scheduled' // Waiting for scheduled start time
+    | 'initializing' // Terraform provisioning AWS resources
+    | 'configuring' // Infrastructure ready, ECS container booting
+    | 'active' // Fully ready for candidate access
+    | 'destroying' // Infrastructure being torn down
+    | 'destroyed' // Infrastructure completely removed
+    | 'error' // Failed state requiring manual intervention
+  createdAt: Date // When the interview was created
 }
 
+/**
+ * Manages AWS infrastructure for coding interviews using Terraform.
+ *
+ * This class handles the complete lifecycle of interview infrastructure including:
+ * - **Workspace Management**: S3-backed Terraform workspaces for persistence
+ * - **AWS Resource Provisioning**: ECS services, ALBs, Route53, security groups
+ * - **Health Checking**: Service readiness verification with retry logic
+ * - **Credential Management**: Automatic ECS vs local AWS credential handling
+ * - **Streaming Output**: Real-time Terraform command output for UX
+ *
+ * **Architecture Overview:**
+ * Each interview gets isolated AWS infrastructure:
+ * - Dedicated ECS service running VS Code server
+ * - Application Load Balancer with subdomain (interview-id.domain.com)
+ * - Route53 DNS record for custom domain access
+ * - Security groups for network isolation
+ * - S3-backed challenge file deployment
+ *
+ * **Credential Strategy:**
+ * - **Local Development**: Uses AWS SSO profiles (`aws sso login --profile`)
+ * - **ECS Deployment**: Uses IAM task roles (automatic)
+ * - **Auto-detection**: Detects deployment context via AWS_EXECUTION_ENV
+ *
+ * **Workspace Persistence:**
+ * - Terraform state stored in S3 bucket
+ * - Complete workspace files synchronized to S3
+ * - Enables infrastructure recovery across container restarts
+ *
+ * @example
+ * ```typescript
+ * // Create an interview with real-time output
+ * const result = await terraformManager.createInterviewStreaming(
+ *   {
+ *     id: 'abc12345',
+ *     candidateName: 'John Doe',
+ *     challenge: 'javascript',
+ *     password: 'secure123'
+ *   },
+ *   (output) => console.log('Terraform:', output),
+ *   (accessUrl) => console.log('Infrastructure ready:', accessUrl)
+ * )
+ *
+ * // Destroy interview infrastructure
+ * await terraformManager.destroyInterviewStreaming(
+ *   'abc12345',
+ *   (output) => console.log('Destroy:', output)
+ * )
+ * ```
+ */
 class TerraformManager {
   private readonly isRunningInECS: boolean
   private readonly awsProfile: string
@@ -56,6 +117,15 @@ class TerraformManager {
     this.terraformStateBucket = process.env.TERRAFORM_STATE_BUCKET || ''
   }
 
+  /**
+   * Fixes Terraform provider binary permissions after download.
+   *
+   * Terraform providers downloaded via `terraform init` may not have execute
+   * permissions in containerized environments. This method ensures all provider
+   * binaries are executable to prevent runtime errors.
+   *
+   * @param workspaceDir - Path to the Terraform workspace directory
+   */
   private async fixProviderPermissions(workspaceDir: string): Promise<void> {
     try {
       await execAsync(
@@ -71,6 +141,16 @@ class TerraformManager {
     }
   }
 
+  /**
+   * Processes and formats Terraform command output for streaming display.
+   *
+   * Cleans ANSI color codes and prefixes each line with [Terraform] for
+   * clear identification in mixed log output. Preserves line structure
+   * and handles empty lines appropriately.
+   *
+   * @param output - Raw Terraform command output
+   * @param onData - Optional callback to receive formatted output
+   */
   private processTerraformOutput(
     output: string,
     onData?: (data: string) => void
@@ -398,6 +478,31 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
 `.trim()
   }
 
+  /**
+   * Waits for ECS service to become healthy by polling the access URL.
+   *
+   * This method performs HTTP health checks against the VS Code server to determine
+   * when the service is ready for candidate access. It handles the transition from
+   * "configuring" to "active" status by verifying service availability.
+   *
+   * **Health Check Process:**
+   * - Polls every 10 seconds with 8-second request timeout
+   * - Uses custom User-Agent for identification in logs
+   * - Considers 200 OK response as healthy
+   * - Streams progress updates for real-time UI feedback
+   *
+   * **Common Delays:**
+   * ECS services may take time to become healthy due to:
+   * - Container image download (if not cached)
+   * - Python/Node.js dependency installation
+   * - VS Code server initialization
+   * - Load balancer health check stabilization
+   *
+   * @param accessUrl - Full URL to the VS Code service to health check
+   * @param timeoutMs - Maximum time to wait in milliseconds (default: 5 minutes)
+   * @param onData - Optional callback for real-time health check progress
+   * @returns Promise with success status and optional error message
+   */
   private async waitForServiceHealth(
     accessUrl: string,
     timeoutMs: number = 300000, // 5 minutes
@@ -461,14 +566,70 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
     return { success: false, error: errorMsg }
   }
 
+  /**
+   * Creates a complete AWS infrastructure for a coding interview with real-time streaming.
+   *
+   * This is the primary method for provisioning interview infrastructure. It orchestrates
+   * the complete workflow from Terraform workspace setup through infrastructure deployment
+   * and health checking. The process has distinct phases that are reflected in the UI:
+   *
+   * **Phases:**
+   * 1. **Workspace Setup**: Downloads templates, creates tfvars, initializes Terraform
+   * 2. **Infrastructure Provisioning**: Runs terraform plan and apply (status: "initializing")
+   * 3. **Service Health Checking**: Waits for ECS service to be ready (status: "configuring")
+   * 4. **Ready**: Service passes health checks (status: "active")
+   *
+   * **AWS Resources Created:**
+   * - ECS service with VS Code server container
+   * - Application Load Balancer with subdomain routing
+   * - Route53 DNS record (interview-id.domain.com)
+   * - Security groups for network isolation
+   * - SSM parameter for password storage
+   *
+   * **Callbacks:**
+   * - `onData`: Receives real-time Terraform output for streaming to UI
+   * - `onInfrastructureReady`: Called when AWS resources are provisioned but before health check
+   *
+   * @param instance - Interview configuration (ID, candidate, challenge, password)
+   * @param onData - Optional callback for real-time Terraform output streaming
+   * @param onInfrastructureReady - Optional callback when infrastructure is ready but service may not be healthy
+   * @returns Promise with creation result including access URL and health status
+   *
+   * @example
+   * ```typescript
+   * const result = await terraformManager.createInterviewStreaming(
+   *   {
+   *     id: 'abc12345',
+   *     candidateName: 'John Doe',
+   *     challenge: 'javascript',
+   *     password: 'secure123'
+   *   },
+   *   (output) => {
+   *     // Stream real-time Terraform output to UI
+   *     console.log('Terraform:', output)
+   *   },
+   *   (accessUrl) => {
+   *     // Infrastructure is ready, updating status to "configuring"
+   *     updateStatus('configuring', accessUrl)
+   *   }
+   * )
+   *
+   * if (result.success && result.healthCheckPassed) {
+   *   // Interview is fully ready for candidate access
+   *   console.log('Access URL:', result.accessUrl)
+   * }
+   * ```
+   */
   async createInterviewStreaming(
     instance: Omit<InterviewInstance, 'accessUrl' | 'status' | 'createdAt'>,
-    onData?: (data: string) => void
+    onData?: (data: string) => void,
+    onInfrastructureReady?: (accessUrl: string) => void
   ): Promise<
     TerraformExecutionResult & {
       accessUrl?: string
       executionLog?: string[]
       healthCheckPassed?: boolean
+      infrastructureReady?: boolean
     }
   > {
     const workspaceDir = await this.createWorkspace(instance.id)
@@ -572,6 +733,13 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
           executionLog.push(`Access URL: ${accessUrl || 'Not found'}`)
           streamData(`Access URL: ${accessUrl || 'Not found'}\n`)
 
+          // Infrastructure is ready - notify callback
+          if (accessUrl && onInfrastructureReady) {
+            executionLog.push('✅ Infrastructure provisioning completed!')
+            streamData('✅ Infrastructure provisioning completed!\n')
+            onInfrastructureReady(accessUrl)
+          }
+
           let healthCheckPassed = false
 
           if (accessUrl) {
@@ -610,6 +778,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
             fullOutput: executionLog.join('\n\n'),
             accessUrl,
             healthCheckPassed,
+            infrastructureReady: !!accessUrl,
             executionLog,
           }
         } catch {
@@ -621,11 +790,17 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
             error: 'Could not parse Terraform outputs',
             executionLog,
             healthCheckPassed: false,
+            infrastructureReady: false,
           }
         }
       }
 
-      return { ...applyResult, executionLog, healthCheckPassed: false }
+      return {
+        ...applyResult,
+        executionLog,
+        healthCheckPassed: false,
+        infrastructureReady: false,
+      }
     } catch (error: unknown) {
       const errorMsg = `Workspace creation failed: ${
         error instanceof Error ? error.message : 'Unknown error'
@@ -638,6 +813,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
         error: errorMsg,
         executionLog,
         healthCheckPassed: false,
+        infrastructureReady: false,
       }
     }
   }
@@ -955,6 +1131,55 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
     }
   }
 
+  /**
+   * Destroys interview infrastructure with comprehensive cleanup and real-time streaming.
+   *
+   * This method performs complete teardown of interview AWS resources using a multi-step
+   * approach to handle various failure scenarios gracefully. It prioritizes successful
+   * cleanup even when Terraform state is corrupted or missing.
+   *
+   * **Destruction Process:**
+   * 1. **ECS Service Scaling**: Scale down to 0 tasks to stop running containers
+   * 2. **Workspace Recovery**: Download workspace from S3 if not available locally
+   * 3. **Terraform Destroy**: Run `terraform destroy` to remove all resources
+   * 4. **Direct Cleanup**: If Terraform fails, use AWS CLI for manual resource removal
+   * 5. **Cleanup**: Remove local workspace and S3 workspace (only on success)
+   *
+   * **Fallback Strategy:**
+   * If Terraform workspace is missing or corrupted, the method falls back to direct
+   * AWS CLI commands to clean up known resource patterns. This ensures interviews
+   * can be destroyed even when Terraform state is lost.
+   *
+   * **Resources Cleaned:**
+   * - ECS service and tasks
+   * - Application Load Balancer and target groups
+   * - Route53 DNS records
+   * - Security groups (ALB and ECS)
+   * - SSM parameters
+   * - S3 workspace files (on successful destroy)
+   *
+   * @param interviewId - The interview ID to destroy infrastructure for
+   * @param onData - Optional callback for real-time destruction output streaming
+   * @returns Promise with destruction result and any error details
+   *
+   * @example
+   * ```typescript
+   * const result = await terraformManager.destroyInterviewStreaming(
+   *   'abc12345',
+   *   (output) => {
+   *     // Stream real-time destruction output to UI
+   *     console.log('Destroy:', output)
+   *   }
+   * )
+   *
+   * if (result.success) {
+   *   console.log('Interview infrastructure destroyed successfully')
+   * } else {
+   *   console.error('Destruction failed:', result.error)
+   *   // Some manual cleanup may be required
+   * }
+   * ```
+   */
   async destroyInterviewStreaming(
     interviewId: string,
     onData?: (data: string) => void
@@ -1008,6 +1233,37 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
     }
   }
 
+  /**
+   * Retries health check for an existing interview infrastructure.
+   *
+   * This method is used when interview infrastructure was created successfully
+   * but the initial health check failed. It retrieves the access URL from
+   * Terraform state and attempts a new health check with shorter timeout.
+   *
+   * **Use Cases:**
+   * - Initial health check failed during creation
+   * - Service was temporarily unavailable
+   * - Manual retry after dependency installation
+   * - Recovery from transient network issues
+   *
+   * @param interviewId - The interview ID to retry health check for
+   * @param onData - Optional callback for real-time health check progress
+   * @returns Promise with success status, error message, and access URL
+   *
+   * @example
+   * ```typescript
+   * const result = await terraformManager.retryHealthCheck(
+   *   'abc12345',
+   *   (output) => console.log('Health check:', output)
+   * )
+   *
+   * if (result.success) {
+   *   console.log('Service is now healthy:', result.accessUrl)
+   * } else {
+   *   console.error('Health check still failing:', result.error)
+   * }
+   * ```
+   */
   async retryHealthCheck(
     interviewId: string,
     onData?: (data: string) => void

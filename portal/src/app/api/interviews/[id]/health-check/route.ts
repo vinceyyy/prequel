@@ -2,6 +2,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import { terraformManager } from '@/lib/terraform'
 import { operationManager } from '@/lib/operations'
 
+/**
+ * Retries health check for an interview instance.
+ *
+ * This endpoint is used when an interview infrastructure was created successfully
+ * but the initial health check failed (ECS service not yet ready). It attempts
+ * to check if the service has become healthy since the initial creation.
+ *
+ * The health check verifies that the VS Code server is accessible and responding
+ * to HTTP requests. If successful, it updates the original operation result to
+ * mark the health check as passed, changing the interview status to "active".
+ *
+ * @param request - NextRequest object (unused)
+ * @param params - Route parameters containing the interview ID
+ * @returns JSON response with operation ID for tracking the retry progress
+ *
+ * @example
+ * ```typescript
+ * const response = await fetch('/api/interviews/abc123/health-check', {
+ *   method: 'POST'
+ * })
+ * const { operationId } = await response.json()
+ * // Use operationId to track retry progress via SSE or operation API
+ * ```
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

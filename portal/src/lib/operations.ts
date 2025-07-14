@@ -1,22 +1,33 @@
 import { v4 as uuidv4 } from 'uuid'
 import fs from 'fs/promises'
 
+/**
+ * Event emitted when an operation's state changes.
+ * Used by SSE endpoint to notify connected clients in real-time.
+ */
 export interface OperationEvent {
   type: 'operation_update'
   operation: Operation
   timestamp: string
 }
 
+/**
+ * Represents a background operation (interview creation or destruction).
+ *
+ * Operations track the complete lifecycle of long-running tasks including
+ * scheduling, execution, completion, and detailed logging. They serve as
+ * the source of truth for interview status and provide audit trails.
+ */
 export interface Operation {
   id: string
   type: 'create' | 'destroy'
   status:
-    | 'pending'
-    | 'running'
-    | 'completed'
-    | 'failed'
-    | 'cancelled'
-    | 'scheduled'
+    | 'pending' // Not yet started
+    | 'running' // Currently executing
+    | 'completed' // Finished successfully
+    | 'failed' // Failed with error
+    | 'cancelled' // Cancelled by user or system
+    | 'scheduled' // Waiting for scheduled time
   interviewId: string
   candidateName?: string
   challenge?: string
@@ -33,9 +44,37 @@ export interface Operation {
     error?: string
     fullOutput?: string
     healthCheckPassed?: boolean
+    infrastructureReady?: boolean
   }
 }
 
+/**
+ * Central manager for background operations with persistent storage and event emission.
+ *
+ * This class handles all long-running interview operations including:
+ * - Operation lifecycle management (create, track, complete)
+ * - Persistent storage in /tmp for server restarts
+ * - Real-time event emission for SSE clients
+ * - Scheduled operation management
+ * - Auto-destroy timeout handling
+ *
+ * All operation state changes trigger SSE events to keep the UI updated in real-time.
+ *
+ * @example
+ * ```typescript
+ * // Create a new operation
+ * const opId = operationManager.createOperation('create', 'interview-123', 'John Doe', 'javascript')
+ *
+ * // Update operation status (triggers SSE event)
+ * operationManager.updateOperationStatus(opId, 'running')
+ *
+ * // Add execution logs
+ * operationManager.addOperationLog(opId, 'Starting Terraform...')
+ *
+ * // Complete the operation (triggers SSE event)
+ * operationManager.setOperationResult(opId, { success: true, accessUrl: 'https://...' })
+ * ```
+ */
 class OperationManager {
   private operations: Map<string, Operation> = new Map()
   private persistFile = `/tmp/${process.env.PROJECT_PREFIX || 'prequel'}-operations.json`
@@ -45,10 +84,18 @@ class OperationManager {
     this.loadFromDisk()
   }
 
+  /**
+   * Adds an event listener for operation state changes.
+   * @param listener - Function to call when operations change state
+   */
   addEventListener(listener: (event: OperationEvent) => void) {
     this.eventListeners.push(listener)
   }
 
+  /**
+   * Removes an event listener.
+   * @param listener - The listener function to remove
+   */
   removeEventListener(listener: (event: OperationEvent) => void) {
     const index = this.eventListeners.indexOf(listener)
     if (index > -1) {
@@ -56,6 +103,11 @@ class OperationManager {
     }
   }
 
+  /**
+   * Emits an operation update event to all registered listeners.
+   * Called automatically whenever operation state changes.
+   * @param operation - The operation that changed state
+   */
   private emit(operation: Operation) {
     const event: OperationEvent = {
       type: 'operation_update',
@@ -109,6 +161,30 @@ class OperationManager {
     }
   }
 
+  /**
+   * Creates a new operation to track a background task.
+   *
+   * @param type - Type of operation ('create' or 'destroy')
+   * @param interviewId - Interview ID this operation belongs to
+   * @param candidateName - Optional candidate name for display
+   * @param challenge - Optional challenge name for display
+   * @param scheduledAt - Optional scheduled execution time
+   * @param autoDestroyAt - Optional auto-destroy timeout
+   * @returns The generated operation ID for tracking
+   *
+   * @example
+   * ```typescript
+   * // Create immediate operation
+   * const opId = operationManager.createOperation('create', 'interview-123', 'John Doe', 'javascript')
+   *
+   * // Create scheduled operation
+   * const scheduledOpId = operationManager.createOperation(
+   *   'create', 'interview-456', 'Jane Smith', 'python',
+   *   new Date('2025-01-15T10:00:00Z'),
+   *   new Date('2025-01-15T11:00:00Z')
+   * )
+   * ```
+   */
   createOperation(
     type: 'create' | 'destroy',
     interviewId: string,
@@ -208,6 +284,42 @@ class OperationManager {
     }
   }
 
+  /**
+   * Updates an operation to mark infrastructure as ready while health check is still pending.
+   *
+   * This is called when Terraform has finished provisioning AWS resources and the ECS
+   * service is starting up, but before the service passes health checks. This allows
+   * the UI to show "configuring" status instead of "initializing".
+   *
+   * @param operationId - The operation ID to update
+   * @param accessUrl - Optional access URL for the interview (if available)
+   * @param password - Optional password for the interview (if available)
+   */
+  updateOperationInfrastructureReady(
+    operationId: string,
+    accessUrl?: string,
+    password?: string
+  ) {
+    const operation = this.operations.get(operationId)
+    if (operation) {
+      if (!operation.result) {
+        operation.result = {
+          success: true,
+          infrastructureReady: true,
+          healthCheckPassed: false,
+        }
+      } else {
+        operation.result.infrastructureReady = true
+      }
+
+      if (accessUrl) operation.result.accessUrl = accessUrl
+      if (password) operation.result.password = password
+
+      this.saveToDisk()
+      this.emit(operation)
+    }
+  }
+
   cancelOperation(operationId: string): boolean {
     const operation = this.operations.get(operationId)
     if (
@@ -228,6 +340,16 @@ class OperationManager {
     return false
   }
 
+  /**
+   * Cancels all scheduled operations for a specific interview.
+   *
+   * This is called when an interview is manually destroyed before its scheduled
+   * operations (like auto-destroy) can execute. It prevents orphaned operations
+   * from running against non-existent resources.
+   *
+   * @param interviewId - The interview ID to cancel operations for
+   * @returns Number of operations that were cancelled
+   */
   cancelScheduledOperationsForInterview(interviewId: string): number {
     let cancelledCount = 0
     const operations = Array.from(this.operations.values())

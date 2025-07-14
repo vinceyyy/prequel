@@ -3,6 +3,57 @@ import { terraformManager } from '@/lib/terraform'
 import { operationManager } from '@/lib/operations'
 import { v4 as uuidv4 } from 'uuid'
 
+/**
+ * Creates a new coding interview instance.
+ *
+ * This endpoint provisions AWS infrastructure (ECS, ALB, Route53) for a secure,
+ * isolated VS Code environment. Supports both immediate and scheduled creation
+ * with mandatory auto-destroy to prevent resource waste.
+ *
+ * The creation process has distinct phases:
+ * 1. **Initializing**: Terraform provisioning AWS resources
+ * 2. **Configuring**: ECS container booting and installing dependencies
+ * 3. **Active**: Service healthy and ready for candidate access
+ *
+ * @param request - NextRequest with interview configuration in JSON body
+ * @returns JSON response with operation ID and interview details
+ *
+ * Request Body:
+ * ```typescript
+ * {
+ *   candidateName: string;        // Required: Candidate name
+ *   challenge: string;            // Required: Challenge name from S3
+ *   autoDestroyMinutes: number;   // Required: Auto-destroy timeout (30-240)
+ *   scheduledAt?: string;         // Optional: ISO date for scheduled creation
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Create immediate interview
+ * const response = await fetch('/api/interviews/create', {
+ *   method: 'POST',
+ *   headers: { 'Content-Type': 'application/json' },
+ *   body: JSON.stringify({
+ *     candidateName: 'John Doe',
+ *     challenge: 'javascript',
+ *     autoDestroyMinutes: 60
+ *   })
+ * })
+ *
+ * // Schedule interview for later
+ * const response = await fetch('/api/interviews/create', {
+ *   method: 'POST',
+ *   headers: { 'Content-Type': 'application/json' },
+ *   body: JSON.stringify({
+ *     candidateName: 'Jane Smith',
+ *     challenge: 'python',
+ *     autoDestroyMinutes: 90,
+ *     scheduledAt: '2025-01-15T10:00:00.000Z'
+ *   })
+ * })
+ * ```
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -125,6 +176,18 @@ export async function POST(request: NextRequest) {
             lines.forEach(line => {
               operationManager.addOperationLog(operationId, line)
             })
+          },
+          (accessUrl: string) => {
+            // Infrastructure is ready - update operation to show configuring status
+            operationManager.updateOperationInfrastructureReady(
+              operationId,
+              accessUrl,
+              password
+            )
+            operationManager.addOperationLog(
+              operationId,
+              '🔧 Infrastructure ready, ECS service starting up...'
+            )
           }
         )
 
@@ -144,6 +207,7 @@ export async function POST(request: NextRequest) {
             password: password,
             fullOutput: result.fullOutput,
             healthCheckPassed: result.healthCheckPassed,
+            infrastructureReady: result.infrastructureReady,
           })
         } else {
           operationManager.addOperationLog(
