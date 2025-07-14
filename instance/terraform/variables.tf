@@ -24,3 +24,9 @@ variable "password" {
   type        = string
   sensitive   = true
 }
+
+variable "openai_api_key" {
+  description = "OpenAI API key for the candidate to use"
+  type        = string
+  sensitive   = true
+}

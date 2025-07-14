@@ -366,6 +366,10 @@ resource "aws_ecs_task_definition" "portal" {
         {
           name  = "AUTH_PASSCODE"
           value = var.auth_passcode
+        },
+        {
+          name  = "OPENAI_API_KEY"
+          value = var.openai_api_key
         }
       ]
 

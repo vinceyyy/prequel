@@ -75,3 +75,9 @@ variable "auth_passcode" {
   default     = "change-me-secure-passcode"
   sensitive   = true
 }
+
+variable "openai_api_key" {
+  description = "OpenAI API key for the candidate to use (temporary solution)"
+  type        = string
+  sensitive   = true
+}
