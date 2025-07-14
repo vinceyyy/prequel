@@ -1,6 +1,7 @@
 resource "aws_ecr_repository" "portal" {
   name                 = "${local.name}-portal"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
@@ -34,6 +35,7 @@ resource "aws_ecr_lifecycle_policy" "portal" {
 resource "aws_ecr_repository" "code_server" {
   name                 = "${local.name}-code-server"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true

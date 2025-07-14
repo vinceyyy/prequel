@@ -95,6 +95,9 @@ Your AWS credentials need permissions for:
 ```bash
 cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars with your domain and settings
+
+cp backend.config.example backend.config
+# Edit backend.config with your S3 backend configuration
 ```
 
 **Required Configuration:**
@@ -117,7 +120,7 @@ max_instances      = 10
 ### 2. Deploy Infrastructure
 
 ```bash
-terraform init
+terraform init -backend-config=backend.config
 terraform plan
 terraform apply
 ```

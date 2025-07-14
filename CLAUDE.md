@@ -66,6 +66,7 @@ npm run test:coverage # Coverage report
 
 ```bash
 cd infra
+terraform init -backend-config=backend.config  # Initialize with backend config
 terraform plan   # Plan infrastructure changes
 terraform apply  # Deploy infrastructure
 terraform destroy # Clean up resources
@@ -91,6 +92,9 @@ terraform destroy # Clean up resources
    cd infra
    cp terraform.tfvars.example terraform.tfvars
    # Edit terraform.tfvars with your deployment values
+   
+   cp backend.config.example backend.config
+   # Edit backend.config with your S3 backend configuration
    ```
 
 3. **AWS Setup:**
@@ -104,24 +108,24 @@ terraform destroy # Clean up resources
    cd portal && npm run dev
    ```
 
-**⚠️ Important: Terraform Backend Bucket**
+**⚠️ Important: Terraform Backend Configuration**
 
 Before running `terraform init`, you must:
 1. Create an S3 bucket for Terraform state (bucket name can be anything)
-2. Update backend configuration in **TWO** files:
+2. Configure the backend in `infra/backend.config`:
    
-   **`infra/main.tf`** (lines 11-13):
+   **`infra/backend.config`**:
    ```hcl
-   backend "s3" {
-     bucket = "your-bucket-name"
-     key    = "your-project-key"  # Optional: defaults to "common"
-     region = "your-aws-region"
-   }
+   bucket       = "your-bucket-name"
+   key          = "common"  # Optional: change if needed
+   region       = "your-aws-region"
+   use_lockfile = true
    ```
 
-   **`infra/terraform.tfvars`**:
-   ```hcl
-   terraform_state_bucket = "your-bucket-name"  # Must match above
+3. Initialize Terraform with backend configuration:
+   ```bash
+   cd infra
+   terraform init -backend-config=backend.config
    ```
 
 **Build Scripts:**

@@ -8,10 +8,10 @@ terraform {
   }
   backend "s3" {
     # Note: Backend bucket must be manually created before terraform apply
-    bucket       = "prequel-terraform-state"
-    key          = "common"
-    region       = "us-east-1"
-    use_lockfile = true
+    bucket       = ""
+    key          = ""
+    region       = ""
+    use_lockfile = ""
   }
 }
 
