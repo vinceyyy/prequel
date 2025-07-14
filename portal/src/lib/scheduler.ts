@@ -188,6 +188,7 @@ export class SchedulerService {
           accessUrl: result.accessUrl,
           password: instance.password,
           fullOutput: result.fullOutput,
+          healthCheckPassed: result.healthCheckPassed,
         })
 
         this.emit({

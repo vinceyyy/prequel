@@ -143,6 +143,7 @@ export async function POST(request: NextRequest) {
             accessUrl: result.accessUrl,
             password: password,
             fullOutput: result.fullOutput,
+            healthCheckPassed: result.healthCheckPassed,
           })
         } else {
           operationManager.addOperationLog(

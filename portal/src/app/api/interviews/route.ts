@@ -106,6 +106,7 @@ function getOperationInterviews(
       success: boolean
       accessUrl?: string
       password?: string
+      healthCheckPassed?: boolean
     }
     createdAt: Date
   }>
@@ -125,7 +126,9 @@ function getOperationInterviews(
               ? 'configuring' // Running operations are in the configuring phase
               : op.status === 'completed'
                 ? op.result?.success
-                  ? 'active'
+                  ? op.result?.healthCheckPassed
+                    ? 'active'
+                    : 'configuring' // Infrastructure created but health check failed
                   : 'error'
                 : 'error',
       accessUrl: op.result?.accessUrl,
@@ -154,6 +157,7 @@ function mergeAndDeduplicateInterviews(
     status: string
     result?: {
       success: boolean
+      healthCheckPassed?: boolean
     }
     createdAt: Date
   }>

@@ -32,6 +32,7 @@ export interface Operation {
     password?: string
     error?: string
     fullOutput?: string
+    healthCheckPassed?: boolean
   }
 }
 

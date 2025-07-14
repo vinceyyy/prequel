@@ -398,11 +398,78 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
 `.trim()
   }
 
+  private async waitForServiceHealth(
+    accessUrl: string,
+    timeoutMs: number = 300000, // 5 minutes
+    onData?: (data: string) => void
+  ): Promise<{ success: boolean; error?: string }> {
+    const streamData = (data: string) => {
+      if (onData) onData(data)
+    }
+
+    const startTime = Date.now()
+    const maxAttempts = Math.floor(timeoutMs / 10000) // Check every 10 seconds
+    let attempts = 0
+
+    streamData(`Waiting for ECS service to become healthy at ${accessUrl}...\n`)
+
+    while (attempts < maxAttempts) {
+      try {
+        const response = await fetch(accessUrl, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Prequel-Portal-HealthCheck/1.0',
+          },
+          signal: AbortSignal.timeout(8000), // 8 second timeout for each request
+        })
+
+        if (response.ok) {
+          const elapsed = Date.now() - startTime
+          streamData(
+            `✅ ECS service is healthy! (took ${Math.round(elapsed / 1000)}s)\n`
+          )
+          return { success: true }
+        } else {
+          attempts++
+          const elapsed = Date.now() - startTime
+          streamData(
+            `⏳ Service not ready yet (${response.status}), waiting... (${Math.round(elapsed / 1000)}s elapsed)\n`
+          )
+        }
+      } catch (error) {
+        attempts++
+        const elapsed = Date.now() - startTime
+
+        if (error instanceof Error && error.name === 'TimeoutError') {
+          streamData(
+            `⏳ Service not responding yet, waiting... (${Math.round(elapsed / 1000)}s elapsed)\n`
+          )
+        } else {
+          streamData(
+            `⏳ Connection failed, service may still be starting... (${Math.round(elapsed / 1000)}s elapsed)\n`
+          )
+        }
+      }
+
+      // Wait 10 seconds before next attempt
+      await new Promise(resolve => setTimeout(resolve, 10000))
+    }
+
+    const elapsed = Date.now() - startTime
+    const errorMsg = `Service health check failed after ${Math.round(elapsed / 1000)}s. ECS service may still be installing dependencies.`
+    streamData(`❌ ${errorMsg}\n`)
+    return { success: false, error: errorMsg }
+  }
+
   async createInterviewStreaming(
     instance: Omit<InterviewInstance, 'accessUrl' | 'status' | 'createdAt'>,
     onData?: (data: string) => void
   ): Promise<
-    TerraformExecutionResult & { accessUrl?: string; executionLog?: string[] }
+    TerraformExecutionResult & {
+      accessUrl?: string
+      executionLog?: string[]
+      healthCheckPassed?: boolean
+    }
   > {
     const workspaceDir = await this.createWorkspace(instance.id)
     const executionLog: string[] = []
@@ -505,6 +572,35 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
           executionLog.push(`Access URL: ${accessUrl || 'Not found'}`)
           streamData(`Access URL: ${accessUrl || 'Not found'}\n`)
 
+          let healthCheckPassed = false
+
+          if (accessUrl) {
+            // Wait for ECS service to become healthy before marking as active
+            executionLog.push('Waiting for ECS service to become healthy...')
+            streamData('Waiting for ECS service to become healthy...\n')
+
+            const healthCheck = await this.waitForServiceHealth(
+              accessUrl,
+              300000,
+              streamData
+            )
+            healthCheckPassed = healthCheck.success
+
+            if (healthCheck.success) {
+              executionLog.push('✅ ECS service is healthy and ready for use!')
+              streamData('✅ ECS service is healthy and ready for use!\n')
+            } else {
+              executionLog.push(`⚠️ Health check failed: ${healthCheck.error}`)
+              streamData(`⚠️ Health check failed: ${healthCheck.error}\n`)
+              streamData(
+                'Note: Interview infrastructure is created but service may need more time to start.\n'
+              )
+
+              // Still continue with success but with warning
+              // The interview will be marked as active, but logs will show the health check issue
+            }
+          }
+
           // Upload updated workspace to S3 after successful apply
           await this.uploadWorkspaceToS3(instance.id, workspaceDir)
 
@@ -513,6 +609,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
             output: applyResult.output,
             fullOutput: executionLog.join('\n\n'),
             accessUrl,
+            healthCheckPassed,
             executionLog,
           }
         } catch {
@@ -523,11 +620,12 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
             output: applyResult.output,
             error: 'Could not parse Terraform outputs',
             executionLog,
+            healthCheckPassed: false,
           }
         }
       }
 
-      return { ...applyResult, executionLog }
+      return { ...applyResult, executionLog, healthCheckPassed: false }
     } catch (error: unknown) {
       const errorMsg = `Workspace creation failed: ${
         error instanceof Error ? error.message : 'Unknown error'
@@ -539,6 +637,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
         output: '',
         error: errorMsg,
         executionLog,
+        healthCheckPassed: false,
       }
     }
   }
@@ -905,6 +1004,56 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
         success: false,
         output: '',
         error: errorMsg,
+      }
+    }
+  }
+
+  async retryHealthCheck(
+    interviewId: string,
+    onData?: (data: string) => void
+  ): Promise<{ success: boolean; error?: string; accessUrl?: string }> {
+    const streamData = (data: string) => {
+      if (onData) onData(data)
+    }
+
+    try {
+      // Get the interview status to find the access URL
+      const status = await this.getInterviewStatus(interviewId)
+
+      if (!status.success || !status.outputs) {
+        return {
+          success: false,
+          error: 'Could not get interview status for health check retry',
+        }
+      }
+
+      const outputs = status.outputs as Record<string, { value: string }>
+      const accessUrl = outputs.access_url?.value
+
+      if (!accessUrl) {
+        return {
+          success: false,
+          error: 'No access URL found for health check retry',
+        }
+      }
+
+      streamData(`Retrying health check for interview ${interviewId}...\n`)
+
+      const healthCheck = await this.waitForServiceHealth(
+        accessUrl,
+        120000,
+        streamData
+      ) // 2 minute timeout for retry
+
+      return {
+        success: healthCheck.success,
+        error: healthCheck.error,
+        accessUrl,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: `Health check retry failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       }
     }
   }
