@@ -1,7 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { terraformManager } from '@/lib/terraform'
 import { operationManager } from '@/lib/operations'
-import { v4 as uuidv4 } from 'uuid'
 
 // Shared execution to prevent multiple simultaneous S3 queries (NO caching)
 interface SharedResult {
@@ -278,71 +277,6 @@ export async function GET() {
     return NextResponse.json(
       {
         error: 'Failed to list interviews',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { candidateName, challenge } = body
-
-    if (!candidateName || !challenge) {
-      return NextResponse.json(
-        { error: 'candidateName and challenge are required' },
-        { status: 400 }
-      )
-    }
-
-    const interviewId = uuidv4().substring(0, 8)
-    const password = Math.random().toString(36).substring(2, 12)
-
-    const instance = {
-      id: interviewId,
-      candidateName,
-      challenge,
-      password,
-    }
-
-    console.log(instance)
-
-    // Start Terraform provisioning in background
-    const result = await terraformManager.createInterview(instance)
-
-    if (!result.success) {
-      return NextResponse.json(
-        {
-          error: 'Failed to create interview infrastructure',
-          details: result.error,
-          terraformOutput: result.output,
-          fullOutput: result.fullOutput,
-          executionLog: result.executionLog,
-        },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({
-      interview: {
-        id: interviewId,
-        candidateName,
-        challenge,
-        status: 'active',
-        accessUrl: result.accessUrl,
-        password,
-        createdAt: new Date().toISOString(),
-      },
-      terraformOutput: result.output,
-      fullOutput: result.fullOutput,
-      executionLog: result.executionLog,
-    })
-  } catch (error: unknown) {
-    return NextResponse.json(
-      {
-        error: 'Failed to create interview',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }

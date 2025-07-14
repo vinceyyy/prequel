@@ -53,9 +53,6 @@ resource "null_resource" "soci_index_generator_build" {
   }
 }
 
-# Note: Using filebase64sha256() directly instead of data.local_file
-# to avoid circular dependency issues during terraform plan phase
-
 # Zip-based Go Lambda function
 resource "aws_lambda_function" "soci_index_generator" {
   function_name = "${var.name_prefix}-soci-index-generator"
@@ -70,7 +67,9 @@ resource "aws_lambda_function" "soci_index_generator" {
     size = 10240 # 10GB temporary storage for large images
   }
 
-  source_code_hash = filebase64sha256("${var.lambda_source_path}/soci-index-generator/soci_index_generator_lambda.zip")
+  # Use a hash of the build triggers instead of the zip file hash
+  # This ensures the Lambda updates when source code changes
+  source_code_hash = base64sha256(jsonencode(null_resource.soci_index_generator_build.triggers))
 
   environment {
     variables = {

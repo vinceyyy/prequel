@@ -1,7 +1,7 @@
 # Copy this file to terraform.tfvars and customize the values
 
 # AWS Configuration
-aws_region = "your-aws-region"
+aws_region = "us-east-1"
 environment = "dev"  # Must match ENVIRONMENT in .env.local
 
 # Project Configuration (used for resource naming)
@@ -18,7 +18,7 @@ vpc_cidr = "10.0.0.0/16"
 domain_name = "your-domain.com"
 
 # Optional: Provide existing certificate ARN (if you don't want Terraform to create one)
-# certificate_arn = "arn:aws:acm:your-aws-region:123456789012:certificate/12345678-1234-1234-1234-123456789012"
+# certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012"
 
 # Code Server Configuration
 code_server_image = "lscr.io/linuxserver/code-server:latest"

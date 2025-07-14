@@ -6,7 +6,7 @@ set -e
 CHALLENGE=${CHALLENGE:-python}
 PROJECT_PREFIX=${PROJECT_PREFIX:-prequel}
 S3_BUCKET=${S3_CHALLENGE_BUCKET:-${PROJECT_PREFIX}-challenge}
-AWS_REGION=${AWS_REGION:-your-aws-region}
+AWS_REGION=${AWS_REGION:-"us-east-1"}
 WORKSPACE_PATH="/workspaces/${CHALLENGE}"
 
 echo "Starting code-server for challenge: ${CHALLENGE}"
@@ -40,8 +40,11 @@ setup_challenge() {
             if [ -f "$workspace_dir/requirements.txt" ]; then
                 echo "Installing Python dependencies..."
                 cd "$workspace_dir"
-                python3 -m pip install --upgrade pip --break-system-packages --user
-                python3 -m pip install -r requirements.txt --break-system-packages --user
+                # python3 -m pip install --upgrade pip --break-system-packages --user
+                # python3 -m pip install -r requirements.txt --break-system-packages --user
+                python3 -m venv .venv
+                source .venv/bin/activate
+                python3 -m pip install -r requirements.txt
                 echo "✅ Python dependencies installed"
             fi
             ;;

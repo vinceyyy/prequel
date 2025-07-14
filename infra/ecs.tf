@@ -348,8 +348,16 @@ resource "aws_ecs_task_definition" "portal" {
           value = var.project_prefix
         },
         {
+          name  = "DOMAIN_NAME"
+          value = var.domain_name
+        },
+        {
           name  = "AWS_REGION"
           value = var.aws_region
+        },
+        {
+          name  = "TERRAFORM_STATE_BUCKET"
+          value = var.terraform_state_bucket
         },
         {
           name  = "ENABLE_AUTH"

@@ -50,7 +50,7 @@ export async function DELETE(
   try {
     const { id } = await params
 
-    const result = await terraformManager.destroyInterview(id)
+    const result = await terraformManager.destroyInterviewStreaming(id)
 
     if (!result.success) {
       return NextResponse.json(

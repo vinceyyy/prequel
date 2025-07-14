@@ -7,9 +7,9 @@ terraform {
     }
   }
   backend "s3" {
-    bucket = "prequel-terraform-state"
-    key    = "interview-instances/INTERVIEW_ID_PLACEHOLDER.tfstate"
-    region = "us-east-1"
+    bucket = "TERRAFORM_STATE_BUCKET_PLACEHOLDER"         # will be substitute by the portal at run time
+    key    = "instances/INTERVIEW_ID_PLACEHOLDER.tfstate" # will be substitute by the portal at run time
+    region = "AWS_REGION_PLACEHOLDER"                     # will be substitute by the portal at run time
   }
 }
 
@@ -17,12 +17,12 @@ provider "aws" {
   region = var.aws_region
 }
 
-data "terraform_remote_state" "infrastructure" {
+data "terraform_remote_state" "common" {
   backend = "s3"
   config = {
-    bucket = "prequel-terraform-state"
-    key    = "prequel"
-    region = "your-aws-region"
+    bucket = "TERRAFORM_STATE_BUCKET_PLACEHOLDER" # will be substitute by the portal at run time
+    key    = "common"
+    region = "AWS_REGION_PLACEHOLDER"             # will be substitute by the portal at run time
   }
 }
 

@@ -14,10 +14,10 @@ const {
 } = require('@aws-sdk/client-cloudwatch-logs')
 
 const ecsClient = new ECSClient({
-  region: process.env.AWS_REGION || 'your-aws-region',
+  region: process.env.AWS_REGION || 'us-east-1',
 })
 const logsClient = new CloudWatchLogsClient({
-  region: process.env.AWS_REGION || 'your-aws-region',
+  region: process.env.AWS_REGION || 'us-east-1',
 })
 
 async function debugECS() {

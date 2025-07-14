@@ -1,5 +1,5 @@
 resource "aws_ssm_parameter" "interview_password" {
-  name  = "/${data.terraform_remote_state.infrastructure.outputs.project_prefix}/interviews/${local.interview_id}/password"
+  name  = "/${data.terraform_remote_state.common.outputs.project_prefix}/interviews/${local.interview_id}/password"
   type  = "SecureString"
   value = var.password
 
@@ -13,7 +13,7 @@ resource "aws_ssm_parameter" "interview_password" {
 resource "aws_security_group" "interview_alb" {
   name        = "${local.service_name}-alb"
   description = "Security group for interview ALB"
-  vpc_id      = data.terraform_remote_state.infrastructure.outputs.vpc_id
+  vpc_id      = data.terraform_remote_state.common.outputs.vpc_id
 
   ingress {
     description = "HTTP from internet"
@@ -48,7 +48,7 @@ resource "aws_security_group" "interview_alb" {
 resource "aws_security_group" "interview_ecs" {
   name        = "${local.service_name}-ecs"
   description = "Security group for interview ECS tasks"
-  vpc_id      = data.terraform_remote_state.infrastructure.outputs.vpc_id
+  vpc_id      = data.terraform_remote_state.common.outputs.vpc_id
 
   ingress {
     description     = "Code Server from interview ALB"
@@ -77,7 +77,7 @@ resource "aws_lb" "interview" {
   internal           = false
   load_balancer_type = "application"
   security_groups = [aws_security_group.interview_alb.id]
-  subnets            = data.terraform_remote_state.infrastructure.outputs.public_subnet_ids
+  subnets            = data.terraform_remote_state.common.outputs.public_subnet_ids
 
   enable_deletion_protection = false
 
@@ -91,7 +91,7 @@ resource "aws_lb_target_group" "interview" {
   name = substr("${local.service_name}-tg", 0, 32)
   port        = 8443
   protocol    = "HTTP"
-  vpc_id      = data.terraform_remote_state.infrastructure.outputs.vpc_id
+  vpc_id      = data.terraform_remote_state.common.outputs.vpc_id
   target_type = "ip"
 
   health_check {
@@ -118,10 +118,10 @@ resource "aws_lb_listener" "interview_http" {
   protocol          = "HTTP"
 
   default_action {
-    type = data.terraform_remote_state.infrastructure.outputs.domain_name != "" ? "redirect" : "forward"
+    type = data.terraform_remote_state.common.outputs.domain_name != "" ? "redirect" : "forward"
 
     dynamic "redirect" {
-      for_each = data.terraform_remote_state.infrastructure.outputs.domain_name != "" ? [1] : []
+      for_each = data.terraform_remote_state.common.outputs.domain_name != "" ? [1] : []
       content {
         port        = "443"
         protocol    = "HTTPS"
@@ -130,7 +130,7 @@ resource "aws_lb_listener" "interview_http" {
     }
 
     dynamic "forward" {
-      for_each = data.terraform_remote_state.infrastructure.outputs.domain_name == "" ? [1] : []
+      for_each = data.terraform_remote_state.common.outputs.domain_name == "" ? [1] : []
       content {
         target_group {
           arn = aws_lb_target_group.interview.arn
@@ -144,13 +144,13 @@ resource "aws_lb_listener" "interview_http" {
 
 # HTTPS Listener (if domain is configured)
 resource "aws_lb_listener" "interview_https" {
-  count = data.terraform_remote_state.infrastructure.outputs.domain_name != "" ? 1 : 0
+  count = data.terraform_remote_state.common.outputs.domain_name != "" ? 1 : 0
 
   load_balancer_arn = aws_lb.interview.arn
   port              = "443"
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
-  certificate_arn   = data.terraform_remote_state.infrastructure.outputs.certificate_arn
+  certificate_arn   = data.terraform_remote_state.common.outputs.certificate_arn
 
   default_action {
     type             = "forward"
@@ -162,10 +162,10 @@ resource "aws_lb_listener" "interview_https" {
 
 # Route53 record for the subdomain
 resource "aws_route53_record" "interview" {
-  count = data.terraform_remote_state.infrastructure.outputs.domain_name != "" ? 1 : 0
+  count = data.terraform_remote_state.common.outputs.domain_name != "" ? 1 : 0
 
-  zone_id = data.terraform_remote_state.infrastructure.outputs.route53_zone_id
-  name    = "${local.interview_id}.${data.terraform_remote_state.infrastructure.outputs.domain_name}"
+  zone_id = data.terraform_remote_state.common.outputs.route53_zone_id
+  name    = "${local.interview_id}.${data.terraform_remote_state.common.outputs.domain_name}"
   type    = "A"
 
   alias {
@@ -182,13 +182,13 @@ resource "aws_ecs_task_definition" "interview" {
   requires_compatibilities = ["FARGATE"]
   cpu                = 1024
   memory             = 2048
-  execution_role_arn = data.terraform_remote_state.infrastructure.outputs.ecs_execution_role_arn
-  task_role_arn      = data.terraform_remote_state.infrastructure.outputs.ecs_task_role_arn
+  execution_role_arn = data.terraform_remote_state.common.outputs.ecs_execution_role_arn
+  task_role_arn      = data.terraform_remote_state.common.outputs.ecs_task_role_arn
 
   container_definitions = jsonencode([
     {
       name  = "code-server"
-      image = "${data.terraform_remote_state.infrastructure.outputs.code_server_ecr_repository_url}:latest"
+      image = "${data.terraform_remote_state.common.outputs.code_server_ecr_repository_url}:latest"
 
       portMappings = [
         {
@@ -205,11 +205,15 @@ resource "aws_ecs_task_definition" "interview" {
         },
         {
           name  = "S3_CHALLENGE_BUCKET"
-          value = data.terraform_remote_state.infrastructure.outputs.challenge_bucket_name
+          value = data.terraform_remote_state.common.outputs.challenge_bucket_name
         },
         {
           name  = "AWS_REGION"
           value = var.aws_region
+        },
+        {
+          name  = "OPENAI_API_KEY"
+          value = var.openai_api_key
         }
       ]
 
@@ -223,7 +227,7 @@ resource "aws_ecs_task_definition" "interview" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = data.terraform_remote_state.infrastructure.outputs.cloudwatch_log_group_name
+          "awslogs-group"         = data.terraform_remote_state.common.outputs.cloudwatch_log_group_name
           "awslogs-region"        = var.aws_region
           "awslogs-stream-prefix" = "interview-${local.interview_id}"
         }
@@ -239,13 +243,13 @@ resource "aws_ecs_task_definition" "interview" {
 # Individual ECS service for this interview
 resource "aws_ecs_service" "interview" {
   name            = local.service_name
-  cluster         = data.terraform_remote_state.infrastructure.outputs.ecs_cluster_name
+  cluster         = data.terraform_remote_state.common.outputs.ecs_cluster_name
   task_definition = aws_ecs_task_definition.interview.arn
   desired_count   = 1
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = data.terraform_remote_state.infrastructure.outputs.private_subnet_ids
+    subnets          = data.terraform_remote_state.common.outputs.private_subnet_ids
     security_groups  = [aws_security_group.interview_ecs.id]
     assign_public_ip = false
   }

@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "AWS region"
   type        = string
-  default     = "your-aws-region"
+  default     = "us-east-1"
 }
 
 variable "interview_id" {

@@ -18,7 +18,7 @@ if [ -f ../.env.local ]; then
 fi
 
 # Configuration - use environment variables
-AWS_REGION=${AWS_REGION:-"your-aws-region"}
+AWS_REGION=${AWS_REGION:-"us-east-1"}
 AWS_PROFILE=${AWS_PROFILE:-"default"}
 PROJECT_PREFIX=${PROJECT_PREFIX:-"prequel"}
 ENVIRONMENT=${ENVIRONMENT:-"dev"}

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
 
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'your-aws-region',
+  region: process.env.AWS_REGION || 'us-east-1',
 })
 
 const PROJECT_PREFIX = process.env.PROJECT_PREFIX || 'prequel'
@@ -37,9 +37,9 @@ export async function GET() {
 
           // Create a friendly name based on the challenge ID
           const friendlyName = challengeId
-            .split('-')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ')
+          // .split('-')
+          // .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          // .join(' ')
 
           challenges.push({
             id: challengeId,

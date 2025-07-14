@@ -114,25 +114,8 @@ Before running `terraform init`, you must:
    ```hcl
    backend "s3" {
      bucket = "your-bucket-name"
-     key    = "your-project-key"  # Optional: defaults to "prequel"
+     key    = "your-project-key"  # Optional: defaults to "common"
      region = "your-aws-region"
-   }
-   ```
-   
-   **`instance/terraform/main.tf`** (lines 10-12, 23-25):
-   ```hcl
-   backend "s3" {
-     bucket = "your-bucket-name"  # Line 10
-     key    = "interview-instances/INTERVIEW_ID_PLACEHOLDER.tfstate"  # Line 11 (usually no change needed)
-     region = "your-aws-region"   # Line 12
-   }
-   
-   data "terraform_remote_state" "infrastructure" {
-     config = {
-       bucket = "your-bucket-name"  # Line 23  
-       key    = "your-project-key"  # Line 24 (must match infra/main.tf key)
-       region = "your-aws-region"   # Line 25
-     }
    }
    ```
 
