@@ -37,7 +37,7 @@ output "build_info" {
   description = "Information about the Lambda build"
   value = {
     zip_exists = fileexists("${var.lambda_source_path}/soci-index-generator/soci_index_generator_lambda.zip")
-    zip_hash   = data.local_file.soci_zip_hash.content_base64sha256
+    zip_hash   = filebase64sha256("${var.lambda_source_path}/soci-index-generator/soci_index_generator_lambda.zip")
     build_time = timestamp()
   }
   depends_on = [null_resource.soci_index_generator_build]
