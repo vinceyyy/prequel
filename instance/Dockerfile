@@ -35,7 +35,8 @@ WORKDIR /workspaces
 RUN code-server --install-extension ms-python.python \
     && code-server --install-extension ms-toolsai.jupyter \
     && code-server --install-extension ms-vscode.vscode-typescript-next \
-    && code-server --install-extension dbcode.dbcode
+    && code-server --install-extension dbcode.dbcode \
+    && code-server --install-extension wayou.vscode-todo-highlight
 
 # Copy user settings
 COPY settings.json /home/coder/.local/share/code-server/User/settings.json
