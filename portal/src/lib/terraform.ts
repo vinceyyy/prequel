@@ -78,7 +78,7 @@ class TerraformManager {
     if (!onData) return
 
     // Strip ANSI color codes for clean display
-    const cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, '')
+    const cleanOutput = output.replaceAll(/\x1b\[[0-9;]*m/g, '')
     // Split into lines and prefix each line with [Terraform]
     const lines = cleanOutput.split('\n')
     lines.forEach((line, index) => {
@@ -355,11 +355,11 @@ class TerraformManager {
       let mainTfContent = await fs.readFile(mainTfPath, 'utf-8')
       mainTfContent = mainTfContent
         .replace('INTERVIEW_ID_PLACEHOLDER', interviewId)
-        .replace(
+        .replaceAll(
           'TERRAFORM_STATE_BUCKET_PLACEHOLDER',
           this.terraformStateBucket
         )
-        .replace('AWS_REGION_PLACEHOLDER', this.awsRegion)
+        .replaceAll('AWS_REGION_PLACEHOLDER', this.awsRegion)
       await fs.writeFile(mainTfPath, mainTfContent)
 
       // Upload new workspace to S3 for persistence
