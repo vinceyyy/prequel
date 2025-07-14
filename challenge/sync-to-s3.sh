@@ -13,12 +13,15 @@
 
 set -e
 
-# Load environment variables from .env.local if it exists (check root directory)
-if [ -f ../.env.local ]; then
-  export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
+# Load environment variables from .env.local (check root directory)
+if [ ! -f ../.env.local ]; then
+  echo "Error: .env.local file not found in project root"
+  echo "Please copy .env.example to .env.local and configure your environment variables"
+  exit 1
 fi
 
-PROJECT_PREFIX=${PROJECT_PREFIX:-"prequel"}
+export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
+
 BUCKET_NAME="${PROJECT_PREFIX}-challenge"
 REGION=${AWS_REGION:-"us-east-1"}
 

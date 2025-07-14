@@ -3,8 +3,17 @@
 # Test SOCI Lambda with real code-server image
 set -e
 
-LAMBDA_NAME="prequel-dev-soci-index-generator"
-ECR_REPO="prequel-dev-code-server"
+# Load environment variables from .env.local (check root directory)
+if [ ! -f ../../.env.local ]; then
+  echo "Error: .env.local file not found in project root"
+  echo "Please copy .env.example to .env.local and configure your environment variables"
+  exit 1
+fi
+
+export $(cat ../../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
+
+LAMBDA_NAME="${PROJECT_PREFIX}-${ENVIRONMENT}-soci-index-generator"
+ECR_REPO="${PROJECT_PREFIX}-${ENVIRONMENT}-code-server"
 
 echo "🎯 Testing SOCI Lambda with real code-server image..."
 

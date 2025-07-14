@@ -12,16 +12,18 @@
 
 set -e
 
-# Load environment variables from .env.local if it exists (check root directory)
-if [ -f ../.env.local ]; then
-  export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
+# Load environment variables from .env.local (check root directory)
+if [ ! -f ../.env.local ]; then
+  echo "Error: .env.local file not found in project root"
+  echo "Please copy .env.example to .env.local and configure your environment variables"
+  exit 1
 fi
 
+export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
+
 # Configuration - use environment variables
-AWS_REGION=${AWS_REGION:-"us-east-1"}
-AWS_PROFILE=${AWS_PROFILE:-"default"}
-PROJECT_PREFIX=${PROJECT_PREFIX:-"prequel"}
-ENVIRONMENT=${ENVIRONMENT:-"dev"}
+AWS_REGION=${AWS_REGION}
+AWS_PROFILE=${AWS_PROFILE}
 REPOSITORY_NAME="${PROJECT_PREFIX}-${ENVIRONMENT}-code-server"
 
 # Get account ID using current AWS configuration

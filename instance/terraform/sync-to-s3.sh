@@ -5,8 +5,17 @@
 
 set -e
 
+# Load environment variables from .env.local (check root directory)
+if [ ! -f ../../.env.local ]; then
+  echo "Error: .env.local file not found in project root"
+  echo "Please copy .env.example to .env.local and configure your environment variables"
+  exit 1
+fi
+
+export $(cat ../../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
+
 AWS_PROFILE=${AWS_PROFILE}
-S3_BUCKET="prequel-instance"
+S3_BUCKET="${PROJECT_PREFIX}-instance"
 S3_PATH="s3://${S3_BUCKET}/terraform/"
 LOCAL_PATH="."
 
