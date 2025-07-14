@@ -112,6 +112,15 @@ export async function POST(
       console.log('No interview metadata provided in destroy request')
     }
 
+    // Cancel any scheduled operations for this interview
+    const cancelledCount =
+      operationManager.cancelScheduledOperationsForInterview(interviewId)
+    if (cancelledCount > 0) {
+      console.log(
+        `Cancelled ${cancelledCount} scheduled operations for interview ${interviewId}`
+      )
+    }
+
     // Create operation to track progress
     const operationId = operationManager.createOperation(
       'destroy',
@@ -128,6 +137,13 @@ export async function POST(
           operationId,
           `Starting interview destruction for ${interviewId}`
         )
+
+        if (cancelledCount > 0) {
+          operationManager.addOperationLog(
+            operationId,
+            `Cancelled ${cancelledCount} scheduled operation(s) for this interview`
+          )
+        }
 
         const result = await terraformManager.destroyInterviewStreaming(
           interviewId,

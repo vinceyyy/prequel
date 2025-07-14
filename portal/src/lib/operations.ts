@@ -227,6 +227,37 @@ class OperationManager {
     return false
   }
 
+  cancelScheduledOperationsForInterview(interviewId: string): number {
+    let cancelledCount = 0
+    const operations = Array.from(this.operations.values())
+
+    for (const operation of operations) {
+      if (
+        operation.interviewId === interviewId &&
+        operation.status === 'scheduled'
+      ) {
+        operation.status = 'cancelled'
+        operation.completedAt = new Date()
+        operation.result = {
+          success: false,
+          error: 'Operation cancelled due to manual interview destruction',
+        }
+        this.addOperationLog(
+          operation.id,
+          'Operation cancelled due to manual interview destruction'
+        )
+        this.emit(operation)
+        cancelledCount++
+      }
+    }
+
+    if (cancelledCount > 0) {
+      this.saveToDisk()
+    }
+
+    return cancelledCount
+  }
+
   getOperationLogs(operationId: string): string[] {
     const operation = this.operations.get(operationId)
     return operation?.logs || []
