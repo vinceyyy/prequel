@@ -6,7 +6,7 @@ set -e
 
 # Load environment variables from .env.local if it exists (check root directory)
 if [ -f ../.env.local ]; then
-  export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
+	export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
 fi
 
 # Configuration - use environment variables
@@ -32,32 +32,32 @@ docker buildx build --platform=linux/amd64 -t "$ECR_URI:latest" --push .
 # Force ECS service deployment
 echo "Triggering ECS service deployment..."
 aws ecs update-service \
-  --cluster ${PROJECT_PREFIX}-${ENVIRONMENT} \
-  --service ${PROJECT_PREFIX}-${ENVIRONMENT}-portal \
-  --force-new-deployment \
-  --region $AWS_REGION > /dev/null
+	--cluster ${PROJECT_PREFIX}-${ENVIRONMENT} \
+	--service ${PROJECT_PREFIX}-${ENVIRONMENT}-portal \
+	--force-new-deployment \
+	--region $AWS_REGION >/dev/null
 
 if [ $? -eq 0 ]; then
-  echo "✅ ECS deployment triggered successfully!"
-  echo "Monitoring deployment status..."
-  
-  # Wait for deployment to complete (with timeout)
-  echo "Waiting for deployment to complete..."
-  aws ecs wait services-stable \
-    --cluster ${PROJECT_PREFIX}-${ENVIRONMENT} \
-    --services ${PROJECT_PREFIX}-${ENVIRONMENT}-portal \
-    --region $AWS_REGION \
-    --cli-read-timeout 600 \
-    --cli-connect-timeout 60
-  
-  if [ $? -eq 0 ]; then
-    echo "✅ Deployment completed successfully!"
-  else
-    echo "⚠️  Deployment is taking longer than expected. Check AWS console for status."
-  fi
+	echo "✅ ECS deployment triggered successfully!"
+	echo "Monitoring deployment status..."
+
+	# Wait for deployment to complete (with timeout)
+	echo "Waiting for deployment to complete..."
+	aws ecs wait services-stable \
+		--cluster ${PROJECT_PREFIX}-${ENVIRONMENT} \
+		--services ${PROJECT_PREFIX}-${ENVIRONMENT}-portal \
+		--region $AWS_REGION \
+		--cli-read-timeout 600 \
+		--cli-connect-timeout 60
+
+	if [ $? -eq 0 ]; then
+		echo "✅ Deployment completed successfully!"
+	else
+		echo "⚠️  Deployment is taking longer than expected. Check AWS console for status."
+	fi
 else
-  echo "❌ Failed to trigger ECS deployment"
-  exit 1
+	echo "❌ Failed to trigger ECS deployment"
+	exit 1
 fi
 
 echo ""

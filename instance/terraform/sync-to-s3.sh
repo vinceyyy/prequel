@@ -7,9 +7,9 @@ set -e
 
 # Load environment variables from .env.local (check root directory)
 if [ ! -f ../../.env.local ]; then
-  echo "Error: .env.local file not found in project root"
-  echo "Please copy .env.example to .env.local and configure your environment variables"
-  exit 1
+	echo "Error: .env.local file not found in project root"
+	echo "Please copy .env.example to .env.local and configure your environment variables"
+	exit 1
 fi
 
 export $(cat ../../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
@@ -28,53 +28,53 @@ NC='\033[0m' # No Color
 
 # Function to print colored output
 print_status() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+	echo -e "${BLUE}ℹ️  $1${NC}"
 }
 
 print_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+	echo -e "${GREEN}✅ $1${NC}"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+	echo -e "${YELLOW}⚠️  $1${NC}"
 }
 
 print_error() {
-    echo -e "${RED}❌ $1${NC}"
+	echo -e "${RED}❌ $1${NC}"
 }
 
 # Function to show usage
 show_usage() {
-    echo "Usage: $0 [OPTIONS]"
-    echo ""
-    echo "Options:"
-    echo "  --dry-run, -d      Show what would be synced without actually syncing"
-    echo "  --help, -h         Show this help message"
-    echo ""
-    echo "Examples:"
-    echo "  $0                 # Sync instance terraform templates"
-    echo "  $0 --dry-run       # Preview what would be synced"
+	echo "Usage: $0 [OPTIONS]"
+	echo ""
+	echo "Options:"
+	echo "  --dry-run, -d      Show what would be synced without actually syncing"
+	echo "  --help, -h         Show this help message"
+	echo ""
+	echo "Examples:"
+	echo "  $0                 # Sync instance terraform templates"
+	echo "  $0 --dry-run       # Preview what would be synced"
 }
 
 # Parse command line arguments
 DRY_RUN=false
 
 while [[ $# -gt 0 ]]; do
-    case $1 in
-        -d|--dry-run)
-            DRY_RUN=true
-            shift
-            ;;
-        -h|--help)
-            show_usage
-            exit 0
-            ;;
-        *)
-            print_error "Unknown option: $1"
-            show_usage
-            exit 1
-            ;;
-    esac
+	case $1 in
+	-d | --dry-run)
+		DRY_RUN=true
+		shift
+		;;
+	-h | --help)
+		show_usage
+		exit 0
+		;;
+	*)
+		print_error "Unknown option: $1"
+		show_usage
+		exit 1
+		;;
+	esac
 done
 
 # Main execution
@@ -89,16 +89,16 @@ echo ""
 
 # Check if we're in the right directory
 if [ ! -f "main.tf" ] || [ ! -f "service.tf" ]; then
-    print_error "Please run this script from the instance/terraform directory"
-    exit 1
+	print_error "Please run this script from the instance/terraform directory"
+	exit 1
 fi
 
 # Add --dryrun flag if specified
 DRY_RUN_FLAG=""
 if [ "$DRY_RUN" = true ]; then
-    DRY_RUN_FLAG="--dryrun"
-    print_warning "DRY RUN MODE - No files will actually be uploaded"
-    echo ""
+	DRY_RUN_FLAG="--dryrun"
+	print_warning "DRY RUN MODE - No files will actually be uploaded"
+	echo ""
 fi
 
 print_status "Syncing instance Terraform templates..."
@@ -112,21 +112,21 @@ cmd="${cmd} --exclude \"*.terraform*\" --exclude \".terraform*\" --exclude \"ter
 
 # Add dry run flag if specified
 if [ -n "${DRY_RUN_FLAG}" ]; then
-    cmd="${cmd} ${DRY_RUN_FLAG}"
+	cmd="${cmd} ${DRY_RUN_FLAG}"
 fi
 
 # Execute the sync command
 if eval $cmd; then
-    print_success "Instance Terraform templates synced successfully!"
-    echo ""
-    print_status "Files in S3:"
-    AWS_PROFILE=${AWS_PROFILE} aws s3 ls "${S3_PATH}" --recursive | head -10
-    echo ""
-    if [ "$DRY_RUN" = false ]; then
-        print_status "The NextJS app will now use the updated templates for new interviews."
-        print_warning "Existing interviews will continue using their saved workspace versions."
-    fi
+	print_success "Instance Terraform templates synced successfully!"
+	echo ""
+	print_status "Files in S3:"
+	AWS_PROFILE=${AWS_PROFILE} aws s3 ls "${S3_PATH}" --recursive | head -10
+	echo ""
+	if [ "$DRY_RUN" = false ]; then
+		print_status "The NextJS app will now use the updated templates for new interviews."
+		print_warning "Existing interviews will continue using their saved workspace versions."
+	fi
 else
-    print_error "Failed to sync instance Terraform templates"
-    exit 1
+	print_error "Failed to sync instance Terraform templates"
+	exit 1
 fi

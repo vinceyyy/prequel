@@ -10,8 +10,8 @@ echo "=================================="
 
 # Check if we're in the right directory
 if [ ! -f "package.json" ]; then
-    echo "❌ Error: Please run this script from the portal directory"
-    exit 1
+	echo "❌ Error: Please run this script from the portal directory"
+	exit 1
 fi
 
 echo

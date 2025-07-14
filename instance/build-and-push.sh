@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Build and push code-server Docker image with SOCI-compatible compression
-# 
+#
 # This script builds the code-server image using zstd-variant of eStargz compression,
 # which is compatible with AWS SOCI (Seekable OCI) indexing for faster container startup.
-# 
+#
 # Why zstd-variant eStargz?
 # - Standard zstd compression is not compatible with SOCI indexing
 # - zstd-variant of eStargz provides both zstd compression benefits and seekability
@@ -14,9 +14,9 @@ set -e
 
 # Load environment variables from .env.local (check root directory)
 if [ ! -f ../.env.local ]; then
-  echo "Error: .env.local file not found in project root"
-  echo "Please copy .env.example to .env.local and configure your environment variables"
-  exit 1
+	echo "Error: .env.local file not found in project root"
+	echo "Please copy .env.example to .env.local and configure your environment variables"
+	exit 1
 fi
 
 export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
@@ -45,40 +45,40 @@ COMPRESSION_USED=""
 
 # Try zstd-variant eStargz first
 echo "🔄 Attempting build with zstd-variant eStargz compression..."
-set +e  # Temporarily disable exit on error for testing
+set +e # Temporarily disable exit on error for testing
 docker buildx build \
-  --platform=linux/amd64 \
-  --output type=image,name="$ECR_URI:latest",push=true,compression=zstd:estargz,force-compression=true,oci-mediatypes=true \
-  .
+	--platform=linux/amd64 \
+	--output type=image,name="$ECR_URI:latest",push=true,compression=zstd:estargz,force-compression=true,oci-mediatypes=true \
+	.
 ZSTD_RESULT=$?
-set -e  # Re-enable exit on error
+set -e # Re-enable exit on error
 
 if [ $ZSTD_RESULT -eq 0 ]; then
-  echo "✅ Built with zstd-variant eStargz compression"
-  COMPRESSION_USED="zstd-variant eStargz"
+	echo "✅ Built with zstd-variant eStargz compression"
+	COMPRESSION_USED="zstd-variant eStargz"
 else
-  echo "❌ zstd-variant eStargz failed, trying standard eStargz..."
-  
-  set +e  # Temporarily disable exit on error for testing
-  docker buildx build \
-    --platform=linux/amd64 \
-    --output type=image,name="$ECR_URI:latest",push=true,compression=estargz,force-compression=true,oci-mediatypes=true \
-    .
-  ESTARGZ_RESULT=$?
-  set -e  # Re-enable exit on error
-  
-  if [ $ESTARGZ_RESULT -eq 0 ]; then
-    echo "✅ Built with standard eStargz compression (gzip-based)"
-    COMPRESSION_USED="standard eStargz (gzip-based)"
-  else
-    echo "❌ eStargz failed, building with gzip compression for SOCI compatibility..."
-    docker buildx build \
-      --platform=linux/amd64 \
-      --output type=image,name="$ECR_URI:latest",push=true,compression=gzip,oci-mediatypes=true \
-      .
-    echo "✅ Built with gzip compression (SOCI compatible)"
-    COMPRESSION_USED="gzip (SOCI compatible)"
-  fi
+	echo "❌ zstd-variant eStargz failed, trying standard eStargz..."
+
+	set +e # Temporarily disable exit on error for testing
+	docker buildx build \
+		--platform=linux/amd64 \
+		--output type=image,name="$ECR_URI:latest",push=true,compression=estargz,force-compression=true,oci-mediatypes=true \
+		.
+	ESTARGZ_RESULT=$?
+	set -e # Re-enable exit on error
+
+	if [ $ESTARGZ_RESULT -eq 0 ]; then
+		echo "✅ Built with standard eStargz compression (gzip-based)"
+		COMPRESSION_USED="standard eStargz (gzip-based)"
+	else
+		echo "❌ eStargz failed, building with gzip compression for SOCI compatibility..."
+		docker buildx build \
+			--platform=linux/amd64 \
+			--output type=image,name="$ECR_URI:latest",push=true,compression=gzip,oci-mediatypes=true \
+			.
+		echo "✅ Built with gzip compression (SOCI compatible)"
+		COMPRESSION_USED="gzip (SOCI compatible)"
+	fi
 fi
 
 echo ""

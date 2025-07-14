@@ -5,9 +5,9 @@ set -e
 
 # Load environment variables from .env.local (check root directory)
 if [ ! -f ../../.env.local ]; then
-  echo "Error: .env.local file not found in project root"
-  echo "Please copy .env.example to .env.local and configure your environment variables"
-  exit 1
+	echo "Error: .env.local file not found in project root"
+	echo "Please copy .env.example to .env.local and configure your environment variables"
+	exit 1
 fi
 
 export $(cat ../../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
@@ -21,14 +21,15 @@ echo "🎯 Testing SOCI Lambda with real code-server image..."
 IMAGE_DIGEST=$(aws ecr list-images --repository-name "$ECR_REPO" --query 'imageIds[0].imageDigest' --output text)
 
 if [ -z "$IMAGE_DIGEST" ] || [ "$IMAGE_DIGEST" = "None" ]; then
-    echo "❌ No images found in $ECR_REPO repository"
-    exit 1
+	echo "❌ No images found in $ECR_REPO repository"
+	exit 1
 fi
 
 echo "📦 Using image digest: $IMAGE_DIGEST"
 
 # Create test event with real image data
-TEST_EVENT=$(cat <<EOF
+TEST_EVENT=$(
+	cat <<EOF
 {
   "version": "0",
   "id": "test-event-$(date +%s)",
@@ -53,10 +54,10 @@ echo "🚀 Invoking Lambda with real ECR event..."
 
 # Invoke the Lambda function
 aws lambda invoke \
-    --function-name "$LAMBDA_NAME" \
-    --payload "$TEST_EVENT" \
-    --cli-binary-format raw-in-base64-out \
-    response.json
+	--function-name "$LAMBDA_NAME" \
+	--payload "$TEST_EVENT" \
+	--cli-binary-format raw-in-base64-out \
+	response.json
 
 echo "✅ Lambda invocation completed"
 echo "Response:"

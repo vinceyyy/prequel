@@ -8,12 +8,12 @@ echo "============================================="
 
 # Check if we're in a git repository
 if [ ! -d "../.git" ]; then
-    echo "❌ Error: Not in a git repository"
-    exit 1
+	echo "❌ Error: Not in a git repository"
+	exit 1
 fi
 
 # Create pre-commit hook
-cat > ../.git/hooks/pre-commit << 'EOF'
+cat >../.git/hooks/pre-commit <<'EOF'
 #!/bin/bash
 
 echo "🧪 Running pre-commit tests..."
