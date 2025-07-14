@@ -6,7 +6,7 @@ def main():
     vector_db = KnowledgeBase(documents_path="data/documents.json")
 
     # Initialize RAG system
-    rag = RAGSystem(knowledge_base=vector_db)
+    rag = RAGSystem(vector_db=vector_db)
 
     # Test queries
     test_queries = [
