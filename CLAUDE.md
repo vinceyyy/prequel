@@ -24,17 +24,18 @@ Prequel is a coding interview platform that provisions on-demand VS Code instanc
 - All interview creation/destruction happens in background
 - Detailed operation logs with streaming updates
 - Non-blocking UI - users can continue working while operations run
-- Persistent operation storage in `/tmp/${PROJECT_PREFIX}-operations.json`
+- Persistent operation storage in DynamoDB with automatic cleanup via TTL
 
 **Scheduling System:**
 - Built-in scheduler running within NextJS container (no external dependencies)
-- Processes scheduled interviews and auto-destroy timeouts
-- Mandatory auto-destroy prevents forgotten resources
+- Processes scheduled interviews and auto-destroy timeouts using DynamoDB GSI queries
+- Mandatory auto-destroy prevents forgotten resources with duplicate prevention
 - Configurable durations: 30min, 45min, 1hr, 1.5hr, 2hr, 3hr, 4hr
+- Efficient operation lookup using DynamoDB Global Secondary Indexes
 
 ## Architecture
 
-- **`infra/`** - Shared AWS infrastructure (VPC, ECS, ALB) via Terraform
+- **`infra/`** - Shared AWS infrastructure (VPC, ECS, ALB, DynamoDB) via Terraform
 - **`portal/`** - NextJS web interface with real-time SSE updates for managing interviews
 - **`instance/`** - Per-interview Terraform templates for ECS instances
 - **`challenge/`** - Interview coding challenges and environments stored in S3
@@ -85,6 +86,7 @@ terraform destroy # Clean up resources
    # AWS_REGION=your-aws-region
    # PROJECT_PREFIX=prequel
    # DOMAIN_NAME=your-domain.com
+   # OPERATIONS_TABLE_NAME will be set automatically by infrastructure
    ```
 
 2. **Infrastructure Configuration:**
@@ -176,8 +178,8 @@ Current structure:
   - `src/app/` - Next.js app router pages and API routes
   - `src/components/` - Reusable React components
   - `src/hooks/` - Custom React hooks (useSSE, useOperations)
-  - `src/lib/` - Core business logic (operations, scheduler, terraform)
-- `infra/` - Shared AWS infrastructure code in terraform
+  - `src/lib/` - Core business logic (operations with DynamoDB, scheduler, terraform)
+- `infra/` - Shared AWS infrastructure code in terraform (VPC, ECS, ALB, DynamoDB)
 - `instance/` - Terraform code for provisioning code-server instance
 - `challenge/` - Interview challenge files stored in S3
 

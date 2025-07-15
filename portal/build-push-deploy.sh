@@ -4,10 +4,20 @@
 
 set -e
 
-# Load environment variables from .env.local if it exists (check root directory)
-if [ -f ../.env.local ]; then
-	export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
+# Load environment variables from .env.local (check root directory)
+if [ ! -f ../.env.local ]; then
+	echo "Error: .env.local file not found in project root"
+	echo "Please copy .env.example to .env.local and configure your environment variables"
+	exit 1
 fi
+
+export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
+
+# Make sure it passes linter
+echo "Linter check..."
+npm run format
+npm run lint
+echo "Linter passed. Start building..."
 
 # Configuration - use environment variables
 AWS_REGION=${AWS_REGION:-"your-aws-region"}
