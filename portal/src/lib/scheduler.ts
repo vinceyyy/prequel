@@ -5,7 +5,7 @@ import { terraformManager } from './terraform'
  * Background scheduler service for processing scheduled operations and auto-destroy timeouts.
  *
  * This service runs continuously in the background (30-second polling interval) to:
- * 1. Process scheduled interview creation/destruction operations
+ * 1. Process scheduled interview creation/destruction operations from DynamoDB
  * 2. Handle auto-destroy timeouts for active interviews
  * 3. Emit events for SSE clients to track scheduler activities
  *
@@ -13,10 +13,11 @@ import { terraformManager } from './terraform'
  * and prevents resource waste by automatically cleaning up expired interviews.
  *
  * Key Features:
- * - **Scheduled Operations**: Executes operations at their scheduled time
- * - **Auto-destroy**: Mandatory cleanup of interviews after timeout
+ * - **Scheduled Operations**: Executes operations at their scheduled time using DynamoDB queries
+ * - **Auto-destroy**: Mandatory cleanup of interviews after timeout with duplicate prevention
  * - **Event Emission**: SSE events for real-time scheduler status
  * - **Error Handling**: Robust error handling with detailed logging
+ * - **DynamoDB Integration**: Uses efficient GSI queries for scalable operation lookup
  *
  * @example
  * ```typescript
@@ -101,47 +102,58 @@ export class SchedulerService {
   /**
    * Processes operations scheduled to start at or before the current time.
    * Called every 30 seconds to check for due operations.
+   *
+   * Uses DynamoDB GSI to efficiently query operations with 'scheduled' status.
    */
   private async processScheduledOperations() {
-    const scheduledOps = operationManager.getScheduledOperations()
-    const now = new Date()
+    try {
+      const scheduledOps = await operationManager.getScheduledOperations()
+      const now = new Date()
 
-    for (const operation of scheduledOps) {
-      if (operation.scheduledAt && operation.scheduledAt <= now) {
-        console.log(
-          `Processing scheduled operation ${operation.id} for interview ${operation.interviewId}`
-        )
+      for (const operation of scheduledOps) {
+        if (operation.scheduledAt && operation.scheduledAt <= now) {
+          console.log(
+            `Processing scheduled operation ${operation.id} for interview ${operation.interviewId}`
+          )
 
-        try {
-          if (
-            operation.type === 'create' &&
-            operation.candidateName &&
-            operation.challenge
-          ) {
-            await this.executeScheduledCreate({
-              id: operation.id,
-              interviewId: operation.interviewId,
-              candidateName: operation.candidateName,
-              challenge: operation.challenge,
-            })
-          } else if (operation.type === 'destroy') {
-            await this.executeScheduledDestroy({
-              id: operation.id,
-              interviewId: operation.interviewId,
-              candidateName: operation.candidateName,
-            })
+          try {
+            if (
+              operation.type === 'create' &&
+              operation.candidateName &&
+              operation.challenge
+            ) {
+              await this.executeScheduledCreate({
+                id: operation.id,
+                interviewId: operation.interviewId,
+                candidateName: operation.candidateName,
+                challenge: operation.challenge,
+              })
+            } else if (operation.type === 'destroy') {
+              await this.executeScheduledDestroy({
+                id: operation.id,
+                interviewId: operation.interviewId,
+                candidateName: operation.candidateName,
+              })
+            }
+          } catch (error) {
+            console.error(
+              `Error processing scheduled operation ${operation.id}:`,
+              error
+            )
+            await operationManager.addOperationLog(
+              operation.id,
+              `❌ Scheduler error: ${error instanceof Error ? error.message : 'Unknown error'}`
+            )
+            await operationManager.updateOperationStatus(operation.id, 'failed')
           }
-        } catch (error) {
-          console.error(
-            `Error processing scheduled operation ${operation.id}:`,
-            error
-          )
-          operationManager.addOperationLog(
-            operation.id,
-            `❌ Scheduler error: ${error instanceof Error ? error.message : 'Unknown error'}`
-          )
-          operationManager.updateOperationStatus(operation.id, 'failed')
         }
+      }
+    } catch (error) {
+      // Handle DynamoDB throttling gracefully
+      if (error instanceof Error && error.name === 'ThrottlingException') {
+        console.log('DynamoDB throttling during scheduled operations check - will retry next cycle')
+      } else {
+        console.error('Error in processScheduledOperations:', error)
       }
     }
   }
@@ -150,44 +162,56 @@ export class SchedulerService {
    * Processes interviews that have reached their auto-destroy timeout.
    * Creates destroy operations for expired interviews to prevent resource waste.
    * Called every 30 seconds to check for expired interviews.
+   *
+   * Uses DynamoDB GSI queries for efficient lookup of operations eligible for auto-destroy.
+   * Includes built-in duplicate prevention to avoid creating multiple destroy operations.
    */
   private async processAutoDestroyOperations() {
-    const autoDestroyOps = operationManager.getOperationsForAutoDestroy()
+    try {
+      const autoDestroyOps = await operationManager.getOperationsForAutoDestroy()
 
-    for (const operation of autoDestroyOps) {
-      console.log(
-        `Auto-destroying interview ${operation.interviewId} (operation ${operation.id})`
-      )
-
-      try {
-        // Create a new destroy operation for the auto-destroy
-        const destroyOpId = operationManager.createOperation(
-          'destroy',
-          operation.interviewId,
-          operation.candidateName,
-          operation.challenge
+      for (const operation of autoDestroyOps) {
+        console.log(
+          `Auto-destroying interview ${operation.interviewId} (operation ${operation.id})`
         )
 
-        const destroyOp = operationManager.getOperation(destroyOpId)
-        if (destroyOp) {
-          await this.executeScheduledDestroy({
-            id: destroyOp.id,
-            interviewId: destroyOp.interviewId,
-            candidateName: destroyOp.candidateName,
+        try {
+          // Create a new destroy operation for the auto-destroy
+          const destroyOpId = await operationManager.createOperation(
+            'destroy',
+            operation.interviewId,
+            operation.candidateName,
+            operation.challenge
+          )
+
+          const destroyOp = await operationManager.getOperation(destroyOpId)
+          if (destroyOp) {
+            await this.executeScheduledDestroy({
+              id: destroyOp.id,
+              interviewId: destroyOp.interviewId,
+              candidateName: destroyOp.candidateName,
+            })
+          }
+
+          this.emit({
+            type: 'auto_destroy_triggered',
+            operationId: destroyOpId,
+            interviewId: operation.interviewId,
+            originalOperationId: operation.id,
           })
+        } catch (error) {
+          console.error(
+            `Error auto-destroying interview ${operation.interviewId}:`,
+            error
+          )
         }
-
-        this.emit({
-          type: 'auto_destroy_triggered',
-          operationId: destroyOpId,
-          interviewId: operation.interviewId,
-          originalOperationId: operation.id,
-        })
-      } catch (error) {
-        console.error(
-          `Error auto-destroying interview ${operation.interviewId}:`,
-          error
-        )
+      }
+    } catch (error) {
+      // Handle DynamoDB throttling gracefully
+      if (error instanceof Error && error.name === 'ThrottlingException') {
+        console.log('DynamoDB throttling during auto-destroy check - will retry next cycle')
+      } else {
+        console.error('Error in processAutoDestroyOperations:', error)
       }
     }
   }
@@ -198,8 +222,8 @@ export class SchedulerService {
     candidateName: string
     challenge: string
   }) {
-    operationManager.updateOperationStatus(operation.id, 'running')
-    operationManager.addOperationLog(
+    await operationManager.updateOperationStatus(operation.id, 'running')
+    await operationManager.addOperationLog(
       operation.id,
       `🕐 Scheduled interview creation starting for ${operation.candidateName}`
     )
@@ -223,22 +247,26 @@ export class SchedulerService {
         (data: string) => {
           const lines = data.split('\n').filter(line => line.trim())
           lines.forEach(line => {
-            operationManager.addOperationLog(operation.id, line)
+            // Note: We can't await here since this is a streaming callback
+            // Logs will be added asynchronously without blocking the stream
+            operationManager
+              .addOperationLog(operation.id, line)
+              .catch(console.error)
           })
         }
       )
 
       if (result.success) {
-        operationManager.addOperationLog(
+        await operationManager.addOperationLog(
           operation.id,
           '✅ Scheduled interview created successfully!'
         )
-        operationManager.addOperationLog(
+        await operationManager.addOperationLog(
           operation.id,
           `Access URL: ${result.accessUrl}`
         )
 
-        operationManager.setOperationResult(operation.id, {
+        await operationManager.setOperationResult(operation.id, {
           success: true,
           accessUrl: result.accessUrl,
           password: instance.password,
@@ -254,13 +282,16 @@ export class SchedulerService {
           accessUrl: result.accessUrl,
         })
       } else {
-        operationManager.addOperationLog(
+        await operationManager.addOperationLog(
           operation.id,
           '❌ Scheduled interview creation failed'
         )
-        operationManager.addOperationLog(operation.id, `Error: ${result.error}`)
+        await operationManager.addOperationLog(
+          operation.id,
+          `Error: ${result.error}`
+        )
 
-        operationManager.setOperationResult(operation.id, {
+        await operationManager.setOperationResult(operation.id, {
           success: false,
           error: result.error,
           fullOutput: result.fullOutput,
@@ -276,8 +307,11 @@ export class SchedulerService {
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-      operationManager.addOperationLog(operation.id, `❌ Error: ${errorMsg}`)
-      operationManager.setOperationResult(operation.id, {
+      await operationManager.addOperationLog(
+        operation.id,
+        `❌ Error: ${errorMsg}`
+      )
+      await operationManager.setOperationResult(operation.id, {
         success: false,
         error: errorMsg,
       })
@@ -297,8 +331,8 @@ export class SchedulerService {
     interviewId: string
     candidateName?: string
   }) {
-    operationManager.updateOperationStatus(operation.id, 'running')
-    operationManager.addOperationLog(
+    await operationManager.updateOperationStatus(operation.id, 'running')
+    await operationManager.addOperationLog(
       operation.id,
       `🕐 Scheduled interview destruction starting for ${operation.candidateName || operation.interviewId}`
     )
@@ -315,17 +349,21 @@ export class SchedulerService {
         (data: string) => {
           const lines = data.split('\n').filter(line => line.trim())
           lines.forEach(line => {
-            operationManager.addOperationLog(operation.id, line)
+            // Note: We can't await here since this is a streaming callback
+            // Logs will be added asynchronously without blocking the stream
+            operationManager
+              .addOperationLog(operation.id, line)
+              .catch(console.error)
           })
         }
       )
 
       if (result.success) {
-        operationManager.addOperationLog(
+        await operationManager.addOperationLog(
           operation.id,
           '✅ Scheduled interview destroyed successfully!'
         )
-        operationManager.setOperationResult(operation.id, {
+        await operationManager.setOperationResult(operation.id, {
           success: true,
           fullOutput: result.fullOutput,
         })
@@ -337,13 +375,16 @@ export class SchedulerService {
           success: true,
         })
       } else {
-        operationManager.addOperationLog(
+        await operationManager.addOperationLog(
           operation.id,
           '❌ Scheduled interview destruction failed'
         )
-        operationManager.addOperationLog(operation.id, `Error: ${result.error}`)
+        await operationManager.addOperationLog(
+          operation.id,
+          `Error: ${result.error}`
+        )
 
-        operationManager.setOperationResult(operation.id, {
+        await operationManager.setOperationResult(operation.id, {
           success: false,
           error: result.error,
           fullOutput: result.fullOutput,
@@ -359,8 +400,11 @@ export class SchedulerService {
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-      operationManager.addOperationLog(operation.id, `❌ Error: ${errorMsg}`)
-      operationManager.setOperationResult(operation.id, {
+      await operationManager.addOperationLog(
+        operation.id,
+        `❌ Error: ${errorMsg}`
+      )
+      await operationManager.setOperationResult(operation.id, {
         success: false,
         error: errorMsg,
       })
