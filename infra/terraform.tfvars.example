@@ -34,3 +34,6 @@ auth_passcode = "your-production-secure-passcode"
 
 # OpenAI API key for the candidate to use (temporary solution)
 openai_api_key = "sk-******************************"
+
+# Logging Configuration
+log_level = "info"  # Options: debug, info, warn, error

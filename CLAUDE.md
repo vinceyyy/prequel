@@ -84,6 +84,7 @@ terraform destroy # Clean up resources
    # Edit .env.local with your AWS configuration:
    # AWS_PROFILE=your-aws-profile
    # AWS_REGION=your-aws-region
+   # LOG_LEVEL=debug  # Set to debug for verbose scheduler logging
    # PROJECT_PREFIX=prequel
    # DOMAIN_NAME=your-domain.com
    # OPERATIONS_TABLE_NAME will be set automatically by infrastructure

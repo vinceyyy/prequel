@@ -8,6 +8,7 @@ import {
   ScanCommand,
 } from '@aws-sdk/client-dynamodb'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
+import { operationsLogger } from './logger'
 
 /**
  * Event emitted when an operation's state changes.
@@ -114,9 +115,10 @@ class OperationManager {
 
     // Debug logging for server environment
     if (typeof window === 'undefined') {
-      console.log(
-        `[DEBUG] OperationManager initialized with table: ${this.tableName}`
-      )
+      operationsLogger.debug('OperationManager initialized', {
+        tableName: this.tableName,
+        region: process.env.AWS_REGION || 'us-east-1',
+      })
     }
   }
 
@@ -155,7 +157,9 @@ class OperationManager {
       try {
         listener(event)
       } catch (error) {
-        console.error('Error in operation event listener:', error)
+        operationsLogger.error('Error in operation event listener', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
       }
     })
   }
@@ -283,9 +287,11 @@ class OperationManager {
       this.emit(operation)
       return operationId
     } catch (error) {
-      console.error('Error creating operation in DynamoDB:', error)
-      console.error('Table name:', this.tableName)
-      console.error('Operation data:', operation)
+      operationsLogger.error('Error creating operation in DynamoDB', {
+        tableName: this.tableName,
+        operationId: operationId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
       throw error
     }
   }
@@ -559,7 +565,10 @@ class OperationManager {
           })
         )
       } catch (error) {
-        console.error(`Error flushing logs for operation ${operationId}:`, error)
+        operationsLogger.error('Error flushing logs for operation', {
+          operationId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
       }
     }
   }
@@ -773,7 +782,9 @@ class OperationManager {
   async cleanup(): Promise<void> {
     // With DynamoDB TTL, this is handled automatically
     // This method is kept for compatibility but does nothing
-    console.log('Cleanup not needed - DynamoDB TTL handles automatic cleanup')
+    operationsLogger.info(
+      'Cleanup not needed - DynamoDB TTL handles automatic cleanup'
+    )
   }
 }
 
@@ -787,9 +798,11 @@ if (typeof window === 'undefined') {
   // Import and initialize scheduler on server-side only
   import('./scheduler')
     .then(() => {
-      console.log('Scheduler initialized')
+      operationsLogger.info('Scheduler initialized')
     })
     .catch(error => {
-      console.error('Failed to initialize scheduler:', error)
+      operationsLogger.error('Failed to initialize scheduler', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
     })
 }

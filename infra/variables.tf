@@ -81,3 +81,13 @@ variable "openai_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "log_level" {
+  description = "Log level for application logging (debug, info, warn, error)"
+  type        = string
+  default     = "info"
+  validation {
+    condition     = contains(["debug", "info", "warn", "error"], var.log_level)
+    error_message = "Log level must be one of: debug, info, warn, error"
+  }
+}

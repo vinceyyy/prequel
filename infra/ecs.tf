@@ -391,6 +391,10 @@ resource "aws_ecs_task_definition" "portal" {
         {
           name  = "OPERATIONS_TABLE_NAME"
           value = aws_dynamodb_table.operations.name
+        },
+        {
+          name  = "LOG_LEVEL"
+          value = var.log_level
         }
       ]
 

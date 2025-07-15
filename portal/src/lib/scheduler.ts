@@ -1,5 +1,6 @@
 import { operationManager } from './operations'
 import { terraformManager } from './terraform'
+import { schedulerLogger } from './logger'
 
 /**
  * Background scheduler service for processing scheduled operations and auto-destroy timeouts.
@@ -52,7 +53,7 @@ export class SchedulerService {
       this.processAutoDestroyOperations()
     }, 30000)
 
-    console.log('Scheduler service started')
+    schedulerLogger.info('Scheduler service started')
   }
 
   /**
@@ -63,7 +64,7 @@ export class SchedulerService {
       clearInterval(this.checkInterval)
       this.checkInterval = null
     }
-    console.log('Scheduler service stopped')
+    schedulerLogger.info('Scheduler service stopped')
   }
 
   /**
@@ -94,7 +95,9 @@ export class SchedulerService {
       try {
         listener(event)
       } catch (error) {
-        console.error('Error in scheduler event listener:', error)
+        schedulerLogger.error('Error in scheduler event listener', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
       }
     })
   }
@@ -110,11 +113,20 @@ export class SchedulerService {
       const scheduledOps = await operationManager.getScheduledOperations()
       const now = new Date()
 
+      if (scheduledOps.length > 0) {
+        schedulerLogger.debug(
+          `Found ${scheduledOps.length} scheduled operations to check`
+        )
+      }
+
       for (const operation of scheduledOps) {
         if (operation.scheduledAt && operation.scheduledAt <= now) {
-          console.log(
-            `Processing scheduled operation ${operation.id} for interview ${operation.interviewId}`
-          )
+          schedulerLogger.info('Processing scheduled operation', {
+            operationId: operation.id,
+            interviewId: operation.interviewId,
+            type: operation.type,
+            candidateName: operation.candidateName,
+          })
 
           try {
             if (
@@ -136,10 +148,11 @@ export class SchedulerService {
               })
             }
           } catch (error) {
-            console.error(
-              `Error processing scheduled operation ${operation.id}:`,
-              error
-            )
+            schedulerLogger.error('Error processing scheduled operation', {
+              operationId: operation.id,
+              interviewId: operation.interviewId,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            })
             await operationManager.addOperationLog(
               operation.id,
               `❌ Scheduler error: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -151,9 +164,13 @@ export class SchedulerService {
     } catch (error) {
       // Handle DynamoDB throttling gracefully
       if (error instanceof Error && error.name === 'ThrottlingException') {
-        console.log('DynamoDB throttling during scheduled operations check - will retry next cycle')
+        schedulerLogger.warn(
+          'DynamoDB throttling during scheduled operations check - will retry next cycle'
+        )
       } else {
-        console.error('Error in processScheduledOperations:', error)
+        schedulerLogger.error('Error in processScheduledOperations', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
       }
     }
   }
@@ -168,12 +185,22 @@ export class SchedulerService {
    */
   private async processAutoDestroyOperations() {
     try {
-      const autoDestroyOps = await operationManager.getOperationsForAutoDestroy()
+      const autoDestroyOps =
+        await operationManager.getOperationsForAutoDestroy()
+
+      if (autoDestroyOps.length > 0) {
+        schedulerLogger.debug(
+          `Found ${autoDestroyOps.length} operations eligible for auto-destroy`
+        )
+      }
 
       for (const operation of autoDestroyOps) {
-        console.log(
-          `Auto-destroying interview ${operation.interviewId} (operation ${operation.id})`
-        )
+        schedulerLogger.info('Auto-destroying interview', {
+          interviewId: operation.interviewId,
+          operationId: operation.id,
+          candidateName: operation.candidateName,
+          autoDestroyAt: operation.autoDestroyAt?.toISOString(),
+        })
 
         try {
           // Create a new destroy operation for the auto-destroy
@@ -200,18 +227,23 @@ export class SchedulerService {
             originalOperationId: operation.id,
           })
         } catch (error) {
-          console.error(
-            `Error auto-destroying interview ${operation.interviewId}:`,
-            error
-          )
+          schedulerLogger.error('Error auto-destroying interview', {
+            interviewId: operation.interviewId,
+            operationId: operation.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          })
         }
       }
     } catch (error) {
       // Handle DynamoDB throttling gracefully
       if (error instanceof Error && error.name === 'ThrottlingException') {
-        console.log('DynamoDB throttling during auto-destroy check - will retry next cycle')
+        schedulerLogger.warn(
+          'DynamoDB throttling during auto-destroy check - will retry next cycle'
+        )
       } else {
-        console.error('Error in processAutoDestroyOperations:', error)
+        schedulerLogger.error('Error in processAutoDestroyOperations', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
       }
     }
   }
