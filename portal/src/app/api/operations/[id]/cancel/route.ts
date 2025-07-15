@@ -41,7 +41,7 @@ export async function POST(
       )
     }
 
-    const operation = operationManager.getOperation(operationId)
+    const operation = await operationManager.getOperation(operationId)
     if (!operation) {
       return NextResponse.json(
         { success: false, error: 'Operation not found' },
@@ -60,13 +60,13 @@ export async function POST(
       )
     }
 
-    const cancelled = operationManager.cancelOperation(operationId)
+    const cancelled = await operationManager.cancelOperation(operationId)
 
     if (cancelled) {
       return NextResponse.json({
         success: true,
         message: 'Operation cancelled successfully',
-        operation: operationManager.getOperation(operationId),
+        operation: await operationManager.getOperation(operationId),
       })
     } else {
       return NextResponse.json(

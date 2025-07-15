@@ -307,6 +307,23 @@ resource "aws_iam_role_policy" "portal_task" {
           "${aws_s3_bucket.instance_code.arn}/*",
           "${aws_s3_bucket.challenges.arn}/*"
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:Query",
+          "dynamodb:Scan",
+          "dynamodb:BatchGetItem",
+          "dynamodb:BatchWriteItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.operations.arn,
+          "${aws_dynamodb_table.operations.arn}/index/*"
+        ]
       }
     ]
   })
@@ -370,6 +387,10 @@ resource "aws_ecs_task_definition" "portal" {
         {
           name  = "OPENAI_API_KEY"
           value = var.openai_api_key
+        },
+        {
+          name  = "OPERATIONS_TABLE_NAME"
+          value = aws_dynamodb_table.operations.name
         }
       ]
 

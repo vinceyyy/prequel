@@ -28,7 +28,7 @@ export async function GET(
   try {
     const { id } = await params
     const operationId = id
-    const operation = operationManager.getOperation(operationId)
+    const operation = await operationManager.getOperation(operationId)
 
     if (!operation) {
       return NextResponse.json(
@@ -39,12 +39,9 @@ export async function GET(
 
     return NextResponse.json({ operation })
   } catch (error: unknown) {
-    return NextResponse.json(
-      {
-        error: 'Failed to get operation',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    console.error('Error getting operation:', error)
+
+    // Return 404 for any DynamoDB errors
+    return NextResponse.json({ error: 'Operation not found' }, { status: 404 })
   }
 }

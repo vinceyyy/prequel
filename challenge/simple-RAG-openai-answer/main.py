@@ -3,10 +3,10 @@ from rag_system import RAGSystem, KnowledgeBase
 
 def main():
     # Initialize Vector DB and process documents
-    vector_db = KnowledgeBase(documents_path="data/documents.json")
+    knowledge_base = KnowledgeBase(documents_path="data/documents.json")
 
     # Initialize RAG system
-    rag = RAGSystem(vector_db=vector_db)
+    rag = RAGSystem(knowledge_base=knowledge_base)
 
     # Test queries
     test_queries = [

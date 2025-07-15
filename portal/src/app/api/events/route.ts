@@ -52,9 +52,9 @@ export async function GET(request: NextRequest) {
       }, 30000) // Send heartbeat every 30 seconds
 
       // Set up periodic operation status updates
-      const statusInterval = setInterval(() => {
+      const statusInterval = setInterval(async () => {
         try {
-          const operations = operationManager.getAllOperations()
+          const operations = await operationManager.getAllOperations()
           const activeOperations = operations.filter(
             op => op.status === 'running' || op.status === 'scheduled'
           )

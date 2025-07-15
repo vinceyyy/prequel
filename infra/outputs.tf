@@ -140,3 +140,13 @@ output "environment" {
   value       = var.environment
 }
 
+output "operations_table_name" {
+  description = "DynamoDB table name for operations"
+  value       = aws_dynamodb_table.operations.name
+}
+
+output "operations_table_arn" {
+  description = "DynamoDB table ARN for operations"
+  value       = aws_dynamodb_table.operations.arn
+}
+

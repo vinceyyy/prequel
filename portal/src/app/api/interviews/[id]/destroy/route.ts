@@ -114,7 +114,7 @@ export async function POST(
 
     // Cancel any scheduled operations for this interview
     const cancelledCount =
-      operationManager.cancelScheduledOperationsForInterview(interviewId)
+      await operationManager.cancelScheduledOperationsForInterview(interviewId)
     if (cancelledCount > 0) {
       console.log(
         `Cancelled ${cancelledCount} scheduled operations for interview ${interviewId}`
@@ -122,7 +122,7 @@ export async function POST(
     }
 
     // Create operation to track progress
-    const operationId = operationManager.createOperation(
+    const operationId = await operationManager.createOperation(
       'destroy',
       interviewId,
       candidateName,
@@ -132,14 +132,14 @@ export async function POST(
     // Start background operation
     setImmediate(async () => {
       try {
-        operationManager.updateOperationStatus(operationId, 'running')
-        operationManager.addOperationLog(
+        await operationManager.updateOperationStatus(operationId, 'running')
+        await operationManager.addOperationLog(
           operationId,
           `Starting interview destruction for ${interviewId}`
         )
 
         if (cancelledCount > 0) {
-          operationManager.addOperationLog(
+          await operationManager.addOperationLog(
             operationId,
             `Cancelled ${cancelledCount} scheduled operation(s) for this interview`
           )
@@ -151,32 +151,36 @@ export async function POST(
             // Add each line to operation logs
             const lines = data.split('\n').filter(line => line.trim())
             lines.forEach(line => {
-              operationManager.addOperationLog(operationId, line)
+              // Note: We can't await here since this is a streaming callback
+              // Logs will be added asynchronously without blocking the stream
+              operationManager
+                .addOperationLog(operationId, line)
+                .catch(console.error)
             })
           }
         )
 
         if (result.success) {
-          operationManager.addOperationLog(
+          await operationManager.addOperationLog(
             operationId,
             '✅ Interview destroyed successfully!'
           )
 
-          operationManager.setOperationResult(operationId, {
+          await operationManager.setOperationResult(operationId, {
             success: true,
             fullOutput: result.fullOutput,
           })
         } else {
-          operationManager.addOperationLog(
+          await operationManager.addOperationLog(
             operationId,
             '❌ Interview destruction failed'
           )
-          operationManager.addOperationLog(
+          await operationManager.addOperationLog(
             operationId,
             `Error: ${result.error}`
           )
 
-          operationManager.setOperationResult(operationId, {
+          await operationManager.setOperationResult(operationId, {
             success: false,
             error: result.error,
             fullOutput: result.fullOutput,
@@ -185,8 +189,11 @@ export async function POST(
       } catch (error) {
         const errorMsg =
           error instanceof Error ? error.message : 'Unknown error'
-        operationManager.addOperationLog(operationId, `❌ Error: ${errorMsg}`)
-        operationManager.setOperationResult(operationId, {
+        await operationManager.addOperationLog(
+          operationId,
+          `❌ Error: ${errorMsg}`
+        )
+        await operationManager.setOperationResult(operationId, {
           success: false,
           error: errorMsg,
         })

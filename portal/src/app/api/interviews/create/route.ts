@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     const password = Math.random().toString(36).substring(2, 12)
 
     // Create operation to track progress
-    const operationId = operationManager.createOperation(
+    const operationId = await operationManager.createOperation(
       'create',
       interviewId,
       candidateName,
@@ -131,12 +131,12 @@ export async function POST(request: NextRequest) {
 
     // If scheduled for later, don't start immediately
     if (scheduledDate) {
-      operationManager.addOperationLog(
+      await operationManager.addOperationLog(
         operationId,
         `Interview scheduled for ${scheduledDate.toLocaleString()}`
       )
       if (autoDestroyDate) {
-        operationManager.addOperationLog(
+        await operationManager.addOperationLog(
           operationId,
           `Auto-destroy scheduled for ${autoDestroyDate.toLocaleString()}`
         )
@@ -157,16 +157,19 @@ export async function POST(request: NextRequest) {
     // Start background operation immediately
     setImmediate(async () => {
       try {
-        operationManager.updateOperationStatus(operationId, 'running')
-        operationManager.addOperationLog(
+        await operationManager.updateOperationStatus(operationId, 'running')
+        await operationManager.addOperationLog(
           operationId,
           `Starting interview creation for ${candidateName}`
         )
-        operationManager.addOperationLog(
+        await operationManager.addOperationLog(
           operationId,
           `Interview ID: ${interviewId}`
         )
-        operationManager.addOperationLog(operationId, `Challenge: ${challenge}`)
+        await operationManager.addOperationLog(
+          operationId,
+          `Challenge: ${challenge}`
+        )
 
         const result = await terraformManager.createInterviewStreaming(
           instance,
@@ -174,34 +177,44 @@ export async function POST(request: NextRequest) {
             // Add each line to operation logs
             const lines = data.split('\n').filter(line => line.trim())
             lines.forEach(line => {
-              operationManager.addOperationLog(operationId, line)
+              // Note: We can't await here since this is a streaming callback
+              // Logs will be added asynchronously without blocking the stream
+              operationManager
+                .addOperationLog(operationId, line)
+                .catch(console.error)
             })
           },
           (accessUrl: string) => {
             // Infrastructure is ready - update operation to show configuring status
-            operationManager.updateOperationInfrastructureReady(
-              operationId,
-              accessUrl,
-              password
-            )
-            operationManager.addOperationLog(
-              operationId,
-              '🔧 Infrastructure ready, ECS service starting up...'
-            )
+            // Note: We can't await here since this is a streaming callback
+            // Updates will be done asynchronously without blocking the stream
+            operationManager
+              .updateOperationInfrastructureReady(
+                operationId,
+                accessUrl,
+                password
+              )
+              .catch(console.error)
+            operationManager
+              .addOperationLog(
+                operationId,
+                '🔧 Infrastructure ready, ECS service starting up...'
+              )
+              .catch(console.error)
           }
         )
 
         if (result.success) {
-          operationManager.addOperationLog(
+          await operationManager.addOperationLog(
             operationId,
             '✅ Interview created successfully!'
           )
-          operationManager.addOperationLog(
+          await operationManager.addOperationLog(
             operationId,
             `Access URL: ${result.accessUrl}`
           )
 
-          operationManager.setOperationResult(operationId, {
+          await operationManager.setOperationResult(operationId, {
             success: true,
             accessUrl: result.accessUrl,
             password: password,
@@ -210,16 +223,16 @@ export async function POST(request: NextRequest) {
             infrastructureReady: result.infrastructureReady,
           })
         } else {
-          operationManager.addOperationLog(
+          await operationManager.addOperationLog(
             operationId,
             '❌ Interview creation failed'
           )
-          operationManager.addOperationLog(
+          await operationManager.addOperationLog(
             operationId,
             `Error: ${result.error}`
           )
 
-          operationManager.setOperationResult(operationId, {
+          await operationManager.setOperationResult(operationId, {
             success: false,
             error: result.error,
             fullOutput: result.fullOutput,
@@ -228,8 +241,11 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         const errorMsg =
           error instanceof Error ? error.message : 'Unknown error'
-        operationManager.addOperationLog(operationId, `❌ Error: ${errorMsg}`)
-        operationManager.setOperationResult(operationId, {
+        await operationManager.addOperationLog(
+          operationId,
+          `❌ Error: ${errorMsg}`
+        )
+        await operationManager.setOperationResult(operationId, {
           success: false,
           error: errorMsg,
         })
@@ -246,6 +262,17 @@ export async function POST(request: NextRequest) {
       message: 'Interview creation started in background',
     })
   } catch (error: unknown) {
+    console.error('Error starting interview creation:', error)
+
+    // Check if this is a DynamoDB-related error
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+      })
+    }
+
     return NextResponse.json(
       {
         error: 'Failed to start interview creation',

@@ -62,7 +62,7 @@ async function performExpensiveQuery(): Promise<SharedResult> {
 
     // If Terraform status fails, this might be a failed destroy attempt
     // Check if there's a recent destroy operation for this interview
-    const operations = operationManager.getAllOperations()
+    const operations = await operationManager.getAllOperations()
     const destroyOperation = operations
       .filter(op => op.type === 'destroy' && op.interviewId === id)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
@@ -261,7 +261,7 @@ function mergeAndDeduplicateInterviews(
 export async function GET() {
   try {
     // Get ongoing operations (this is fast - just in-memory operations)
-    const operations = operationManager.getAllOperations()
+    const operations = await operationManager.getAllOperations()
 
     // Check if there's already an active query - if so, share its result
     if (activeQuery) {
@@ -319,12 +319,9 @@ export async function GET() {
   } catch (error: unknown) {
     // Clear the active query on error
     activeQuery = null
-    return NextResponse.json(
-      {
-        error: 'Failed to list interviews',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    console.error('Error listing interviews:', error)
+
+    // Return empty array to prevent UI crashes
+    return NextResponse.json({ interviews: [] })
   }
 }

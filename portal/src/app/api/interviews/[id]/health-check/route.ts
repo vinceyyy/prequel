@@ -41,7 +41,8 @@ export async function POST(
     }
 
     // Find the create operation for this interview
-    const operations = operationManager.getOperationsByInterview(interviewId)
+    const operations =
+      await operationManager.getOperationsByInterview(interviewId)
     const createOperation = operations.find(op => op.type === 'create')
 
     if (!createOperation) {
@@ -62,7 +63,7 @@ export async function POST(
     }
 
     // Create a new operation to track the health check retry
-    const operationId = operationManager.createOperation(
+    const operationId = await operationManager.createOperation(
       'create',
       interviewId,
       createOperation.candidateName,
@@ -72,8 +73,8 @@ export async function POST(
     // Start background health check retry
     setImmediate(async () => {
       try {
-        operationManager.updateOperationStatus(operationId, 'running')
-        operationManager.addOperationLog(
+        await operationManager.updateOperationStatus(operationId, 'running')
+        await operationManager.addOperationLog(
           operationId,
           `Retrying health check for interview ${interviewId}`
         )
@@ -83,13 +84,17 @@ export async function POST(
           (data: string) => {
             const lines = data.split('\n').filter(line => line.trim())
             lines.forEach(line => {
-              operationManager.addOperationLog(operationId, line)
+              // Note: We can't await here since this is a streaming callback
+              // Logs will be added asynchronously without blocking the stream
+              operationManager
+                .addOperationLog(operationId, line)
+                .catch(console.error)
             })
           }
         )
 
         if (result.success) {
-          operationManager.addOperationLog(
+          await operationManager.addOperationLog(
             operationId,
             '✅ Health check retry successful!'
           )
@@ -98,29 +103,29 @@ export async function POST(
           const originalResult = createOperation.result
           if (originalResult) {
             originalResult.healthCheckPassed = true
-            operationManager.setOperationResult(
+            await operationManager.setOperationResult(
               createOperation.id,
               originalResult
             )
           }
 
-          operationManager.setOperationResult(operationId, {
+          await operationManager.setOperationResult(operationId, {
             success: true,
             accessUrl: result.accessUrl,
             password: createOperation.result?.password,
             healthCheckPassed: true,
           })
         } else {
-          operationManager.addOperationLog(
+          await operationManager.addOperationLog(
             operationId,
             '❌ Health check retry failed'
           )
-          operationManager.addOperationLog(
+          await operationManager.addOperationLog(
             operationId,
             `Error: ${result.error}`
           )
 
-          operationManager.setOperationResult(operationId, {
+          await operationManager.setOperationResult(operationId, {
             success: false,
             error: result.error,
             healthCheckPassed: false,
@@ -129,8 +134,11 @@ export async function POST(
       } catch (error) {
         const errorMsg =
           error instanceof Error ? error.message : 'Unknown error'
-        operationManager.addOperationLog(operationId, `❌ Error: ${errorMsg}`)
-        operationManager.setOperationResult(operationId, {
+        await operationManager.addOperationLog(
+          operationId,
+          `❌ Error: ${errorMsg}`
+        )
+        await operationManager.setOperationResult(operationId, {
           success: false,
           error: errorMsg,
           healthCheckPassed: false,

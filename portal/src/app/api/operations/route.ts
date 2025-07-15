@@ -32,20 +32,18 @@ export async function GET(request: NextRequest) {
 
     if (interviewId) {
       // Get operations for a specific interview
-      const operations = operationManager.getOperationsByInterview(interviewId)
+      const operations =
+        await operationManager.getOperationsByInterview(interviewId)
       return NextResponse.json({ operations })
     } else {
       // Get all operations
-      const operations = operationManager.getAllOperations()
+      const operations = await operationManager.getAllOperations()
       return NextResponse.json({ operations })
     }
   } catch (error: unknown) {
-    return NextResponse.json(
-      {
-        error: 'Failed to get operations',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    console.error('Error getting operations:', error)
+
+    // Return empty array for any DynamoDB errors to prevent UI crashes
+    return NextResponse.json({ operations: [] })
   }
 }
