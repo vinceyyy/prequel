@@ -230,23 +230,6 @@ export default function OperationDashboard({
     }
   }
 
-  const getStatusColor = (status: Operation['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'text-yellow-600 bg-yellow-50 border-yellow-200'
-      case 'running':
-        return 'text-blue-600 bg-blue-50 border-blue-200'
-      case 'completed':
-        return 'text-green-600 bg-green-50 border-green-200'
-      case 'failed':
-        return 'text-red-600 bg-red-50 border-red-200'
-      case 'cancelled':
-        return 'text-gray-600 bg-gray-50 border-gray-200'
-      default:
-        return 'text-gray-600 bg-gray-50 border-gray-200'
-    }
-  }
-
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleString(undefined, {
       year: 'numeric',
@@ -297,16 +280,16 @@ export default function OperationDashboard({
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-md ${className}`}>
-      <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-gray-900">
+    <div className={`card ${className}`}>
+      <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+        <h2 className="text-xl font-semibold text-slate-900">
           {interviewFilter
             ? `Operations for Interview ${interviewFilter}`
             : 'All Operations'}
         </h2>
         <button
           onClick={loadOperations}
-          className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700 transition-colors"
+          className="btn-secondary text-sm px-3 py-1"
         >
           Refresh
         </button>
@@ -314,17 +297,17 @@ export default function OperationDashboard({
 
       <div className="flex h-[500px]">
         {/* Operations List */}
-        <div className="w-1/4 border-r border-gray-200 overflow-y-auto">
+        <div className="w-1/4 border-r border-slate-200 overflow-y-auto">
           {operations.length === 0 ? (
-            <div className="p-4 text-gray-500 text-center">
+            <div className="p-4 text-slate-500 text-center">
               No operations found
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-slate-100">
               {operations.map(operation => (
                 <div
                   key={operation.id}
-                  className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
+                  className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors ${
                     selectedOperation === operation.id
                       ? 'bg-blue-50 border-l-4 border-blue-500'
                       : ''
@@ -336,21 +319,17 @@ export default function OperationDashboard({
                       <span className="text-lg">
                         {getStatusIcon(operation.status)}
                       </span>
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-slate-900">
                         {operation.type === 'create' ? 'Create' : 'Destroy'}{' '}
                         Interview
                       </span>
                     </div>
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full border ${getStatusColor(
-                        operation.status
-                      )}`}
-                    >
+                    <span className={`status-badge status-${operation.status}`}>
                       {operation.status}
                     </span>
                   </div>
 
-                  <div className="text-sm text-gray-600 space-y-1">
+                  <div className="text-sm text-slate-600 space-y-1">
                     <div>Interview ID: {operation.interviewId}</div>
                     {operation.candidateName && (
                       <div>Candidate: {operation.candidateName}</div>
@@ -387,7 +366,7 @@ export default function OperationDashboard({
                         href={operation.result.accessUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 text-sm"
+                        className="text-blue-600 hover:text-blue-800 text-sm transition-colors"
                         onClick={e => e.stopPropagation()}
                       >
                         🔗 Access Interview
@@ -402,7 +381,7 @@ export default function OperationDashboard({
                           cancelOperation(operation.id)
                         }}
                         disabled={cancellingOperations.has(operation.id)}
-                        className="text-red-600 hover:text-red-800 text-sm px-2 py-1 rounded border border-red-200 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-red-600 hover:text-red-800 text-sm px-2 py-1 rounded-md border border-red-200 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {cancellingOperations.has(operation.id)
                           ? 'Cancelling...'
@@ -418,8 +397,8 @@ export default function OperationDashboard({
 
         {/* Logs Panel */}
         <div className="w-3/4 flex flex-col">
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
-            <h3 className="font-medium text-gray-900">
+          <div className="p-4 border-b border-slate-200 bg-slate-50">
+            <h3 className="font-medium text-slate-900">
               {selectedOperation
                 ? 'Operation Logs'
                 : 'Select an operation to view logs'}
@@ -430,14 +409,14 @@ export default function OperationDashboard({
             {selectedOperation ? (
               <div
                 ref={terminalRef}
-                className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm whitespace-pre-wrap"
+                className="bg-slate-900 text-green-400 p-4 rounded-md font-mono text-sm whitespace-pre-wrap"
               >
                 {logs.length > 0
                   ? logs.map(formatLogTimestamp).join('\n')
                   : 'No logs available yet...'}
               </div>
             ) : (
-              <div className="flex items-center justify-center flex-1 text-gray-500">
+              <div className="flex items-center justify-center flex-1 text-slate-500">
                 Select an operation to view its logs
               </div>
             )}

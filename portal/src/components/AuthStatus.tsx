@@ -29,11 +29,11 @@ export default function AuthStatus() {
 
   return (
     <div className="flex items-center gap-4">
-      <div className="text-sm text-gray-600">Authenticated</div>
+      <div className="text-sm text-slate-600">Authenticated</div>
       <button
         onClick={handleLogout}
         disabled={isLoggingOut}
-        className="text-sm px-2 py-1 text-white rounded-md transition-colors bg-red-600 hover:bg-red-800 cursor-pointer disabled:cursor-default disabled:opacity-50"
+        className="btn-danger text-sm px-3 py-1"
       >
         {isLoggingOut ? 'Logging out...' : 'Logout'}
       </button>

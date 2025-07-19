@@ -256,12 +256,12 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-8 w-full overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-8 w-full overflow-x-hidden">
       {/* Notification */}
       {notification && (
         <div
-          className={`fixed top-4 right-4 text-white px-6 py-3 rounded-lg shadow-lg z-50 ${
-            notification.includes('❌') ? 'bg-red-500' : 'bg-green-500'
+          className={`fixed top-4 right-4 text-white px-6 py-3 rounded-xl shadow-lg z-50 fade-in ${
+            notification.includes('❌') ? 'bg-red-600' : 'bg-green-600'
           }`}
         >
           <div className="flex items-center space-x-2">
@@ -277,10 +277,10 @@ export default function Home() {
         <header className="mb-8">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-slate-900">
                 Prequel Portal
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-slate-600 mt-2">
                 Manage coding interviews and VS Code instances
               </p>
             </div>
@@ -291,14 +291,11 @@ export default function Home() {
         <div className="mb-6 flex flex-wrap gap-3 items-center">
           <button
             onClick={() => setShowCreateForm(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="btn-primary"
           >
             Create New Interview
           </button>
-          <button
-            onClick={loadInterviews}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-          >
+          <button onClick={loadInterviews} className="btn-secondary">
             Refresh
           </button>
           <div className="flex items-center space-x-2">
@@ -307,7 +304,7 @@ export default function Home() {
                 sseConnected ? 'bg-green-500' : 'bg-red-500'
               }`}
             ></div>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-slate-600">
               {sseConnected ? 'Live updates' : 'Offline'}
             </span>
           </div>
@@ -315,14 +312,14 @@ export default function Home() {
 
         {showCreateForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md">
-              <h2 className="text-xl font-semibold mb-4 text-gray-900">
+            <div className="card p-4 sm:p-6 w-full max-w-md fade-in">
+              <h2 className="text-xl font-semibold mb-4 text-slate-900">
                 Create New Interview
               </h2>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-slate-900 mb-1">
                     Candidate Name
                   </label>
                   <input
@@ -334,13 +331,13 @@ export default function Home() {
                         candidateName: e.target.value,
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
+                    className="input-field"
                     placeholder="Enter candidate name"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                  <label className="block text-sm font-medium text-slate-900 mb-1">
                     Interview Challenge
                   </label>
                   <select
@@ -348,7 +345,7 @@ export default function Home() {
                     onChange={e =>
                       setFormData({ ...formData, challenge: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    className="input-field"
                   >
                     {challenges.map(challenge => (
                       <option key={challenge.id} value={challenge.id}>
@@ -371,11 +368,11 @@ export default function Home() {
                           enableScheduling: e.target.checked,
                         })
                       }
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                     />
                     <label
                       htmlFor="enableScheduling"
-                      className="text-sm font-medium text-gray-900"
+                      className="text-sm font-medium text-slate-900"
                     >
                       Schedule for later
                     </label>
@@ -383,7 +380,7 @@ export default function Home() {
 
                   {formData.enableScheduling && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-1">
+                      <label className="block text-sm font-medium text-slate-900 mb-1">
                         Scheduled Start Time
                       </label>
                       <input
@@ -396,13 +393,13 @@ export default function Home() {
                           })
                         }
                         min={new Date().toISOString().slice(0, 16)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                        className="input-field"
                       />
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                    <label className="block text-sm font-medium text-slate-900 mb-1">
                       Interview Duration <span className="text-red-500">*</span>
                     </label>
                     <select
@@ -413,7 +410,7 @@ export default function Home() {
                           autoDestroyMinutes: parseInt(e.target.value),
                         })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      className="input-field"
                       required
                     >
                       <option value={30}>30 minutes</option>
@@ -424,7 +421,7 @@ export default function Home() {
                       <option value={180}>3 hours</option>
                       <option value={240}>4 hours</option>
                     </select>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-slate-500 mt-1">
                       Required: Interview will auto-destroy after this duration
                       to prevent resource waste
                     </p>
@@ -440,7 +437,7 @@ export default function Home() {
                     loading ||
                     (formData.enableScheduling && !formData.scheduledAt)
                   }
-                  className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                  className="flex-1 btn-primary"
                 >
                   {loading
                     ? 'Creating...'
@@ -450,7 +447,7 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => setShowCreateForm(false)}
-                  className="flex-1 bg-red-600 text-white py-2 rounded-md hover:bg-red-700 transition-colors"
+                  className="flex-1 btn-outline"
                 >
                   Cancel
                 </button>
@@ -459,37 +456,37 @@ export default function Home() {
           </div>
         )}
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Candidate
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Challenge
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Schedule
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Access Details
                   </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-slate-200">
                 {initialLoading ? (
                   <tr>
                     <td
                       colSpan={6}
-                      className="px-3 sm:px-6 py-4 text-center text-gray-500"
+                      className="px-3 sm:px-6 py-4 text-center text-slate-500"
                     >
                       <div className="flex items-center justify-center space-x-2">
                         <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
@@ -501,7 +498,7 @@ export default function Home() {
                   <tr>
                     <td
                       colSpan={6}
-                      className="px-3 sm:px-6 py-4 text-center text-gray-500"
+                      className="px-3 sm:px-6 py-4 text-center text-slate-500"
                     >
                       No interviews created yet
                     </td>
@@ -510,14 +507,14 @@ export default function Home() {
                   interviews.map(interview => (
                     <tr key={interview.id}>
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-slate-900">
                           {interview.candidateName}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-slate-500">
                           {new Date(interview.createdAt).toLocaleDateString()}
                         </div>
                       </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                         {
                           challenges.find(c => c.id === interview.challenge)
                             ?.name
@@ -526,21 +523,7 @@ export default function Home() {
                       <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                         <div>
                           <span
-                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              interview.status === 'scheduled'
-                                ? 'bg-purple-100 text-purple-800'
-                                : interview.status === 'initializing'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : interview.status === 'configuring'
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : interview.status === 'active'
-                                      ? 'bg-green-100 text-green-800'
-                                      : interview.status === 'destroying'
-                                        ? 'bg-orange-100 text-orange-800'
-                                        : interview.status === 'error'
-                                          ? 'bg-red-100 text-red-800'
-                                          : 'bg-gray-100 text-gray-800'
-                            }`}
+                            className={`status-badge status-${interview.status}`}
                           >
                             {interview.status}
                           </span>
@@ -551,11 +534,11 @@ export default function Home() {
                           )}
                         </div>
                       </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                         {interview.status === 'scheduled' &&
                         interview.scheduledAt ? (
                           <div className="space-y-2">
-                            <div className="bg-purple-50 p-2 rounded border border-purple-200">
+                            <div className="bg-purple-50 p-2 rounded-md border border-purple-200">
                               <div className="text-xs font-medium text-purple-700">
                                 Starts:
                               </div>
@@ -566,7 +549,7 @@ export default function Home() {
                               </div>
                             </div>
                             {interview.autoDestroyAt && (
-                              <div className="bg-red-50 p-2 rounded border border-red-200">
+                              <div className="bg-red-50 p-2 rounded-md border border-red-200">
                                 <div className="text-xs font-medium text-red-700">
                                   Auto-destroy:
                                 </div>
@@ -582,7 +565,7 @@ export default function Home() {
                           <div>
                             {interview.scheduledAt && (
                               <div className="mb-1">
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs text-slate-500">
                                   Started:
                                 </div>
                                 <div className="text-sm">
@@ -593,11 +576,11 @@ export default function Home() {
                               </div>
                             )}
                             {interview.autoDestroyAt && (
-                              <div className="bg-yellow-50 p-1 rounded border border-yellow-200">
-                                <div className="text-xs text-yellow-700">
+                              <div className="bg-amber-50 p-1 rounded-md border border-amber-200">
+                                <div className="text-xs text-amber-700">
                                   Auto-destroy:
                                 </div>
-                                <div className="text-xs font-medium text-yellow-900">
+                                <div className="text-xs font-medium text-amber-900">
                                   {new Date(
                                     interview.autoDestroyAt
                                   ).toLocaleString()}
@@ -606,27 +589,29 @@ export default function Home() {
                             )}
                             {!interview.scheduledAt &&
                               !interview.autoDestroyAt && (
-                                <span className="text-gray-400">Immediate</span>
+                                <span className="text-slate-400">
+                                  Immediate
+                                </span>
                               )}
                           </div>
                         )}
                       </td>
-                      <td className="px-3 sm:px-6 py-4 text-sm text-gray-900">
+                      <td className="px-3 sm:px-6 py-4 text-sm text-slate-900">
                         {interview.accessUrl ? (
                           <div className="max-w-xs">
                             <a
-                              className="text-blue-600 underline cursor-pointer break-all"
+                              className="text-blue-600 underline cursor-pointer break-all hover:text-blue-700 transition-colors"
                               href={interview.accessUrl}
                               target="_blank"
                             >
                               {interview.accessUrl}
                             </a>
-                            <div className="text-gray-500 break-all">
+                            <div className="text-slate-500 break-all">
                               Password: {interview.password}
                             </div>
                           </div>
                         ) : (
-                          <span className="text-gray-400">Not started</span>
+                          <span className="text-slate-400">Not started</span>
                         )}
                       </td>
                       <td className="px-3 sm:px-6 py-4 text-sm font-medium">
@@ -634,35 +619,35 @@ export default function Home() {
                           {interview.status === 'active' && (
                             <button
                               onClick={() => stopInterview(interview.id)}
-                              className="bg-red-600 hover:bg-red-700 cursor-pointer text-white px-2 py-1 rounded-lg transition-colors"
+                              className="btn-danger text-sm px-3 py-1"
                             >
                               Stop & Destroy
                             </button>
                           )}
                           {interview.status === 'scheduled' && (
-                            <span className="text-purple-600">
+                            <span className="text-purple-600 font-medium">
                               Scheduled...
                             </span>
                           )}
                           {interview.status === 'initializing' && (
-                            <span className="text-blue-600">
+                            <span className="text-blue-600 font-medium">
                               Initializing...
                             </span>
                           )}
                           {interview.status === 'configuring' && (
-                            <span className="text-yellow-600">
+                            <span className="text-amber-600 font-medium">
                               Configuring...
                             </span>
                           )}
                           {interview.status === 'destroying' && (
-                            <span className="text-orange-600">
+                            <span className="text-orange-600 font-medium">
                               Destroying...
                             </span>
                           )}
                           {interview.status === 'error' && (
                             <button
                               onClick={() => stopInterview(interview.id)}
-                              className="bg-red-600 hover:bg-red-700 cursor-pointer text-white px-2 py-1 rounded-lg transition-colors"
+                              className="btn-danger text-sm px-3 py-1"
                             >
                               Retry Destroy
                             </button>
@@ -672,7 +657,7 @@ export default function Home() {
                               setSelectedInterviewForLogs(interview.id)
                               setShowLogsModal(true)
                             }}
-                            className="bg-blue-600 hover:bg-blue-700 cursor-pointer text-white px-2 py-1 rounded-lg transition-colors"
+                            className="btn-primary text-sm px-3 py-1"
                           >
                             Logs
                           </button>
@@ -689,9 +674,9 @@ export default function Home() {
         {/* Logs Modal */}
         {showLogsModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-6xl h-5/6 max-h-screen overflow-hidden">
+            <div className="card p-4 sm:p-6 w-full max-w-6xl h-5/6 max-h-screen overflow-hidden fade-in">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">
+                <h2 className="text-xl font-semibold text-slate-900">
                   Operation Logs
                   {selectedInterviewForLogs
                     ? ` - Interview ${selectedInterviewForLogs}`
@@ -702,7 +687,7 @@ export default function Home() {
                     setShowLogsModal(false)
                     setSelectedInterviewForLogs(null)
                   }}
-                  className="text-gray-500 hover:text-gray-700 cursor-pointer"
+                  className="text-slate-500 hover:text-slate-700 cursor-pointer transition-colors"
                 >
                   ✕
                 </button>
@@ -716,7 +701,7 @@ export default function Home() {
                     setShowLogsModal(false)
                     setSelectedInterviewForLogs(null)
                   }}
-                  className="bg-gray-200 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors cursor-pointer"
+                  className="btn-outline"
                 >
                   Close
                 </button>
