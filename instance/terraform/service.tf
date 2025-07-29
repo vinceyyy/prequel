@@ -248,6 +248,9 @@ resource "aws_ecs_service" "interview" {
   desired_count   = 1
   launch_type     = "FARGATE"
   health_check_grace_period_seconds = 300
+  
+  # Enable ECS Execute Command for file extraction
+  enable_execute_command = true
 
   network_configuration {
     subnets          = data.terraform_remote_state.common.outputs.private_subnet_ids

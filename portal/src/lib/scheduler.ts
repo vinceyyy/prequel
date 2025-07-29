@@ -145,6 +145,8 @@ export class SchedulerService {
                 id: operation.id,
                 interviewId: operation.interviewId,
                 candidateName: operation.candidateName,
+                challenge: operation.challenge,
+                saveFiles: operation.saveFiles,
               })
             }
           } catch (error) {
@@ -217,6 +219,8 @@ export class SchedulerService {
               id: destroyOp.id,
               interviewId: destroyOp.interviewId,
               candidateName: destroyOp.candidateName,
+              challenge: destroyOp.challenge,
+              saveFiles: destroyOp.saveFiles,
             })
           }
 
@@ -362,6 +366,8 @@ export class SchedulerService {
     id: string
     interviewId: string
     candidateName?: string
+    challenge?: string
+    saveFiles?: boolean
   }) {
     await operationManager.updateOperationStatus(operation.id, 'running')
     await operationManager.addOperationLog(
@@ -387,7 +393,10 @@ export class SchedulerService {
               .addOperationLog(operation.id, line)
               .catch(console.error)
           })
-        }
+        },
+        operation.candidateName,
+        operation.challenge,
+        operation.saveFiles
       )
 
       if (result.success) {
@@ -397,6 +406,7 @@ export class SchedulerService {
         )
         await operationManager.setOperationResult(operation.id, {
           success: true,
+          historyS3Key: result.historyS3Key,
           fullOutput: result.fullOutput,
         })
 

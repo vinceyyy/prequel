@@ -125,6 +125,16 @@ output "challenge_bucket_arn" {
   value       = aws_s3_bucket.challenges.arn
 }
 
+output "history_bucket_name" {
+  description = "S3 bucket name for storing candidate interview history"
+  value       = aws_s3_bucket.history.bucket
+}
+
+output "history_bucket_arn" {
+  description = "S3 bucket ARN for storing candidate interview history"
+  value       = aws_s3_bucket.history.arn
+}
+
 output "code_server_security_group_id" {
   description = "ID of the code server security group"
   value       = aws_security_group.code_server.id

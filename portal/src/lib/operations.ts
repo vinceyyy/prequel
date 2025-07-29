@@ -40,6 +40,7 @@ export interface Operation {
   interviewId: string
   candidateName?: string
   challenge?: string
+  saveFiles?: boolean // Whether to save candidate files to S3 before destruction
   createdAt: Date // When the operation was scheduled/created
   executionStartedAt?: Date // When execution actually began
   completedAt?: Date
@@ -54,6 +55,7 @@ export interface Operation {
     fullOutput?: string
     healthCheckPassed?: boolean
     infrastructureReady?: boolean
+    historyS3Key?: string // S3 key where candidate files were saved
   }
 }
 
@@ -194,6 +196,7 @@ class OperationManager {
       interviewId: operation.interviewId,
       candidateName: operation.candidateName,
       challenge: operation.challenge,
+      saveFiles: operation.saveFiles,
       createdAt: this.dateToTimestamp(operation.createdAt),
       executionStartedAt: this.dateToTimestamp(operation.executionStartedAt),
       completedAt: this.dateToTimestamp(operation.completedAt),
@@ -217,6 +220,7 @@ class OperationManager {
       interviewId: item.interviewId,
       candidateName: item.candidateName,
       challenge: item.challenge,
+      saveFiles: item.saveFiles,
       createdAt: this.timestampToDate(item.createdAt) || new Date(),
       executionStartedAt: this.timestampToDate(item.executionStartedAt),
       completedAt: this.timestampToDate(item.completedAt),
@@ -257,7 +261,8 @@ class OperationManager {
     candidateName?: string,
     challenge?: string,
     scheduledAt?: Date,
-    autoDestroyAt?: Date
+    autoDestroyAt?: Date,
+    saveFiles?: boolean
   ): Promise<string> {
     const operationId = uuidv4()
 
@@ -268,6 +273,7 @@ class OperationManager {
       interviewId,
       candidateName,
       challenge,
+      saveFiles,
       createdAt: new Date(),
       scheduledAt,
       autoDestroyAt,

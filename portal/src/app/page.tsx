@@ -41,6 +41,7 @@ export default function Home() {
     scheduledAt: '',
     autoDestroyMinutes: 60,
     enableScheduling: false,
+    saveFiles: true, // Default to true as requested
   })
 
   // Use the operations hook for background operations
@@ -163,9 +164,11 @@ export default function Home() {
         challenge: string
         scheduledAt?: string
         autoDestroyMinutes?: number
+        saveFiles?: boolean
       } = {
         candidateName: formData.candidateName.trim(),
         challenge: formData.challenge,
+        saveFiles: formData.saveFiles,
       }
 
       // Add scheduling if enabled
@@ -201,6 +204,7 @@ export default function Home() {
         scheduledAt: '',
         autoDestroyMinutes: 60,
         enableScheduling: false,
+        saveFiles: true,
       })
       setShowCreateForm(false)
 
@@ -273,7 +277,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto w-full">
+      <div className="max-w-7xl mx-auto w-full">
         <header className="mb-8">
           <div className="flex justify-between items-start">
             <div>
@@ -426,6 +430,32 @@ export default function Home() {
                       to prevent resource waste
                     </p>
                   </div>
+
+                  {/* File Saving Options */}
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="saveFiles"
+                      checked={formData.saveFiles}
+                      onChange={e =>
+                        setFormData({
+                          ...formData,
+                          saveFiles: e.target.checked,
+                        })
+                      }
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label
+                      htmlFor="saveFiles"
+                      className="text-sm font-medium text-slate-900"
+                    >
+                      Save candidate files to history
+                    </label>
+                  </div>
+                  <p className="text-xs text-slate-500 -mt-2">
+                    Recommended: Save candidate&apos;s work files before
+                    destroying the interview
+                  </p>
                 </div>
               </div>
 
@@ -442,8 +472,8 @@ export default function Home() {
                   {loading
                     ? 'Creating...'
                     : formData.enableScheduling
-                      ? 'Schedule Interview'
-                      : 'Create Interview'}
+                    ? 'Schedule Interview'
+                    : 'Create Interview'}
                 </button>
                 <button
                   onClick={() => setShowCreateForm(false)}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { terraformManager } from '@/lib/terraform'
+import { operationManager } from '@/lib/operations'
 
 export async function GET(
   request: NextRequest,
@@ -50,7 +51,36 @@ export async function DELETE(
   try {
     const { id } = await params
 
-    const result = await terraformManager.destroyInterviewStreaming(id)
+    // Get interview details from the original create operation
+    let candidateName: string | undefined
+    let challenge: string | undefined
+    let saveFiles: boolean | undefined
+
+    try {
+      const operations = await operationManager.getOperationsByInterview(id)
+      const createOperation = operations.find(
+        op => op.type === 'create' && op.status === 'completed'
+      )
+
+      if (createOperation) {
+        candidateName = createOperation.candidateName
+        challenge = createOperation.challenge
+        saveFiles = createOperation.saveFiles
+      }
+    } catch (error) {
+      console.log(
+        'Could not retrieve create operation details for direct destroy:',
+        error
+      )
+    }
+
+    const result = await terraformManager.destroyInterviewStreaming(
+      id,
+      undefined, // No streaming callback for direct destroy
+      candidateName,
+      challenge,
+      saveFiles
+    )
 
     if (!result.success) {
       return NextResponse.json(

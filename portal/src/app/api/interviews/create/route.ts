@@ -25,6 +25,7 @@ import { v4 as uuidv4 } from 'uuid'
  *   challenge: string;            // Required: Challenge name from S3
  *   autoDestroyMinutes: number;   // Required: Auto-destroy timeout (30-240)
  *   scheduledAt?: string;         // Optional: ISO date for scheduled creation
+ *   saveFiles?: boolean;          // Optional: Save candidate files before destruction (default: true)
  * }
  * ```
  *
@@ -57,7 +58,13 @@ import { v4 as uuidv4 } from 'uuid'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { candidateName, challenge, scheduledAt, autoDestroyMinutes } = body
+    const {
+      candidateName,
+      challenge,
+      scheduledAt,
+      autoDestroyMinutes,
+      saveFiles = true,
+    } = body
 
     if (!candidateName || !challenge) {
       return NextResponse.json(
@@ -119,7 +126,8 @@ export async function POST(request: NextRequest) {
       candidateName,
       challenge,
       scheduledDate,
-      autoDestroyDate
+      autoDestroyDate,
+      saveFiles
     )
 
     const instance = {

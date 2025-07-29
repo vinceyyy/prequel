@@ -2,6 +2,7 @@ import { exec, spawn } from 'child_process'
 import { promisify } from 'util'
 import path from 'path'
 import fs from 'fs/promises'
+import { fileExtractionService } from './fileExtraction'
 
 const execAsync = promisify(exec)
 
@@ -1182,8 +1183,11 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
    */
   async destroyInterviewStreaming(
     interviewId: string,
-    onData?: (data: string) => void
-  ): Promise<TerraformExecutionResult> {
+    onData?: (data: string) => void,
+    candidateName?: string,
+    challenge?: string,
+    saveFiles?: boolean
+  ): Promise<TerraformExecutionResult & { historyS3Key?: string }> {
     const streamData = (data: string) => {
       if (onData) onData(data)
     }
@@ -1191,27 +1195,71 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
     try {
       streamData(`Starting destroy for interview ${interviewId}...\n`)
 
-      // Step 1: Scale down ECS service
+      let historyS3Key: string | undefined
+
+      // Step 1: Extract candidate files if requested
+      if (saveFiles && candidateName && challenge) {
+        streamData(`Extracting candidate files for ${candidateName}...\n`)
+        try {
+          const extractionResult =
+            await fileExtractionService.extractAndUploadFiles({
+              interviewId,
+              candidateName,
+              challenge,
+            })
+
+          if (extractionResult.success && extractionResult.s3Key) {
+            historyS3Key = extractionResult.s3Key
+            streamData(`Files saved to S3: ${extractionResult.s3Key}\n`)
+            streamData(`Total files: ${extractionResult.totalFiles || 0}\n`)
+            streamData(
+              `Total size: ${Math.round((extractionResult.totalSizeBytes || 0) / 1024)} KB\n`
+            )
+          } else {
+            streamData(
+              `File extraction failed: ${extractionResult.error || 'Unknown error'}\n`
+            )
+            streamData(`Continuing with interview destruction...\n`)
+          }
+        } catch (error) {
+          streamData(
+            `File extraction error: ${error instanceof Error ? error.message : 'Unknown error'}\n`
+          )
+          streamData(`Continuing with interview destruction...\n`)
+        }
+      } else if (saveFiles) {
+        streamData(
+          `File extraction skipped: missing candidate name or challenge\n`
+        )
+      } else {
+        streamData(`File extraction skipped: disabled for this interview\n`)
+      }
+
+      // Step 2: Scale down ECS service
       streamData(`Looking for running tasks for interview ${interviewId}...\n`)
       await this.scaleDownECSService(interviewId, streamData)
 
-      // Step 2: Prepare workspace for destroy
+      // Step 3: Prepare workspace for destroy
       const { workspaceDir, success: workspaceReady } =
         await this.prepareWorkspaceForDestroy(interviewId, streamData)
 
-      // Step 3: If no workspace found, perform direct cleanup
+      // Step 4: If no workspace found, perform direct cleanup
       if (!workspaceReady) {
-        return await this.performDirectResourceCleanup(interviewId, streamData)
+        const result = await this.performDirectResourceCleanup(
+          interviewId,
+          streamData
+        )
+        return { ...result, historyS3Key }
       }
 
-      // Step 4: Run terraform destroy
+      // Step 5: Run terraform destroy
       const destroyResult = await this.runTerraformDestroy(
         interviewId,
         workspaceDir,
         streamData
       )
 
-      // Step 5: Clean up workspace files
+      // Step 6: Clean up workspace files
       await this.cleanupWorkspaceFiles(
         interviewId,
         workspaceDir,
@@ -1219,7 +1267,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
         streamData
       )
 
-      return destroyResult
+      return { ...destroyResult, historyS3Key }
     } catch (error: unknown) {
       const errorMsg = `Destroy failed: ${
         error instanceof Error ? error.message : 'Unknown error'

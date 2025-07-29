@@ -108,6 +108,27 @@ resource "aws_iam_role_policy" "ecs_task_s3_challenges" {
   })
 }
 
+resource "aws_iam_role_policy" "ecs_task_ssm_execute" {
+  name = "${local.name}-ecs-task-ssm-execute-policy"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 resource "aws_cloudwatch_log_group" "code_server" {
   name              = "/ecs/${local.name}/code-server"
   retention_in_days = 7
@@ -238,6 +259,13 @@ resource "aws_iam_role_policy" "portal_task" {
           "ssm:AddTagsToResource",
           "ssm:DescribeParameters",
           "ssm:ListTagsForResource",
+          "ssm:StartSession",
+          "ssm:TerminateSession",
+          "ssm:ResumeSession",
+          "ssm:SendCommand",
+          "ssm:DescribeInstanceInformation",
+          "ssm:DescribeCommandInvocations",
+          "ssm:GetCommandInvocation",
           "elasticfilesystem:*",
           "ec2:DescribeSubnets",
           "ec2:DescribeVpcs",
@@ -290,7 +318,8 @@ resource "aws_iam_role_policy" "portal_task" {
         Resource = [
           "arn:aws:s3:::${var.terraform_state_bucket}",
           aws_s3_bucket.instance_code.arn,
-          aws_s3_bucket.challenges.arn
+          aws_s3_bucket.challenges.arn,
+          aws_s3_bucket.history.arn
         ]
       },
       {
@@ -305,7 +334,8 @@ resource "aws_iam_role_policy" "portal_task" {
         Resource = [
           "arn:aws:s3:::${var.terraform_state_bucket}/*",
           "${aws_s3_bucket.instance_code.arn}/*",
-          "${aws_s3_bucket.challenges.arn}/*"
+          "${aws_s3_bucket.challenges.arn}/*",
+          "${aws_s3_bucket.history.arn}/*"
         ]
       },
       {

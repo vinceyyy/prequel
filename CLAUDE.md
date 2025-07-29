@@ -63,6 +63,50 @@ npm run test:e2e     # E2E tests only
 npm run test:coverage # Coverage report
 ```
 
+**File Extraction Requirements:**
+
+The file saving feature requires AWS Session Manager plugin for container access:
+
+**For Local Development:**
+```bash
+# Install Session Manager plugin (required for file extraction)
+# macOS (Homebrew)
+brew install --cask session-manager-plugin
+
+# Ubuntu/Debian
+curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
+sudo dpkg -i session-manager-plugin.deb
+
+# Amazon Linux 2
+sudo yum install -y session-manager-plugin
+
+# Verify installation
+session-manager-plugin --version
+```
+
+**For ECS Deployment:**
+The portal Docker image has been updated to include the Session Manager plugin. The installation is handled in `portal/Dockerfile` using RPM extraction for Alpine Linux compatibility:
+
+```dockerfile
+# Install AWS Session Manager plugin (already included in portal/Dockerfile)
+RUN apk add --no-cache wget unzip aws-cli curl rpm2cpio cpio
+RUN curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm" -o "session-manager-plugin.rpm" \
+    && mkdir -p /tmp/ssm \
+    && cd /tmp/ssm \
+    && rpm2cpio ../session-manager-plugin.rpm | cpio -idmv \
+    && cp usr/local/sessionmanagerplugin/bin/session-manager-plugin /usr/local/bin/ \
+    && chmod +x /usr/local/bin/session-manager-plugin \
+    && cd / \
+    && rm -rf /tmp/ssm session-manager-plugin.rpm
+```
+
+**Infrastructure Setup:**
+- ECS task definition has `enable_execute_command = true` for code-server containers
+- Portal ECS task role includes SSM permissions for execute command
+- Interview containers are configured to allow ECS Execute Command
+
+Without the plugin, file extraction will be skipped and interviews will still destroy successfully.
+
 **Infrastructure:**
 
 ```bash

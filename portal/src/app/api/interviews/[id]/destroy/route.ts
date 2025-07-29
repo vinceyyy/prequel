@@ -17,8 +17,32 @@ export async function DELETE(
 
     // Create a ReadableStream for Server-Sent Events
     const stream = new ReadableStream({
-      start(controller) {
+      async start(controller) {
         const encoder = new TextEncoder()
+
+        // Get interview details from the original create operation
+        let candidateName: string | undefined
+        let challenge: string | undefined
+        let saveFiles: boolean | undefined
+
+        try {
+          const operations =
+            await operationManager.getOperationsByInterview(interviewId)
+          const createOperation = operations.find(
+            op => op.type === 'create' && op.status === 'completed'
+          )
+
+          if (createOperation) {
+            candidateName = createOperation.candidateName
+            challenge = createOperation.challenge
+            saveFiles = createOperation.saveFiles
+          }
+        } catch (error) {
+          console.log(
+            'Could not retrieve create operation details for streaming destroy:',
+            error
+          )
+        }
 
         // Send initial metadata
         const initialData = {
@@ -32,22 +56,29 @@ export async function DELETE(
 
         // Start Terraform destroy with streaming
         terraformManager
-          .destroyInterviewStreaming(interviewId, (data: string) => {
-            // Send streaming data
-            const streamData = {
-              type: 'output',
-              data: data,
-            }
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(streamData)}\n\n`)
-            )
-          })
+          .destroyInterviewStreaming(
+            interviewId,
+            (data: string) => {
+              // Send streaming data
+              const streamData = {
+                type: 'output',
+                data: data,
+              }
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify(streamData)}\n\n`)
+              )
+            },
+            candidateName,
+            challenge,
+            saveFiles
+          )
           .then(result => {
             // Send final result
             const finalData = {
               type: 'complete',
               success: result.success,
               error: result.error,
+              historyS3Key: result.historyS3Key,
             }
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify(finalData)}\n\n`)
@@ -102,6 +133,7 @@ export async function POST(
     // Get interview details from the request body for better operation tracking
     let candidateName: string | undefined
     let challenge: string | undefined
+    let saveFiles: boolean | undefined
 
     try {
       const body = await request.json()
@@ -110,6 +142,23 @@ export async function POST(
     } catch {
       // If no body provided, operation will still work but without metadata
       console.log('No interview metadata provided in destroy request')
+    }
+
+    // Try to get interview details from the original create operation
+    try {
+      const operations =
+        await operationManager.getOperationsByInterview(interviewId)
+      const createOperation = operations.find(
+        op => op.type === 'create' && op.status === 'completed'
+      )
+
+      if (createOperation) {
+        candidateName = candidateName || createOperation.candidateName
+        challenge = challenge || createOperation.challenge
+        saveFiles = createOperation.saveFiles // Get saveFiles from create operation
+      }
+    } catch (error) {
+      console.log('Could not retrieve create operation details:', error)
     }
 
     // Cancel any scheduled operations for this interview
@@ -157,7 +206,10 @@ export async function POST(
                 .addOperationLog(operationId, line)
                 .catch(console.error)
             })
-          }
+          },
+          candidateName,
+          challenge,
+          saveFiles
         )
 
         if (result.success) {
@@ -169,6 +221,7 @@ export async function POST(
           await operationManager.setOperationResult(operationId, {
             success: true,
             fullOutput: result.fullOutput,
+            historyS3Key: result.historyS3Key,
           })
         } else {
           await operationManager.addOperationLog(
