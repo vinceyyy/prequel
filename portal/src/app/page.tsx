@@ -472,8 +472,8 @@ export default function Home() {
                   {loading
                     ? 'Creating...'
                     : formData.enableScheduling
-                    ? 'Schedule Interview'
-                    : 'Create Interview'}
+                      ? 'Schedule Interview'
+                      : 'Create Interview'}
                 </button>
                 <button
                   onClick={() => setShowCreateForm(false)}

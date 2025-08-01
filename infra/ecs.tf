@@ -108,6 +108,27 @@ resource "aws_iam_role_policy" "ecs_task_s3_challenges" {
   })
 }
 
+resource "aws_iam_role_policy" "ecs_task_s3_history" {
+  name = "${local.name}-ecs-task-s3-history-policy"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:PutObjectAcl"
+        ]
+        Resource = [
+          "${aws_s3_bucket.history.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy" "ecs_task_ssm_execute" {
   name = "${local.name}-ecs-task-ssm-execute-policy"
   role = aws_iam_role.ecs_task.id

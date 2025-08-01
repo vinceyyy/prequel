@@ -159,7 +159,7 @@ export class FileExtractionService {
         .replace(/\s+/g, ' ')
         .trim()
         .replace(/\s/g, '_')
-      const filesS3Key = `${today}_${sanitizedName}_${interviewId}.zip`
+      const filesS3Key = `${today}_${sanitizedName}_${interviewId}.tar.gz`
 
       // Step 3: Create and execute file extraction script inside container
       const extractionScript = this.generateExtractionScript(
@@ -261,7 +261,14 @@ export class FileExtractionService {
       .map(pattern => {
         // Convert glob patterns to find -path patterns
         const findPattern = pattern.replace(/\*\*/g, '*')
-        return `-not -path "${workspaceDir}/${findPattern}"`
+        // Handle different pattern types
+        if (pattern.includes('/')) {
+          // Path-based pattern - match anywhere in the path
+          return `-not -path "*/${findPattern}"`
+        } else {
+          // Name-based pattern (like *.db)
+          return `-not -name "${findPattern}"`
+        }
       })
       .join(' ')
 
@@ -272,7 +279,7 @@ WORKSPACE_DIR="${workspaceDir}"
 BUCKET_NAME="${bucketName}"
 S3_KEY="${s3Key}"
 MAX_SIZE_MB=${maxFileSizeMB}
-ARCHIVE_PATH="/tmp/workspace-archive.zip"
+ARCHIVE_PATH="/tmp/workspace-archive.tar.gz"
 METADATA_PATH="/tmp/interview.json"
 
 echo "Starting file extraction from \$WORKSPACE_DIR"
@@ -301,12 +308,20 @@ EOF
 
 # Find files to include (applying ignore patterns)
 echo "Scanning for files to archive..."
-FILES=\$(find "\$WORKSPACE_DIR" -type f ${findExclusions} | head -1000)
+echo "Debug: Using ignore patterns: ${findExclusions}"
+echo "Debug: First 10 files found:"
+find "\$WORKSPACE_DIR" -type f | head -10
+echo "Debug: First 10 files after filtering:"
+FILES=\$(find "\$WORKSPACE_DIR" -type f ${findExclusions} | head -200)
+echo "\$FILES" | head -10
 
 if [ -z "\$FILES" ]; then
   echo "No files found to archive"
-  # Create zip with just metadata
-  zip -q "\$ARCHIVE_PATH" -j "\$METADATA_PATH"
+  # Create tar with just metadata at root level
+  cd "\$WORKSPACE_DIR"
+  cp "\$METADATA_PATH" "./interview.json"
+  tar -czf "\$ARCHIVE_PATH" interview.json
+  rm -f "./interview.json"
   FILE_COUNT=0
   TOTAL_SIZE=\$(stat -c %s "\$METADATA_PATH")
 else
@@ -323,12 +338,17 @@ else
     exit 1
   fi
   
-  # Create zip archive with relative paths
+  # Create tar archive with relative paths and metadata
   cd "\$WORKSPACE_DIR"
-  echo "\$FILES" | sed "s|\$WORKSPACE_DIR/||g" | zip -q "\$ARCHIVE_PATH" -@
+  # Copy metadata file to workspace root temporarily
+  cp "\$METADATA_PATH" "./interview.json"
+  # Create file list with relative paths, plus metadata file at root
+  echo "\$FILES" | sed "s|\$WORKSPACE_DIR/||g" > /tmp/files_to_archive.txt
+  echo "interview.json" >> /tmp/files_to_archive.txt
+  tar -czf "\$ARCHIVE_PATH" -T /tmp/files_to_archive.txt
   
-  # Add metadata file to the archive (at root level)
-  zip -q "\$ARCHIVE_PATH" -j "\$METADATA_PATH"
+  # Cleanup temp files
+  rm -f /tmp/files_to_archive.txt "./interview.json"
 fi
 
 # Upload to S3
