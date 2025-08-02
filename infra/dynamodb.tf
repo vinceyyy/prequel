@@ -99,3 +99,86 @@ resource "aws_dynamodb_table" "operations" {
     Description = "Operation state persistence for interview management"
   })
 }
+
+/**
+ * DynamoDB table for storing interview metadata and history.
+ * 
+ * This table serves as the source of truth for interview state, replacing
+ * the inefficient S3-based querying system. It stores both active and
+ * historical interviews with their metadata, status, and file locations.
+ *
+ * Key features:
+ * - Fast queries by status for active vs historical interviews
+ * - TTL for automatic cleanup of old historical records (90 days)
+ * - GSI for efficient queries by candidate name and creation date
+ * - Atomic status updates for real-time tracking
+ */
+
+resource "aws_dynamodb_table" "interviews" {
+  name           = "${local.name}-interviews"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "id"
+  deletion_protection_enabled = false
+
+  # Primary key: Interview ID
+  attribute {
+    name = "id"
+    type = "S"
+  }
+
+  # GSI attributes for querying by status and creation date
+  attribute {
+    name = "status"
+    type = "S"
+  }
+
+  attribute {
+    name = "createdAt"
+    type = "N"
+  }
+
+  # GSI attributes for querying by candidate name
+  attribute {
+    name = "candidateName"
+    type = "S"
+  }
+
+  # Global Secondary Index: Query interviews by status and creation date
+  # Usage: Separate active interviews from historical ones, sort by date
+  global_secondary_index {
+    name            = "status-createdAt-index"
+    hash_key        = "status"
+    range_key       = "createdAt"
+    projection_type = "ALL"
+  }
+
+  # Global Secondary Index: Query interviews by candidate name and creation date
+  # Usage: Find all interviews for a specific candidate, search functionality
+  global_secondary_index {
+    name            = "candidateName-createdAt-index"
+    hash_key        = "candidateName"
+    range_key       = "createdAt"
+    projection_type = "ALL"
+  }
+
+  # TTL configuration - automatically delete historical records after 90 days
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+
+  # Enable point-in-time recovery for data protection
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  # Server-side encryption
+  server_side_encryption {
+    enabled = true
+  }
+
+  tags = merge(local.tags, {
+    Name        = "${local.name}-interviews"
+    Description = "Interview metadata and history storage"
+  })
+}

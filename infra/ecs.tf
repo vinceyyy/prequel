@@ -373,7 +373,9 @@ resource "aws_iam_role_policy" "portal_task" {
         ]
         Resource = [
           aws_dynamodb_table.operations.arn,
-          "${aws_dynamodb_table.operations.arn}/index/*"
+          "${aws_dynamodb_table.operations.arn}/index/*",
+          aws_dynamodb_table.interviews.arn,
+          "${aws_dynamodb_table.interviews.arn}/index/*"
         ]
       }
     ]
@@ -442,6 +444,10 @@ resource "aws_ecs_task_definition" "portal" {
         {
           name  = "OPERATIONS_TABLE_NAME"
           value = aws_dynamodb_table.operations.name
+        },
+        {
+          name  = "INTERVIEWS_TABLE_NAME"
+          value = aws_dynamodb_table.interviews.name
         },
         {
           name  = "LOG_LEVEL"
