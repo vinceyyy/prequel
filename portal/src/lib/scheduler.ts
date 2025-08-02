@@ -206,11 +206,15 @@ export class SchedulerService {
 
         try {
           // Create a new destroy operation for the auto-destroy
+          // Inherit saveFiles from the original operation to ensure file extraction happens
           const destroyOpId = await operationManager.createOperation(
             'destroy',
             operation.interviewId,
             operation.candidateName,
-            operation.challenge
+            operation.challenge,
+            undefined, // scheduledAt
+            undefined, // autoDestroyAt
+            operation.saveFiles // Inherit saveFiles setting from original operation
           )
 
           const destroyOp = await operationManager.getOperation(destroyOpId)
