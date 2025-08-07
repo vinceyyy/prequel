@@ -15,7 +15,8 @@ NC='\033[0m' # No Color
 # Get Lambda function names from Terraform
 EVENT_FILTER_LAMBDA=$(terraform output -json soci_index_generator | jq -r '.event_filter_function_name')
 SOCI_LAMBDA=$(terraform output -json soci_index_generator | jq -r '.soci_lambda_function_name')
-ECR_REPO=$(terraform output -json | jq -r '.code_server_ecr_repository.value.name // "prequel-dev-code-server"')
+# Get ECR repository from terraform output, fallback uses PROJECT_PREFIX-ENVIRONMENT pattern
+ECR_REPO=$(terraform output -json | jq -r '.code_server_ecr_repository.value.name')
 
 if [ "$EVENT_FILTER_LAMBDA" = "null" ] || [ -z "$EVENT_FILTER_LAMBDA" ]; then
 	echo -e "${RED}❌ Could not find event filtering Lambda function name from Terraform output${NC}"

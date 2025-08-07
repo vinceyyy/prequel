@@ -15,7 +15,7 @@ fi
 export $(cat ../../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
 
 AWS_PROFILE=${AWS_PROFILE}
-S3_BUCKET="${PROJECT_PREFIX}-instance"
+S3_BUCKET="${PROJECT_PREFIX}-${ENVIRONMENT:-dev}-instance"
 S3_PATH="s3://${S3_BUCKET}/terraform/"
 LOCAL_PATH="."
 

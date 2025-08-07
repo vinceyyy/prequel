@@ -3,7 +3,7 @@
 set -e
 
 # Set default challenge based on environment variable
-S3_BUCKET=${S3_CHALLENGE_BUCKET:-${PROJECT_PREFIX}-challenge}
+S3_BUCKET=${S3_CHALLENGE_BUCKET:-${PROJECT_PREFIX}-${ENVIRONMENT:-dev}-challenge}
 AWS_REGION=${AWS_REGION:-"us-east-1"}
 WORKSPACE_PATH="/workspaces/${CHALLENGE}"
 

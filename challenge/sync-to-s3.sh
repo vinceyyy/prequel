@@ -10,6 +10,7 @@
 # - AWS_PROFILE: AWS profile to use (optional)
 # - AWS_REGION: AWS region (default: us-east-1n)
 # - PROJECT_PREFIX: Project prefix for bucket naming (default: prequel)
+# - ENVIRONMENT: Environment for bucket naming (default: dev)
 
 set -e
 
@@ -22,7 +23,7 @@ fi
 
 export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
 
-BUCKET_NAME="${PROJECT_PREFIX}-challenge"
+BUCKET_NAME="${PROJECT_PREFIX}-${ENVIRONMENT:-dev}-challenge"
 REGION=${AWS_REGION:-"us-east-1"}
 
 echo "Syncing challenges to S3 bucket: ${BUCKET_NAME}"
