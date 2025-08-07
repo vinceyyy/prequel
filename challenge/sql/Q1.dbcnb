@@ -29,7 +29,7 @@ cells:
     metadata: {}
 metadata:
   conn:
-    id: c1056548d44402db
+    id: 4D6AX19HNazvJmdvsCkjs
     name: questions.duckdb
   database: questions
   schema: main

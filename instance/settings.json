@@ -13,5 +13,6 @@
       "backgroundColor": "#ffcc00",
       "overviewRulerColor": "#ffcc00",
       "fontWeight": "bold"
-    }
+    },
+  "dbcode.ai.inlineCompletion": false,
 }
