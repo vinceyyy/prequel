@@ -588,21 +588,13 @@ export default function Home() {
                               <p className="text-sm text-slate-600 mt-1">
                                 {challenge.description}
                               </p>
-                              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                  {challenge.ecsConfig.cpu} units (
-                                  {challenge.ecsConfig.cpuCores}{' '}
-                                  {challenge.ecsConfig.cpuCores === 1
-                                    ? 'core'
-                                    : 'cores'}
-                                  )
-                                </span>
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  {challenge.ecsConfig.memory} MB RAM
-                                </span>
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                  {challenge.ecsConfig.storage} GB storage
-                                </span>
+                              <div className="mt-2 text-xs text-slate-600">
+                                {challenge.ecsConfig.cpuCores} CPU{' '}
+                                {challenge.ecsConfig.cpuCores === 1
+                                  ? 'core'
+                                  : 'cores'}{' '}
+                                / {challenge.ecsConfig.memory / 1024}GB RAM /{' '}
+                                {challenge.ecsConfig.storage}GB Storage
                               </div>
                               <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
                                 <span>
