@@ -237,12 +237,13 @@ Downloads candidate files saved from a completed interview (only available if `s
 
 - **Success**: `tar.gz` file download with filename `interview_{id}_{candidateName}.tar.gz`
 - **Content-Type**: `application/gzip`
-- **Status Codes**: 
+- **Status Codes**:
   - `200` - File download successful
   - `404` - Interview not found or no saved files available
   - `500` - S3 access error
 
 **Requirements**:
+
 - Interview must exist in DynamoDB
 - Interview must have `historyS3Key` field (files were saved)
 - Files must exist in S3 history bucket

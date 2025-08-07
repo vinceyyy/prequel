@@ -93,7 +93,7 @@ config.infrastructure.ecsCluster // {prefix}-{env}
 
 **Migration from Legacy System**:
 
-- `aws-config.ts` is deprecated but kept for backward compatibility  
+- `aws-config.ts` is deprecated but kept for backward compatibility
 - All new code should use `config.aws.getCredentials()` instead of `getAWSCredentials()`
 - Environment variables are centralized and validated
 - **S3 bucket names**: Now include environment suffix for consistency (`{prefix}-{env}-bucket`)
