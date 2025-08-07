@@ -384,6 +384,41 @@ resource "aws_iam_role_policy" "portal_task" {
   })
 }
 
+# Build and push portal Docker image to ECR
+resource "null_resource" "portal_image_build" {
+  # Trigger rebuild when portal source code or Dockerfile changes
+  triggers = {
+    dockerfile_hash = filesha256("../portal/Dockerfile")
+    package_json_hash = filesha256("../portal/package.json")
+    # Trigger on ECR repository changes
+    ecr_repository_url = aws_ecr_repository.portal.repository_url
+  }
+
+  # Build and push the portal image using the bootstrap script
+  provisioner "local-exec" {
+    command     = "./bootstrap-portal-image.sh"
+    working_dir = path.module
+    
+    environment = {
+      AWS_REGION              = var.aws_region
+      PROJECT_PREFIX          = var.project_prefix
+      ENVIRONMENT            = var.environment
+      TERRAFORM_STATE_BUCKET = var.terraform_state_bucket
+      ECR_REPOSITORY_URL     = aws_ecr_repository.portal.repository_url
+    }
+  }
+
+  # Ensure ECR repository exists before building
+  depends_on = [aws_ecr_repository.portal]
+
+  lifecycle {
+    # Always run when infrastructure changes
+    replace_triggered_by = [
+      aws_ecr_repository.portal.id
+    ]
+  }
+}
+
 resource "aws_ecs_task_definition" "portal" {
   family                   = "${local.name}-portal"
   network_mode             = "awsvpc"
@@ -492,7 +527,10 @@ resource "aws_ecs_service" "portal" {
     container_port   = 3000
   }
 
-  depends_on = [aws_lb_listener.https]
+  depends_on = [
+    aws_lb_listener.https,
+    null_resource.portal_image_build
+  ]
 
   tags = local.tags
 
