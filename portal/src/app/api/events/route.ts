@@ -8,14 +8,14 @@ import { scheduler, type SchedulerEvent } from '@/lib/scheduler'
  * Provides a persistent connection that streams real-time events to clients including:
  * - Connection acknowledgment
  * - Periodic heartbeats (every 30 seconds)
- * - Operation status updates (every 5 seconds for active operations)
+ * - Operation status updates (every 15 seconds for active operations via efficient GSI queries)
  * - Immediate operation state changes
  * - Scheduler events for background processing
  *
  * Event Types:
  * - `connection`: Initial connection acknowledgment
  * - `heartbeat`: Keep-alive ping every 30 seconds
- * - `operation_status`: Periodic status of active/scheduled operations
+ * - `operation_status`: Periodic status of active/scheduled operations (every 15 seconds)
  * - `operation_update`: Immediate updates when operations change state
  * - `scheduler_event`: Background scheduler processing notifications
  *
@@ -51,13 +51,11 @@ export async function GET(request: NextRequest) {
         }
       }, 30000) // Send heartbeat every 30 seconds
 
-      // Set up periodic operation status updates
+      // Set up periodic operation status updates - using efficient GSI queries instead of full table scan
       const statusInterval = setInterval(async () => {
         try {
-          const operations = await operationManager.getAllOperations()
-          const activeOperations = operations.filter(
-            op => op.status === 'running' || op.status === 'scheduled'
-          )
+          // Use efficient GSI queries instead of scanning all operations
+          const activeOperations = await operationManager.getActiveOperations()
 
           if (activeOperations.length > 0) {
             const statusUpdate = JSON.stringify({
@@ -78,7 +76,7 @@ export async function GET(request: NextRequest) {
         } catch (error) {
           console.error('Error sending status update:', error)
         }
-      }, 5000) // Check every 5 seconds
+      }, 15000) // Reduced frequency: Check every 15 seconds instead of 5 seconds
 
       // Listen for scheduler events
       const schedulerEventListener = (event: SchedulerEvent) => {

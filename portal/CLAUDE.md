@@ -44,15 +44,62 @@ portal/src/
 │   ├── useOperations.ts          # Background operations management
 │   └── __tests__/                # Hook unit tests
 └── lib/                          # Core business logic (server-side)
+    ├── config.ts                 # Centralized configuration system (NEW)
+    ├── aws-config.ts             # Legacy AWS config wrapper (deprecated)
     ├── operations.ts             # Operation management + SSE event emission
     ├── scheduler.ts              # Background scheduler service
     ├── terraform.ts              # AWS infrastructure management
+    ├── interviews.ts             # DynamoDB interview management
+    ├── fileExtraction.ts         # File saving and extraction
     └── __mocks__/                # Test mocks for Jest
 ```
 
 ### Key System Components
 
-#### 1. Operations Manager (`src/lib/operations.ts`)
+#### 1. Centralized Configuration System (`src/lib/config.ts`) **NEW**
+
+**Purpose**: Type-safe, centralized management of all environment variables and AWS resource configuration.
+
+**Critical Implementation Details**:
+
+- **AWS Authentication**: Automatically detects local vs ECS deployment and uses appropriate credentials
+- **Resource Naming**: Auto-generates consistent AWS resource names from PROJECT_PREFIX and ENVIRONMENT
+- **Type Safety**: Provides complete TypeScript interfaces for all configuration values
+- **Context Detection**: Distinguishes browser/server, development/production, local/ECS contexts
+
+**Key Configuration Categories**:
+
+```typescript
+import { config } from '@/lib/config'
+
+// AWS configuration with automatic credential handling
+config.aws.getCredentials() // Returns appropriate credentials for context
+config.aws.region // AWS region
+config.aws.deploymentContext // 'ecs' | 'local'
+
+// Auto-generated resource names
+config.database.interviewsTable // {prefix}-{env}-interviews
+config.database.operationsTable // {prefix}-{env}-operations
+config.storage.challengeBucket // {prefix}-challenge
+config.storage.historyBucket // {prefix}-{env}-history
+config.infrastructure.ecsCluster // {prefix}-{env}
+```
+
+**AWS Authentication Strategy**:
+
+- **Local Development**: Uses `fromSSO({ profile: AWS_PROFILE })` for SSO authentication
+- **ECS Deployment**: Uses default IAM task roles (automatic)
+- **Validation**: Checks credential availability and provides clear error messages
+
+**Migration from Legacy System**:
+
+- `aws-config.ts` is deprecated but kept for backward compatibility  
+- All new code should use `config.aws.getCredentials()` instead of `getAWSCredentials()`
+- Environment variables are centralized and validated
+- **S3 bucket names**: Now include environment suffix for consistency (`{prefix}-{env}-bucket`)
+- **Build-time support**: Config handles Docker builds without requiring AWS credentials
+
+#### 2. Operations Manager (`src/lib/operations.ts`)
 
 **Purpose**: Central system for tracking all long-running background operations with SSE event emission.
 
@@ -136,8 +183,9 @@ updateOperationStatus(operationId: string, status: Operation['status']) {
 **Critical Implementation Details**:
 
 - **Operation creation** - starts background interview creation/destruction
-- **Status tracking** - monitors operation progress via API
-- **Integration with SSE** - responds to real-time operation updates
+- **Initial data loading** - loads operations once on mount
+- **No polling** - relies entirely on SSE for real-time updates (polling removed)
+- **Integration with SSE** - main page uses SSE events to trigger operation refreshes
 
 ## Development Guidelines
 

@@ -3,11 +3,9 @@ import { promisify } from 'util'
 import path from 'path'
 import fs from 'fs/promises'
 import { fileExtractionService } from './fileExtraction'
+import { config } from './config'
 
 const execAsync = promisify(exec)
-
-const PROJECT_PREFIX = process.env.PROJECT_PREFIX || 'prequel'
-const ENVIRONMENT = process.env.ENVIRONMENT || 'dev'
 
 /**
  * Result of a Terraform command execution.
@@ -104,18 +102,21 @@ class TerraformManager {
   private readonly terraformStateBucket: string
 
   constructor() {
-    // Determine deployment context and credential strategy
-    // Note: We detect ECS vs local deployment context, not prod vs dev environment
-    // Any environment (dev/staging/prod) can run either locally or in ECS
-    this.isRunningInECS =
-      process.env.AWS_EXECUTION_ENV === 'AWS_ECS_FARGATE' ||
-      process.env.AWS_EXECUTION_ENV === 'AWS_ECS_EC2'
-    this.awsProfile = this.isRunningInECS
-      ? ''
-      : `AWS_PROFILE=${process.env.AWS_PROFILE}`
-    this.awsRegion = process.env.AWS_REGION || 'us-east-1'
-    this.domainName = process.env.DOMAIN_NAME || ''
-    this.terraformStateBucket = process.env.TERRAFORM_STATE_BUCKET || ''
+    // Use centralized configuration system
+    this.isRunningInECS = config.aws.deploymentContext === 'ecs'
+    this.awsProfile = config.aws.profile || ''
+    this.awsRegion = config.aws.region
+    this.domainName = config.project.domainName
+    this.terraformStateBucket = config.storage.terraformStateBucket
+  }
+
+  /**
+   * Gets the AWS CLI prefix for commands.
+   * For local development, returns empty string since AWS_PROFILE env var is set.
+   * For ECS, returns empty string since IAM roles are used.
+   */
+  private getAwsCliPrefix(): string {
+    return ''
   }
 
   /**
@@ -331,7 +332,7 @@ class TerraformManager {
     try {
       // Upload entire workspace directory to S3
       await execAsync(
-        `aws s3 sync "${workspaceDir}" "s3://${PROJECT_PREFIX}-instance/${s3Key}"`,
+        `aws s3 sync "${workspaceDir}" "s3://${config.storage.instanceBucket}/${s3Key}"`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 60000,
@@ -359,14 +360,17 @@ class TerraformManager {
 
     try {
       // Check if workspace exists in S3
-      await execAsync(`aws s3 ls "s3://${PROJECT_PREFIX}-instance/${s3Key}"`, {
-        env: process.env as NodeJS.ProcessEnv,
-        timeout: 30000,
-      })
+      await execAsync(
+        `aws s3 ls "s3://${config.storage.instanceBucket}/${s3Key}"`,
+        {
+          env: process.env as NodeJS.ProcessEnv,
+          timeout: 30000,
+        }
+      )
 
       // Download workspace from S3
       await execAsync(
-        `aws s3 sync "s3://${PROJECT_PREFIX}-instance/${s3Key}" "${workspaceDir}"`,
+        `aws s3 sync "s3://${config.storage.instanceBucket}/${s3Key}" "${workspaceDir}"`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 60000,
@@ -392,7 +396,7 @@ class TerraformManager {
     try {
       // Download template files from S3
       await execAsync(
-        `aws s3 sync "s3://${PROJECT_PREFIX}-instance/terraform/" "${workspaceDir}"`,
+        `aws s3 sync "s3://${config.storage.instanceBucket}/terraform/" "${workspaceDir}"`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 60000,
@@ -738,6 +742,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
           if (accessUrl && onInfrastructureReady) {
             executionLog.push('✅ Infrastructure provisioning completed!')
             streamData('✅ Infrastructure provisioning completed!\n')
+
             onInfrastructureReady(accessUrl)
           }
 
@@ -768,6 +773,8 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
               // Still continue with success but with warning
               // The interview will be marked as active, but logs will show the health check issue
             }
+
+            // Health check complete - service is ready
           }
 
           // Upload updated workspace to S3 after successful apply
@@ -808,6 +815,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
       }`
       executionLog.push(errorMsg)
       streamData(errorMsg + '\n')
+
       return {
         success: false,
         output: '',
@@ -832,13 +840,13 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
 
       streamData(`Scaling down service ${serviceName} to 0...\n`)
       await execAsync(
-        `${this.awsProfile} aws ecs update-service --cluster ${PROJECT_PREFIX}-${ENVIRONMENT} --service ${serviceName} --desired-count 0 --region ${this.awsRegion}`,
+        `${this.getAwsCliPrefix()}aws ecs update-service --cluster ${config.infrastructure.ecsCluster} --service ${serviceName} --desired-count 0 --region ${this.awsRegion}`,
         { timeout: 30000 }
       )
 
       streamData(`Waiting for service tasks to stop...\n`)
       await execAsync(
-        `${this.awsProfile} aws ecs wait services-stable --cluster ${PROJECT_PREFIX}-${ENVIRONMENT} --services ${serviceName} --region ${this.awsRegion}`,
+        `${this.getAwsCliPrefix()}aws ecs wait services-stable --cluster ${config.infrastructure.ecsCluster} --services ${serviceName} --region ${this.awsRegion}`,
         { timeout: 120000 }
       )
 
@@ -924,14 +932,14 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
     // Clean up ECS service
     streamData(`Cleaning up ECS service interview-${interviewId}...\n`)
     await execAsync(
-      `${this.awsProfile} aws ecs delete-service --cluster ${PROJECT_PREFIX}-${ENVIRONMENT} --service interview-${interviewId} --force --region ${this.awsRegion} || true`,
+      `${this.getAwsCliPrefix()}aws ecs delete-service --cluster ${config.infrastructure.ecsCluster} --service interview-${interviewId} --force --region ${this.awsRegion} || true`,
       { timeout: 30000 }
     )
 
     // Clean up target group
     streamData(`Cleaning up target group for interview-${interviewId}...\n`)
     await execAsync(
-      `${this.awsProfile} aws elbv2 delete-target-group --target-group-arn \$(aws elbv2 describe-target-groups --names interview-${interviewId}-tg --query 'TargetGroups[0].TargetGroupArn' --output text --region ${this.awsRegion}) --region ${this.awsRegion} || true`,
+      `${this.getAwsCliPrefix()}aws elbv2 delete-target-group --target-group-arn \$(aws elbv2 describe-target-groups --names interview-${interviewId}-tg --query 'TargetGroups[0].TargetGroupArn' --output text --region ${this.awsRegion}) --region ${this.awsRegion} || true`,
       { timeout: 30000 }
     )
 
@@ -939,7 +947,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
     streamData(`Cleaning up dedicated ALB for interview-${interviewId}...\n`)
     const albName = `interview-${interviewId}-alb`.substring(0, 32)
     await execAsync(
-      `${this.awsProfile} aws elbv2 delete-load-balancer --load-balancer-arn \$(aws elbv2 describe-load-balancers --names ${albName} --query 'LoadBalancers[0].LoadBalancerArn' --output text --region ${this.awsRegion}) --region ${this.awsRegion} || true`,
+      `${this.getAwsCliPrefix()}aws elbv2 delete-load-balancer --load-balancer-arn \$(aws elbv2 describe-load-balancers --names ${albName} --query 'LoadBalancers[0].LoadBalancerArn' --output text --region ${this.awsRegion}) --region ${this.awsRegion} || true`,
       { timeout: 30000 }
     )
 
@@ -948,25 +956,25 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
       `Cleaning up Route53 record for ${interviewId}.${this.domainName}...\n`
     )
     await execAsync(
-      `${this.awsProfile} aws route53 list-resource-record-sets --hosted-zone-id \$(aws route53 list-hosted-zones --query 'HostedZones[?Name==\`${this.domainName}.\`].Id' --output text | cut -d'/' -f3 --region ${this.awsRegion}) --query 'ResourceRecordSets[?Name==\`${interviewId}.${this.domainName}.\`]' --output json --region ${this.awsRegion} | jq -r '.[0] | if . then "{\\"Action\\": \\"DELETE\\", \\"ResourceRecordSet\\": .}" else empty end' | if read change; then aws route53 change-resource-record-sets --hosted-zone-id \$(aws route53 list-hosted-zones --query 'HostedZones[?Name==\`${this.domainName}.\`].Id' --output text | cut -d'/' -f3) --change-batch "{\\"Changes\\": [\$change]}" --region ${this.awsRegion}; fi || true`,
+      `${this.getAwsCliPrefix()}aws route53 list-resource-record-sets --hosted-zone-id \$(aws route53 list-hosted-zones --query 'HostedZones[?Name==\`${this.domainName}.\`].Id' --output text | cut -d'/' -f3 --region ${this.awsRegion}) --query 'ResourceRecordSets[?Name==\`${interviewId}.${this.domainName}.\`]' --output json --region ${this.awsRegion} | jq -r '.[0] | if . then "{\\"Action\\": \\"DELETE\\", \\"ResourceRecordSet\\": .}" else empty end' | if read change; then aws route53 change-resource-record-sets --hosted-zone-id \$(aws route53 list-hosted-zones --query 'HostedZones[?Name==\`${this.domainName}.\`].Id' --output text | cut -d'/' -f3) --change-batch "{\\"Changes\\": [\$change]}" --region ${this.awsRegion}; fi || true`,
       { timeout: 30000 }
     )
 
     // Clean up security groups for the ALB and ECS
     streamData(`Cleaning up security groups for ALB and ECS...\n`)
     await execAsync(
-      `${this.awsProfile} aws ec2 delete-security-group --group-id \$(aws ec2 describe-security-groups --filters "Name=group-name,Values=interview-${interviewId}-ecs" --query 'SecurityGroups[0].GroupId' --output text --region ${this.awsRegion}) --region ${this.awsRegion} || true`,
+      `${this.getAwsCliPrefix()}aws ec2 delete-security-group --group-id \$(aws ec2 describe-security-groups --filters "Name=group-name,Values=interview-${interviewId}-ecs" --query 'SecurityGroups[0].GroupId' --output text --region ${this.awsRegion}) --region ${this.awsRegion} || true`,
       { timeout: 30000 }
     )
     await execAsync(
-      `${this.awsProfile} aws ec2 delete-security-group --group-id \$(aws ec2 describe-security-groups --filters "Name=group-name,Values=interview-${interviewId}-alb" --query 'SecurityGroups[0].GroupId' --output text --region ${this.awsRegion}) --region ${this.awsRegion} || true`,
+      `${this.getAwsCliPrefix()}aws ec2 delete-security-group --group-id \$(aws ec2 describe-security-groups --filters "Name=group-name,Values=interview-${interviewId}-alb" --query 'SecurityGroups[0].GroupId' --output text --region ${this.awsRegion}) --region ${this.awsRegion} || true`,
       { timeout: 30000 }
     )
 
     // Clean up SSM parameter
     streamData(`Cleaning up SSM parameter...\n`)
     await execAsync(
-      `${this.awsProfile} aws ssm delete-parameter --name /${PROJECT_PREFIX}/interviews/${interviewId}/password --region ${this.awsRegion} || true`,
+      `${this.getAwsCliPrefix()}aws ssm delete-parameter --name /${config.project.prefix}/interviews/${interviewId}/password --region ${this.awsRegion} || true`,
       { timeout: 30000 }
     )
 
@@ -1072,7 +1080,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
         `Terraform destroy failed, preserving S3 workspace for retry\n`
       )
       streamData(
-        `S3 workspace preserved at: s3://${PROJECT_PREFIX}-instance/workspaces/${interviewId}/\n`
+        `S3 workspace preserved at: s3://${config.storage.instanceBucket}/workspaces/${interviewId}/\n`
       )
     }
   }
@@ -1094,7 +1102,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
     try {
       // First, check if workspace actually exists to avoid unnecessary deletion attempts
       const listResult = await execAsync(
-        `aws s3 ls "s3://${PROJECT_PREFIX}-instance/${s3Key}"`,
+        `aws s3 ls "s3://${config.storage.instanceBucket}/${s3Key}"`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 30000,
@@ -1114,7 +1122,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
 
       // Delete workspace from S3
       await execAsync(
-        `aws s3 rm "s3://${PROJECT_PREFIX}-instance/${s3Key}" --recursive`,
+        `aws s3 rm "s3://${config.storage.instanceBucket}/${s3Key}" --recursive`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 60000,
@@ -1161,6 +1169,9 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
    *
    * @param interviewId - The interview ID to destroy infrastructure for
    * @param onData - Optional callback for real-time destruction output streaming
+   * @param candidateName - Optional candidate name for file extraction
+   * @param challenge - Optional challenge name for file extraction
+   * @param saveFiles - Optional flag to save candidate files before destruction
    * @returns Promise with destruction result and any error details
    *
    * @example
@@ -1439,7 +1450,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
       // First check if the workspaces directory exists
       try {
         await execAsync(
-          `aws s3 ls s3://${PROJECT_PREFIX}-instance/workspaces/`,
+          `aws s3 ls s3://${config.storage.instanceBucket}/workspaces/`,
           {
             env: process.env as NodeJS.ProcessEnv,
             timeout: 15000,
@@ -1453,7 +1464,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
         // Create the workspaces directory by creating a placeholder file
         try {
           await execAsync(
-            `echo "Workspaces directory for ${PROJECT_PREFIX} interviews" | aws s3 cp - s3://${PROJECT_PREFIX}-instance/workspaces/.directory`,
+            `echo "Workspaces directory for ${config.project.prefix} interviews" | aws s3 cp - s3://${config.storage.instanceBucket}/workspaces/.directory`,
             {
               env: process.env as NodeJS.ProcessEnv,
               timeout: 15000,
@@ -1475,7 +1486,7 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
 
       // List workspaces from S3
       const { stdout } = await execAsync(
-        `aws s3 ls s3://${PROJECT_PREFIX}-instance/workspaces/ --recursive`,
+        `aws s3 ls s3://${config.storage.instanceBucket}/workspaces/ --recursive`,
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 30000,

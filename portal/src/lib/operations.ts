@@ -9,6 +9,7 @@ import {
 } from '@aws-sdk/client-dynamodb'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
 import { operationsLogger } from './logger'
+import { config } from './config'
 
 /**
  * Event emitted when an operation's state changes.
@@ -105,15 +106,12 @@ class OperationManager {
   /**
    * Creates a new OperationManager instance with DynamoDB client.
    *
-   * Environment variables required:
-   * - OPERATIONS_TABLE_NAME: DynamoDB table name for operations storage
-   * - AWS_REGION: AWS region for DynamoDB client (defaults to us-east-1)
+   * Uses centralized configuration system for AWS credentials and table names.
+   * Table name is auto-generated as: {PROJECT_PREFIX}-{ENVIRONMENT}-operations
    */
   constructor() {
-    this.dynamoClient = new DynamoDBClient({
-      region: process.env.AWS_REGION || 'us-east-1',
-    })
-    this.tableName = process.env.OPERATIONS_TABLE_NAME || ''
+    this.dynamoClient = new DynamoDBClient(config.aws.getCredentials())
+    this.tableName = config.database.operationsTable
 
     // Debug logging for server environment
     if (typeof window === 'undefined') {
@@ -329,6 +327,58 @@ class OperationManager {
     const response = await this.dynamoClient.send(
       new ScanCommand({
         TableName: this.tableName,
+      })
+    )
+
+    const operations = (response.Items || [])
+      .map(item => this.dynamoItemToOperation(unmarshall(item)))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+
+    return operations
+  }
+
+  /**
+   * Retrieves active operations (running + scheduled) using efficient GSI queries.
+   * Much more efficient than getAllOperations() when you only need active operations.
+   * Perfect for SSE status updates and real-time monitoring.
+   *
+   * @returns Promise<Operation[]> - Array of active operations (running + scheduled)
+   */
+  async getActiveOperations(): Promise<Operation[]> {
+    const [runningOps, scheduledOps] = await Promise.all([
+      this.getOperationsByStatus('running'),
+      this.getOperationsByStatus('scheduled'),
+    ])
+
+    // Combine and sort by creation time (newest first)
+    const activeOperations = [...runningOps, ...scheduledOps].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    )
+
+    return activeOperations
+  }
+
+  /**
+   * Retrieves operations by status using GSI query (much more efficient than scan).
+   * Uses the 'status-scheduledAt-index' GSI for efficient querying.
+   *
+   * @param status - The operation status to query for
+   * @returns Promise<Operation[]> - Array of operations with the specified status
+   */
+  private async getOperationsByStatus(
+    status: Operation['status']
+  ): Promise<Operation[]> {
+    const response = await this.dynamoClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'status-scheduledAt-index',
+        KeyConditionExpression: '#status = :status',
+        ExpressionAttributeNames: {
+          '#status': 'status',
+        },
+        ExpressionAttributeValues: marshall({
+          ':status': status,
+        }),
       })
     )
 

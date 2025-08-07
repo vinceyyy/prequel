@@ -108,23 +108,8 @@ export function useOperations(interviewId?: string) {
     loadOperations()
   }, [loadOperations])
 
-  // Only poll when there are running or pending operations
-  useEffect(() => {
-    const hasActiveOperations = operations.some(
-      op => op.status === 'running' || op.status === 'pending'
-    )
-
-    if (hasActiveOperations) {
-      console.log(
-        '[DEBUG] useOperations: Active operations detected, starting polling...'
-      )
-      const interval = setInterval(loadOperations, 3000)
-      return () => {
-        console.log('[DEBUG] useOperations: Stopping polling')
-        clearInterval(interval)
-      }
-    }
-  }, [operations, loadOperations])
+  // NOTE: No polling needed - SSE provides real-time updates via useSSE hook
+  // The main page uses SSE events to trigger refreshes when operations complete
 
   return {
     operations,

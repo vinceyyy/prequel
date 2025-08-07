@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { terraformManager } from '@/lib/terraform'
+import { interviewManager } from '@/lib/interviews'
 import { operationManager } from '@/lib/operations'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
           `Challenge: ${challenge}`
         )
 
-        const result = await terraformManager.createInterviewStreaming(
+        const result = await interviewManager.createInterviewWithInfrastructure(
           instance,
           (data: string) => {
             // Add each line to operation logs
@@ -209,7 +209,10 @@ export async function POST(request: NextRequest) {
                 '🔧 Infrastructure ready, ECS service starting up...'
               )
               .catch(console.error)
-          }
+          },
+          scheduledDate,
+          autoDestroyDate,
+          saveFiles
         )
 
         if (result.success) {

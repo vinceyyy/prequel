@@ -27,15 +27,22 @@ The portal provides a complete web-based management interface for conducting cod
    ```bash
    aws configure sso --profile <AWS_PROFILE>
    aws sso login --profile <AWS_PROFILE>
-   export AWS_PROFILE=<AWS_PROFILE>
    ```
 
 3. **Setup Environment**:
 
    ```bash
    cp .env.example .env.local
-   # .env.local is pre-configured for development
+   # Edit .env.local with your specific configuration:
+   # AWS_PROFILE=your-profile        # Must match your SSO profile
+   # PROJECT_PREFIX=your-prefix      # Must match deployed infrastructure
+   # ENVIRONMENT=dev                 # Must match deployed infrastructure
    ```
+
+   **⚠️ Critical**: The portal uses a **centralized configuration system** (`src/lib/config.ts`) for all AWS resources. Your local environment must match your deployed infrastructure:
+   - **DynamoDB Tables**: `{PROJECT_PREFIX}-{ENVIRONMENT}-interviews`, `{PROJECT_PREFIX}-{ENVIRONMENT}-operations`
+   - **S3 Buckets**: `{PROJECT_PREFIX}-{ENVIRONMENT}-challenge`, `{PROJECT_PREFIX}-{ENVIRONMENT}-instance`, `{PROJECT_PREFIX}-{ENVIRONMENT}-history`
+   - **ECS Cluster**: `{PROJECT_PREFIX}-{ENVIRONMENT}`
 
 4. **Start Development**:
    ```bash
@@ -107,9 +114,13 @@ src/
 │   ├── useOperations.ts  # Background operations hook
 │   └── __tests__/        # Hook tests
 └── lib/                   # Core business logic
+    ├── config.ts          # Centralized configuration system with environment-aware naming
+    ├── aws-config.ts      # Legacy AWS config wrapper (deprecated)
     ├── operations.ts      # Operation management with SSE events
     ├── scheduler.ts       # Background scheduler service
     ├── terraform.ts      # AWS infrastructure management
+    ├── interviews.ts      # DynamoDB interview management
+    ├── fileExtraction.ts  # File saving and extraction
     └── __mocks__/         # Test mocks
 
 e2e/                       # End-to-end tests
@@ -213,6 +224,28 @@ POST /api/interviews/{id}/destroy
   "message": "Interview destruction started in background"
 }
 ```
+
+#### Download Interview Files
+
+```http
+GET /api/interviews/{id}/files
+```
+
+Downloads candidate files saved from a completed interview (only available if `saveFiles` was enabled during destruction).
+
+**Response**:
+
+- **Success**: `tar.gz` file download with filename `interview_{id}_{candidateName}.tar.gz`
+- **Content-Type**: `application/gzip`
+- **Status Codes**: 
+  - `200` - File download successful
+  - `404` - Interview not found or no saved files available
+  - `500` - S3 access error
+
+**Requirements**:
+- Interview must exist in DynamoDB
+- Interview must have `historyS3Key` field (files were saved)
+- Files must exist in S3 history bucket
 
 ### Operations API
 

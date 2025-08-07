@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server'
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { config } from '@/lib/config'
 
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
-})
-
-const PROJECT_PREFIX = process.env.PROJECT_PREFIX || 'prequel'
-const BUCKET_NAME = `${PROJECT_PREFIX}-challenge`
+const s3Client = new S3Client(config.aws.getCredentials())
+const BUCKET_NAME = config.storage.challengeBucket
 
 interface ChallengeInfo {
   id: string

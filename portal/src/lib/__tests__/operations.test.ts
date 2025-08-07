@@ -2,8 +2,12 @@ import { operationManager } from '../operations'
 
 describe('OperationManager', () => {
   beforeEach(() => {
-    // Clear operations before each test
-    operationManager['operations'].clear()
+    // Clear operations before each test (only for in-memory operations)
+    try {
+      operationManager['operations']?.clear()
+    } catch {
+      // Ignore if operations is not available (for DynamoDB-only tests)
+    }
   })
 
   describe('cancelScheduledOperationsForInterview', () => {
@@ -132,6 +136,120 @@ describe('OperationManager', () => {
         'cancelled'
       )
       expect(operationManager.getOperation(pendingOpId)?.status).toBe('running') // should be unchanged
+    })
+  })
+
+  describe('getActiveOperations', () => {
+    it('should return only running and scheduled operations', async () => {
+      // Mock DynamoDB client to avoid actual DB calls in unit tests
+      const mockSend = jest.fn()
+
+      // Store original client to restore later
+      const originalClient = (
+        operationManager as unknown as { dynamoClient: unknown }
+      ).dynamoClient
+      ;(
+        operationManager as unknown as { dynamoClient: { send: jest.Mock } }
+      ).dynamoClient = { send: mockSend }
+
+      // Mock responses for running and scheduled operations
+      mockSend
+        .mockResolvedValueOnce({
+          // Response for getOperationsByStatus('running')
+          Items: [
+            {
+              id: { S: 'op-running-1' },
+              type: { S: 'create' },
+              status: { S: 'running' },
+              interviewId: { S: 'int-1' },
+              candidateName: { S: 'Running Candidate' },
+              createdAt: { N: '1640995200' }, // 2022-01-01 timestamp
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          // Response for getOperationsByStatus('scheduled')
+          Items: [
+            {
+              id: { S: 'op-scheduled-1' },
+              type: { S: 'create' },
+              status: { S: 'scheduled' },
+              interviewId: { S: 'int-2' },
+              candidateName: { S: 'Scheduled Candidate' },
+              createdAt: { N: '1640995300' }, // 2022-01-01 timestamp
+            },
+          ],
+        })
+
+      const activeOperations = await operationManager.getActiveOperations()
+
+      expect(activeOperations).toHaveLength(2)
+      expect(activeOperations[0]).toMatchObject({
+        id: 'op-scheduled-1',
+        status: 'scheduled',
+        candidateName: 'Scheduled Candidate',
+      })
+      expect(activeOperations[1]).toMatchObject({
+        id: 'op-running-1',
+        status: 'running',
+        candidateName: 'Running Candidate',
+      })
+
+      // Verify the correct GSI queries were made
+      expect(mockSend).toHaveBeenCalledTimes(2)
+      expect(mockSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          input: expect.objectContaining({
+            IndexName: 'status-scheduledAt-index',
+            KeyConditionExpression: '#status = :status',
+            ExpressionAttributeValues: expect.objectContaining({
+              ':status': { S: 'running' },
+            }),
+          }),
+        })
+      )
+      expect(mockSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          input: expect.objectContaining({
+            IndexName: 'status-scheduledAt-index',
+            KeyConditionExpression: '#status = :status',
+            ExpressionAttributeValues: expect.objectContaining({
+              ':status': { S: 'scheduled' },
+            }),
+          }),
+        })
+      )
+
+      // Restore original client
+      ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient =
+        originalClient
+    })
+
+    it('should return empty array when no active operations exist', async () => {
+      // Mock DynamoDB client
+      const mockSend = jest.fn()
+
+      // Store original client to restore later
+      const originalClient = (
+        operationManager as unknown as { dynamoClient: unknown }
+      ).dynamoClient
+      ;(
+        operationManager as unknown as { dynamoClient: { send: jest.Mock } }
+      ).dynamoClient = { send: mockSend }
+
+      // Mock empty responses
+      mockSend
+        .mockResolvedValueOnce({ Items: [] }) // running operations
+        .mockResolvedValueOnce({ Items: [] }) // scheduled operations
+
+      const activeOperations = await operationManager.getActiveOperations()
+
+      expect(activeOperations).toHaveLength(0)
+      expect(mockSend).toHaveBeenCalledTimes(2)
+
+      // Restore original client
+      ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient =
+        originalClient
     })
   })
 })

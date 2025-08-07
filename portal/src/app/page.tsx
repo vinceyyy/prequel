@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
 import AuthStatus from '@/components/AuthStatus'
 import { useOperations } from '@/hooks/useOperations'
@@ -23,13 +23,23 @@ interface Interview {
   createdAt: string
   scheduledAt?: string
   autoDestroyAt?: string
+  completedAt?: string
+  destroyedAt?: string
+  historyS3Key?: string
+  saveFiles?: boolean
 }
 
 export default function Home() {
   const [interviews, setInterviews] = useState<Interview[]>([])
+  const [historicalInterviews, setHistoricalInterviews] = useState<Interview[]>(
+    []
+  )
+  const [activeTab, setActiveTab] = useState<'current' | 'history'>('current')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const historyLoadingRef = useRef(false)
   const [showLogsModal, setShowLogsModal] = useState(false)
   const [selectedInterviewForLogs, setSelectedInterviewForLogs] = useState<
     string | null
@@ -79,7 +89,7 @@ export default function Home() {
       if (response.ok) {
         const data = await response.json()
         console.log(
-          '[DEBUG] Loaded interviews from API:',
+          '[DEBUG] Loaded current interviews from API:',
           data.interviews?.map((i: Interview) => ({
             id: i.id,
             status: i.status,
@@ -88,21 +98,12 @@ export default function Home() {
         )
 
         const newInterviews = data.interviews || []
-        console.log(
-          '[DEBUG] Setting new interviews state:',
-          newInterviews.map((i: Interview) => ({
-            id: i.id,
-            status: i.status,
-            candidateName: i.candidateName,
-          }))
-        )
-
         setInterviews(newInterviews)
       } else {
-        console.error('Failed to load interviews')
+        console.error('Failed to load current interviews')
       }
     } catch (error) {
-      console.error('Error loading interviews:', error)
+      console.error('Error loading current interviews:', error)
     } finally {
       // Set initial loading to false after first load
       if (initialLoading) {
@@ -110,6 +111,33 @@ export default function Home() {
       }
     }
   }, [initialLoading])
+
+  const loadHistoricalInterviews = useCallback(async () => {
+    if (historyLoadingRef.current) return // Prevent duplicate calls
+
+    historyLoadingRef.current = true
+    setHistoryLoading(true)
+    try {
+      const response = await fetch('/api/interviews/history?limit=50')
+      if (response.ok) {
+        const data = await response.json()
+        console.log(
+          '[DEBUG] Loaded historical interviews from API:',
+          data.interviews?.length || 0,
+          'interviews'
+        )
+
+        setHistoricalInterviews(data.interviews || [])
+      } else {
+        console.error('Failed to load historical interviews')
+      }
+    } catch (error) {
+      console.error('Error loading historical interviews:', error)
+    } finally {
+      historyLoadingRef.current = false
+      setHistoryLoading(false)
+    }
+  }, []) // Empty dependency array - function is stable
 
   // Step 1: One-off request when user first loads the page, blocking until response
   useEffect(() => {
@@ -119,6 +147,13 @@ export default function Home() {
     loadInterviews()
     loadChallenges()
   }, [loadInterviews, loadChallenges])
+
+  // Load historical interviews when history tab is activated
+  useEffect(() => {
+    if (activeTab === 'history' && historicalInterviews.length === 0) {
+      loadHistoricalInterviews()
+    }
+  }, [activeTab, historicalInterviews.length, loadHistoricalInterviews])
 
   // Listen for SSE events to refresh data
   useEffect(() => {
@@ -292,25 +327,72 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="mb-6 flex flex-wrap gap-3 items-center">
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="btn-primary"
-          >
-            Create New Interview
-          </button>
-          <button onClick={loadInterviews} className="btn-secondary">
-            Refresh
-          </button>
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-2 h-2 rounded-full ${
-                sseConnected ? 'bg-green-500' : 'bg-red-500'
-              }`}
-            ></div>
-            <span className="text-sm text-slate-600">
-              {sseConnected ? 'Live updates' : 'Offline'}
-            </span>
+        <div className="mb-6 flex flex-wrap gap-3 items-center justify-between">
+          <div className="flex flex-wrap gap-3 items-center">
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="btn-primary"
+            >
+              Create New Interview
+            </button>
+            <button
+              onClick={
+                activeTab === 'current'
+                  ? loadInterviews
+                  : loadHistoricalInterviews
+              }
+              className="btn-secondary"
+            >
+              Refresh
+            </button>
+            <div className="flex items-center space-x-2">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  sseConnected ? 'bg-green-500' : 'bg-red-500'
+                }`}
+              ></div>
+              <span className="text-sm text-slate-600">
+                {sseConnected ? 'Live updates' : 'Offline'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="mb-6">
+          <div className="border-b border-slate-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('current')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === 'current'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                Current Interviews
+                {interviews.length > 0 && (
+                  <span className="ml-2 bg-blue-100 text-blue-600 text-xs px-2 py-1 rounded-full">
+                    {interviews.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === 'history'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                Interview History
+                {historicalInterviews.length > 0 && (
+                  <span className="ml-2 bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded-full">
+                    {historicalInterviews.length}
+                  </span>
+                )}
+              </button>
+            </nav>
           </div>
         </div>
 
@@ -472,8 +554,8 @@ export default function Home() {
                   {loading
                     ? 'Creating...'
                     : formData.enableScheduling
-                      ? 'Schedule Interview'
-                      : 'Create Interview'}
+                    ? 'Schedule Interview'
+                    : 'Create Interview'}
                 </button>
                 <button
                   onClick={() => setShowCreateForm(false)}
@@ -486,220 +568,376 @@ export default function Home() {
           </div>
         )}
 
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Candidate
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Challenge
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Schedule
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Access Details
-                  </th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
-                {initialLoading ? (
+        {/* Current Interviews Tab */}
+        {activeTab === 'current' && (
+          <div className="card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-slate-50">
                   <tr>
-                    <td
-                      colSpan={6}
-                      className="px-3 sm:px-6 py-4 text-center text-slate-500"
-                    >
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                        <span>Loading interviews...</span>
-                      </div>
-                    </td>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Candidate
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Challenge
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Schedule
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Access Details
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ) : interviews.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-3 sm:px-6 py-4 text-center text-slate-500"
-                    >
-                      No interviews created yet
-                    </td>
-                  </tr>
-                ) : (
-                  interviews.map(interview => (
-                    <tr key={interview.id}>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-slate-900">
-                          {interview.candidateName}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                          {new Date(interview.createdAt).toLocaleDateString()}
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {initialLoading ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-3 sm:px-6 py-4 text-center text-slate-500"
+                      >
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                          <span>Loading current interviews...</span>
                         </div>
                       </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                        {
-                          challenges.find(c => c.id === interview.challenge)
-                            ?.name
-                        }
+                    </tr>
+                  ) : interviews.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-3 sm:px-6 py-4 text-center text-slate-500"
+                      >
+                        No current interviews
                       </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <span
-                            className={`status-badge status-${interview.status}`}
-                          >
-                            {interview.status}
-                          </span>
-                          {interview.status === 'error' && (
-                            <div className="text-xs text-red-600 mt-1">
-                              Resources may need cleanup
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                        {interview.status === 'scheduled' &&
-                        interview.scheduledAt ? (
-                          <div className="space-y-2">
-                            <div className="bg-purple-50 p-2 rounded-md border border-purple-200">
-                              <div className="text-xs font-medium text-purple-700">
-                                Starts:
-                              </div>
-                              <div className="text-sm font-semibold text-purple-900">
-                                {new Date(
-                                  interview.scheduledAt
-                                ).toLocaleString()}
-                              </div>
-                            </div>
-                            {interview.autoDestroyAt && (
-                              <div className="bg-red-50 p-2 rounded-md border border-red-200">
-                                <div className="text-xs font-medium text-red-700">
-                                  Auto-destroy:
-                                </div>
-                                <div className="text-sm font-semibold text-red-900">
-                                  {new Date(
-                                    interview.autoDestroyAt
-                                  ).toLocaleString()}
-                                </div>
+                    </tr>
+                  ) : (
+                    interviews.map(interview => (
+                      <tr key={interview.id}>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-slate-900">
+                            {interview.candidateName}
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            {new Date(interview.createdAt).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                          {
+                            challenges.find(c => c.id === interview.challenge)
+                              ?.name
+                          }
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <span
+                              className={`status-badge status-${interview.status}`}
+                            >
+                              {interview.status}
+                            </span>
+                            {interview.status === 'error' && (
+                              <div className="text-xs text-red-600 mt-1">
+                                Resources may need cleanup
                               </div>
                             )}
                           </div>
-                        ) : (
-                          <div>
-                            {interview.scheduledAt && (
-                              <div className="mb-1">
-                                <div className="text-xs text-slate-500">
-                                  Started:
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                          {interview.status === 'scheduled' &&
+                          interview.scheduledAt ? (
+                            <div className="space-y-2">
+                              <div className="bg-purple-50 p-2 rounded-md border border-purple-200">
+                                <div className="text-xs font-medium text-purple-700">
+                                  Starts:
                                 </div>
-                                <div className="text-sm">
+                                <div className="text-sm font-semibold text-purple-900">
                                   {new Date(
                                     interview.scheduledAt
                                   ).toLocaleString()}
                                 </div>
                               </div>
-                            )}
-                            {interview.autoDestroyAt && (
-                              <div className="bg-amber-50 p-1 rounded-md border border-amber-200">
-                                <div className="text-xs text-amber-700">
-                                  Auto-destroy:
+                              {interview.autoDestroyAt && (
+                                <div className="bg-red-50 p-2 rounded-md border border-red-200">
+                                  <div className="text-xs font-medium text-red-700">
+                                    Auto-destroy:
+                                  </div>
+                                  <div className="text-sm font-semibold text-red-900">
+                                    {new Date(
+                                      interview.autoDestroyAt
+                                    ).toLocaleString()}
+                                  </div>
                                 </div>
-                                <div className="text-xs font-medium text-amber-900">
-                                  {new Date(
-                                    interview.autoDestroyAt
-                                  ).toLocaleString()}
-                                </div>
-                              </div>
-                            )}
-                            {!interview.scheduledAt &&
-                              !interview.autoDestroyAt && (
-                                <span className="text-slate-400">
-                                  Immediate
-                                </span>
                               )}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 sm:px-6 py-4 text-sm text-slate-900">
-                        {interview.accessUrl ? (
-                          <div className="max-w-xs">
-                            <a
-                              className="text-blue-600 underline cursor-pointer break-all hover:text-blue-700 transition-colors"
-                              href={interview.accessUrl}
-                              target="_blank"
-                            >
-                              {interview.accessUrl}
-                            </a>
-                            <div className="text-slate-500 break-all">
-                              Password: {interview.password}
                             </div>
+                          ) : (
+                            <div>
+                              {interview.scheduledAt && (
+                                <div className="mb-1">
+                                  <div className="text-xs text-slate-500">
+                                    Started:
+                                  </div>
+                                  <div className="text-sm">
+                                    {new Date(
+                                      interview.scheduledAt
+                                    ).toLocaleString()}
+                                  </div>
+                                </div>
+                              )}
+                              {interview.autoDestroyAt && (
+                                <div className="bg-amber-50 p-1 rounded-md border border-amber-200">
+                                  <div className="text-xs text-amber-700">
+                                    Auto-destroy:
+                                  </div>
+                                  <div className="text-xs font-medium text-amber-900">
+                                    {new Date(
+                                      interview.autoDestroyAt
+                                    ).toLocaleString()}
+                                  </div>
+                                </div>
+                              )}
+                              {!interview.scheduledAt &&
+                                !interview.autoDestroyAt && (
+                                  <span className="text-slate-400">
+                                    Immediate
+                                  </span>
+                                )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 text-sm text-slate-900">
+                          {interview.accessUrl ? (
+                            <div className="max-w-xs">
+                              <a
+                                className="text-blue-600 underline cursor-pointer break-all hover:text-blue-700 transition-colors"
+                                href={interview.accessUrl}
+                                target="_blank"
+                              >
+                                {interview.accessUrl}
+                              </a>
+                              <div className="text-slate-500 break-all">
+                                Password: {interview.password}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">Not started</span>
+                          )}
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 text-sm font-medium">
+                          <div className="flex flex-wrap gap-2 items-center">
+                            {interview.status === 'active' && (
+                              <button
+                                onClick={() => stopInterview(interview.id)}
+                                className="btn-danger text-sm"
+                              >
+                                Stop & Destroy
+                              </button>
+                            )}
+                            {interview.status === 'scheduled' && (
+                              <span className="text-purple-600 font-medium">
+                                Scheduled...
+                              </span>
+                            )}
+                            {interview.status === 'initializing' && (
+                              <span className="text-blue-600 font-medium">
+                                Initializing...
+                              </span>
+                            )}
+                            {interview.status === 'configuring' && (
+                              <span className="text-amber-600 font-medium">
+                                Configuring...
+                              </span>
+                            )}
+                            {interview.status === 'destroying' && (
+                              <span className="text-orange-600 font-medium">
+                                Destroying...
+                              </span>
+                            )}
+                            {interview.status === 'error' && (
+                              <button
+                                onClick={() => stopInterview(interview.id)}
+                                className="btn-danger text-sm px-3 py-1"
+                              >
+                                Retry Destroy
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                setSelectedInterviewForLogs(interview.id)
+                                setShowLogsModal(true)
+                              }}
+                              className="btn-primary text-sm px-3 py-1"
+                            >
+                              Logs
+                            </button>
                           </div>
-                        ) : (
-                          <span className="text-slate-400">Not started</span>
-                        )}
-                      </td>
-                      <td className="px-3 sm:px-6 py-4 text-sm font-medium">
-                        <div className="flex flex-wrap gap-2 items-center">
-                          {interview.status === 'active' && (
-                            <button
-                              onClick={() => stopInterview(interview.id)}
-                              className="btn-danger text-sm px-3 py-1"
-                            >
-                              Stop & Destroy
-                            </button>
-                          )}
-                          {interview.status === 'scheduled' && (
-                            <span className="text-purple-600 font-medium">
-                              Scheduled...
-                            </span>
-                          )}
-                          {interview.status === 'initializing' && (
-                            <span className="text-blue-600 font-medium">
-                              Initializing...
-                            </span>
-                          )}
-                          {interview.status === 'configuring' && (
-                            <span className="text-amber-600 font-medium">
-                              Configuring...
-                            </span>
-                          )}
-                          {interview.status === 'destroying' && (
-                            <span className="text-orange-600 font-medium">
-                              Destroying...
-                            </span>
-                          )}
-                          {interview.status === 'error' && (
-                            <button
-                              onClick={() => stopInterview(interview.id)}
-                              className="btn-danger text-sm px-3 py-1"
-                            >
-                              Retry Destroy
-                            </button>
-                          )}
-                          <button
-                            onClick={() => {
-                              setSelectedInterviewForLogs(interview.id)
-                              setShowLogsModal(true)
-                            }}
-                            className="btn-primary text-sm px-3 py-1"
-                          >
-                            Logs
-                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Historical Interviews Tab */}
+        {activeTab === 'history' && (
+          <div className="card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Candidate
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Challenge
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Duration
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Completed
+                    </th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {historyLoading ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-3 sm:px-6 py-4 text-center text-slate-500"
+                      >
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                          <span>Loading interview history...</span>
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : historicalInterviews.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-3 sm:px-6 py-4 text-center text-slate-500"
+                      >
+                        No historical interviews found
+                      </td>
+                    </tr>
+                  ) : (
+                    historicalInterviews.map(interview => (
+                      <tr key={interview.id}>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-slate-900">
+                            {interview.candidateName}
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            {new Date(interview.createdAt).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                          {challenges.find(c => c.id === interview.challenge)
+                            ?.name || interview.challenge}
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`status-badge ${
+                              interview.status === 'destroyed'
+                                ? 'bg-green-100 text-green-800'
+                                : 'status-error'
+                            }`}
+                          >
+                            {interview.status === 'destroyed'
+                              ? 'completed'
+                              : interview.status}
+                          </span>
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                          {interview.createdAt && interview.destroyedAt ? (
+                            <div>
+                              {Math.round(
+                                (new Date(interview.destroyedAt).getTime() -
+                                  new Date(interview.createdAt).getTime()) /
+                                  (1000 * 60)
+                              )}{' '}
+                              minutes
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                          {interview.destroyedAt ? (
+                            <div>
+                              <div className="font-medium">
+                                {new Date(
+                                  interview.destroyedAt
+                                ).toLocaleDateString()}
+                              </div>
+                              <div className="text-slate-500">
+                                {new Date(
+                                  interview.destroyedAt
+                                ).toLocaleTimeString()}
+                              </div>
+                            </div>
+                          ) : interview.completedAt ? (
+                            <div>
+                              <div className="font-medium">
+                                {new Date(
+                                  interview.completedAt
+                                ).toLocaleDateString()}
+                              </div>
+                              <div className="text-slate-500">
+                                {new Date(
+                                  interview.completedAt
+                                ).toLocaleTimeString()}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 text-sm font-medium">
+                          <div className="flex flex-wrap gap-2 items-center">
+                            {interview.historyS3Key && (
+                              <a
+                                href={`/api/interviews/${interview.id}/files`}
+                                download
+                                className="btn-secondary text-sm px-3 py-1"
+                              >
+                                Download Files
+                              </a>
+                            )}
+                            <button
+                              onClick={() => {
+                                setSelectedInterviewForLogs(interview.id)
+                                setShowLogsModal(true)
+                              }}
+                              className="btn-primary text-sm px-3 py-1"
+                            >
+                              Logs
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Logs Modal */}
         {showLogsModal && (

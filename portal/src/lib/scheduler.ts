@@ -1,5 +1,5 @@
 import { operationManager } from './operations'
-import { terraformManager } from './terraform'
+import { interviewManager } from './interviews'
 import { schedulerLogger } from './logger'
 
 /**
@@ -182,10 +182,39 @@ export class SchedulerService {
    * Creates destroy operations for expired interviews to prevent resource waste.
    * Called every 30 seconds to check for expired interviews.
    *
-   * Uses DynamoDB GSI queries for efficient lookup of operations eligible for auto-destroy.
-   * Includes built-in duplicate prevention to avoid creating multiple destroy operations.
+   * **Dual-source Auto-destroy Strategy:**
+   * 1. Check operations table for operations-based auto-destroy (legacy)
+   * 2. Check DynamoDB interviews table for interview-based auto-destroy (new)
+   *
+   * This ensures comprehensive coverage during the transition period and prevents
+   * resource leaks from either source.
    */
   private async processAutoDestroyOperations() {
+    try {
+      // Process operations-based auto-destroy (legacy approach)
+      await this.processOperationsAutoDestroy()
+
+      // Process DynamoDB interviews auto-destroy (new approach)
+      await this.processInterviewsAutoDestroy()
+    } catch (error) {
+      // Handle DynamoDB throttling gracefully
+      if (error instanceof Error && error.name === 'ThrottlingException') {
+        schedulerLogger.warn(
+          'DynamoDB throttling during auto-destroy check - will retry next cycle'
+        )
+      } else {
+        schedulerLogger.error('Error in processAutoDestroyOperations', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
+    }
+  }
+
+  /**
+   * Processes operations-based auto-destroy (legacy approach).
+   * Looks for completed create operations that have reached their auto-destroy timeout.
+   */
+  private async processOperationsAutoDestroy() {
     try {
       const autoDestroyOps =
         await operationManager.getOperationsForAutoDestroy()
@@ -197,7 +226,7 @@ export class SchedulerService {
       }
 
       for (const operation of autoDestroyOps) {
-        schedulerLogger.info('Auto-destroying interview', {
+        schedulerLogger.info('Auto-destroying interview (via operations)', {
           interviewId: operation.interviewId,
           operationId: operation.id,
           candidateName: operation.candidateName,
@@ -235,24 +264,115 @@ export class SchedulerService {
             originalOperationId: operation.id,
           })
         } catch (error) {
-          schedulerLogger.error('Error auto-destroying interview', {
-            interviewId: operation.interviewId,
-            operationId: operation.id,
+          schedulerLogger.error(
+            'Error auto-destroying interview (operations)',
+            {
+              interviewId: operation.interviewId,
+              operationId: operation.id,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            }
+          )
+        }
+      }
+    } catch (error) {
+      schedulerLogger.error('Error in processOperationsAutoDestroy', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }
+
+  /**
+   * Processes DynamoDB interviews auto-destroy (new approach).
+   * Looks for active interviews that have reached their auto-destroy timeout.
+   */
+  private async processInterviewsAutoDestroy() {
+    try {
+      // Get active interviews from DynamoDB
+      const activeInterviews = await interviewManager.getActiveInterviews()
+      const now = new Date()
+
+      // Filter interviews that need auto-destroy
+      const expiredInterviews = activeInterviews.filter(
+        interview =>
+          interview.autoDestroyAt &&
+          interview.autoDestroyAt <= now &&
+          interview.status === 'active' // Only destroy active interviews
+      )
+
+      if (expiredInterviews.length > 0) {
+        schedulerLogger.debug(
+          `Found ${expiredInterviews.length} interviews eligible for auto-destroy from DynamoDB`
+        )
+      }
+
+      for (const interview of expiredInterviews) {
+        // Check if there's already a destroy operation in progress for this interview
+        const operations = await operationManager.getOperationsByInterview(
+          interview.id
+        )
+        const hasActiveDestroy = operations.some(
+          op =>
+            op.type === 'destroy' &&
+            (op.status === 'pending' || op.status === 'running')
+        )
+
+        if (hasActiveDestroy) {
+          schedulerLogger.debug(
+            'Skipping auto-destroy - destroy already in progress',
+            {
+              interviewId: interview.id,
+              candidateName: interview.candidateName,
+            }
+          )
+          continue
+        }
+
+        schedulerLogger.info('Auto-destroying interview (via DynamoDB)', {
+          interviewId: interview.id,
+          candidateName: interview.candidateName,
+          autoDestroyAt: interview.autoDestroyAt?.toISOString(),
+        })
+
+        try {
+          // Create a new destroy operation for the auto-destroy
+          const destroyOpId = await operationManager.createOperation(
+            'destroy',
+            interview.id,
+            interview.candidateName,
+            interview.challenge,
+            undefined, // scheduledAt
+            undefined, // autoDestroyAt
+            interview.saveFiles // Use saveFiles setting from interview record
+          )
+
+          const destroyOp = await operationManager.getOperation(destroyOpId)
+          if (destroyOp) {
+            await this.executeScheduledDestroy({
+              id: destroyOp.id,
+              interviewId: destroyOp.interviewId,
+              candidateName: destroyOp.candidateName,
+              challenge: destroyOp.challenge,
+              saveFiles: destroyOp.saveFiles,
+            })
+          }
+
+          this.emit({
+            type: 'auto_destroy_triggered',
+            operationId: destroyOpId,
+            interviewId: interview.id,
+            originalOperationId: undefined, // No original operation for DynamoDB-based auto-destroy
+          })
+        } catch (error) {
+          schedulerLogger.error('Error auto-destroying interview (DynamoDB)', {
+            interviewId: interview.id,
             error: error instanceof Error ? error.message : 'Unknown error',
           })
         }
       }
     } catch (error) {
-      // Handle DynamoDB throttling gracefully
-      if (error instanceof Error && error.name === 'ThrottlingException') {
-        schedulerLogger.warn(
-          'DynamoDB throttling during auto-destroy check - will retry next cycle'
-        )
-      } else {
-        schedulerLogger.error('Error in processAutoDestroyOperations', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-        })
-      }
+      schedulerLogger.error('Error in processInterviewsAutoDestroy', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
     }
   }
 
@@ -282,7 +402,10 @@ export class SchedulerService {
     }
 
     try {
-      const result = await terraformManager.createInterviewStreaming(
+      // Get operation details to extract scheduling info
+      const operationDetails = await operationManager.getOperation(operation.id)
+
+      const result = await interviewManager.createInterviewWithInfrastructure(
         instance,
         (data: string) => {
           const lines = data.split('\n').filter(line => line.trim())
@@ -293,7 +416,20 @@ export class SchedulerService {
               .addOperationLog(operation.id, line)
               .catch(console.error)
           })
-        }
+        },
+        (accessUrl: string) => {
+          // Infrastructure ready callback - update operation
+          operationManager
+            .updateOperationInfrastructureReady(
+              operation.id,
+              accessUrl,
+              instance.password
+            )
+            .catch(console.error)
+        },
+        operationDetails?.scheduledAt,
+        operationDetails?.autoDestroyAt,
+        operationDetails?.saveFiles
       )
 
       if (result.success) {
@@ -386,7 +522,7 @@ export class SchedulerService {
     })
 
     try {
-      const result = await terraformManager.destroyInterviewStreaming(
+      const result = await interviewManager.destroyInterviewWithInfrastructure(
         operation.interviewId,
         (data: string) => {
           const lines = data.split('\n').filter(line => line.trim())

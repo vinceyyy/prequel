@@ -2,12 +2,12 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import { ECSClient, ListTasksCommand } from '@aws-sdk/client-ecs'
 import { logger } from './logger'
+import { getAWSCredentials } from './aws-config'
 
 const execAsync = promisify(exec)
 
 const PROJECT_PREFIX = process.env.PROJECT_PREFIX || 'prequel'
 const ENVIRONMENT = process.env.ENVIRONMENT || 'dev'
-const AWS_REGION = process.env.AWS_REGION || 'us-east-1'
 const ECS_CLUSTER_NAME = `${PROJECT_PREFIX}-${ENVIRONMENT}`
 const HISTORY_BUCKET_NAME = `${PROJECT_PREFIX}-history`
 
@@ -113,8 +113,7 @@ export class FileExtractionService {
     this.awsProfile = process.env.AWS_PROFILE || 'default'
 
     // Initialize AWS clients with appropriate credentials
-    const clientConfig = { region: AWS_REGION }
-    this.ecsClient = new ECSClient(clientConfig)
+    this.ecsClient = new ECSClient(getAWSCredentials())
   }
 
   /**

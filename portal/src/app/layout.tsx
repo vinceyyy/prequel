@@ -37,7 +37,10 @@ export default function RootLayout({
       process.env.AUTH_PASSCODE ? '[SET]' : '[NOT SET]'
     )
     console.log('NEXT_PUBLIC_ENABLE_AUTH:', process.env.NEXT_PUBLIC_ENABLE_AUTH)
-    console.log('OPERATIONS_TABLE_NAME:', process.env.OPERATIONS_TABLE_NAME)
+    console.log(
+      'OPERATIONS_TABLE_NAME:',
+      process.env.OPERATIONS_TABLE_NAME || 'auto-generated'
+    )
     hasLoggedEnvVars = true
   }
 

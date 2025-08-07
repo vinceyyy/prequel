@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { terraformManager } from '@/lib/terraform'
+import { interviewManager } from '@/lib/interviews'
 import { operationManager } from '@/lib/operations'
 
 export async function DELETE(
@@ -54,9 +54,9 @@ export async function DELETE(
           encoder.encode(`data: ${JSON.stringify(initialData)}\n\n`)
         )
 
-        // Start Terraform destroy with streaming
-        terraformManager
-          .destroyInterviewStreaming(
+        // Start interview destroy with streaming
+        interviewManager
+          .destroyInterviewWithInfrastructure(
             interviewId,
             (data: string) => {
               // Send streaming data
@@ -194,23 +194,24 @@ export async function POST(
           )
         }
 
-        const result = await terraformManager.destroyInterviewStreaming(
-          interviewId,
-          (data: string) => {
-            // Add each line to operation logs
-            const lines = data.split('\n').filter(line => line.trim())
-            lines.forEach(line => {
-              // Note: We can't await here since this is a streaming callback
-              // Logs will be added asynchronously without blocking the stream
-              operationManager
-                .addOperationLog(operationId, line)
-                .catch(console.error)
-            })
-          },
-          candidateName,
-          challenge,
-          saveFiles
-        )
+        const result =
+          await interviewManager.destroyInterviewWithInfrastructure(
+            interviewId,
+            (data: string) => {
+              // Add each line to operation logs
+              const lines = data.split('\n').filter(line => line.trim())
+              lines.forEach(line => {
+                // Note: We can't await here since this is a streaming callback
+                // Logs will be added asynchronously without blocking the stream
+                operationManager
+                  .addOperationLog(operationId, line)
+                  .catch(console.error)
+              })
+            },
+            candidateName,
+            challenge,
+            saveFiles
+          )
 
         if (result.success) {
           await operationManager.addOperationLog(
