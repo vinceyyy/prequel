@@ -129,10 +129,26 @@ terraform destroy # Clean up resources
    # AWS_PROFILE=your-aws-profile
    # AWS_REGION=your-aws-region
    # LOG_LEVEL=debug  # Set to debug for verbose scheduler logging
-   # PROJECT_PREFIX=prequel
+   # PROJECT_PREFIX=your-project-prefix  # Must match deployed infrastructure
+   # ENVIRONMENT=dev  # Must match infra/terraform.tfvars
    # DOMAIN_NAME=your-domain.com
-   # OPERATIONS_TABLE_NAME will be set automatically by infrastructure
+   # Table names will be auto-generated: {PROJECT_PREFIX}-{ENVIRONMENT}-{table}
    ```
+
+**⚠️ Critical: Configuration Consistency**
+
+The portal now uses a **centralized configuration system** (`portal/src/lib/config.ts`) that automatically generates AWS resource names based on your environment variables. Your `.env.local` settings must match your deployed infrastructure:
+
+- **DynamoDB Tables**: `{PROJECT_PREFIX}-{ENVIRONMENT}-interviews` and `{PROJECT_PREFIX}-{ENVIRONMENT}-operations`
+- **S3 Buckets**: `{PROJECT_PREFIX}-{ENVIRONMENT}-challenge`, `{PROJECT_PREFIX}-{ENVIRONMENT}-instance`, `{PROJECT_PREFIX}-{ENVIRONMENT}-history`
+- **ECS Cluster**: `{PROJECT_PREFIX}-{ENVIRONMENT}`
+
+**AWS Authentication for Local Development:**
+
+The portal automatically detects your deployment context and uses appropriate credentials:
+- **Local Development**: Uses `AWS_PROFILE` with SSO credentials (`fromSSO()`)
+- **ECS Deployment**: Uses IAM task roles automatically
+- **Auto-detection**: Based on `AWS_EXECUTION_ENV` environment variable
 
 2. **Infrastructure Configuration:**
    ```bash
@@ -183,18 +199,27 @@ All build scripts automatically load environment variables from `.env.local`:
 - `portal/build-push-deploy.sh` - Build, push and deploy portal
 - `challenge/sync-to-s3.sh` - Sync challenges to S3
 
-**Configuration Notes:**
+**Centralized Configuration System:**
 
-- `PROJECT_PREFIX` defaults to "prequel" but can be customized for different deployments
-- `ENVIRONMENT` defaults to "dev" but can be set to "staging", "prod", etc. 
-- All AWS resources (S3 buckets, ECS clusters, etc.) use the project prefix and environment for naming
-- `.env.local` is gitignored and contains your personal configuration (located at project root)
-- `.env.example` shows the required configuration structure (located at project root)
-- All build scripts automatically load environment variables from the root `.env.local`
+The portal uses a type-safe configuration system (`portal/src/lib/config.ts`) that manages all environment variables:
+
+- **AWS Config**: Credentials, region, deployment context detection
+- **Database Config**: Auto-generated DynamoDB table names
+- **Storage Config**: Auto-generated S3 bucket names with environment suffixes
+- **Project Config**: Prefix, environment, domain settings
+- **Auth Config**: Local development authentication settings
+- **Runtime Config**: Browser/server, development/production detection
+
+**Configuration Validation:**
+
+The system validates that your local environment matches deployed infrastructure:
+- Checks AWS credentials are available for your profile
+- Validates table/bucket names match expected patterns
+- Provides clear error messages for misconfigurations
 
 **⚠️ Critical: Environment Consistency**
 
-The `ENVIRONMENT` variable in `.env.local` MUST match the `environment` variable in `infra/terraform.tfvars`:
+The `PROJECT_PREFIX` and `ENVIRONMENT` variables in `.env.local` MUST match your deployed infrastructure:
 
 ```bash
 # .env.local

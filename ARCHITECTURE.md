@@ -61,7 +61,56 @@ graph TB
 
 ## Core Components
 
-### 1. NextJS Portal (`portal/`)
+### 1. Centralized Configuration System (`portal/src/lib/config.ts`)
+
+**Purpose**: Type-safe, centralized management of all environment variables and AWS resource configuration.
+
+**Key Features**:
+
+- **Automatic AWS Resource Naming**: Generates consistent names for DynamoDB tables, S3 buckets, and ECS clusters
+- **Context-Aware Authentication**: Automatically detects local vs ECS deployment and uses appropriate credentials
+- **Type Safety**: Provides TypeScript interfaces for all configuration values
+- **Validation**: Validates environment consistency and provides clear error messages
+- **Runtime Detection**: Distinguishes between browser/server and development/production contexts
+
+**Configuration Categories**:
+
+```typescript
+const config = {
+  aws: {
+    region: string,                    // AWS region
+    profile: string,                   // SSO profile for local development
+    getCredentials(): CredentialsConfig,    // Context-aware credential provider
+    deploymentContext: 'ecs' | 'local'      // Auto-detected deployment context
+  },
+  project: {
+    prefix: string,                    // Project prefix for resource naming
+    environment: string,               // Environment (dev/staging/prod)
+    domainName: string                 // Domain for interview URLs
+  },
+  database: {
+    interviewsTable: string,           // Auto-generated: {prefix}-{env}-interviews
+    operationsTable: string            // Auto-generated: {prefix}-{env}-operations
+  },
+  storage: {
+    challengeBucket: string,           // Auto-generated: {prefix}-challenge
+    historyBucket: string,             // Auto-generated: {prefix}-{env}-history
+    terraformStateBucket: string,      // Auto-generated: {prefix}-{env}-terraform-state
+    instanceBucket: string             // Auto-generated: {prefix}-instance
+  },
+  infrastructure: {
+    ecsCluster: string                 // Auto-generated: {prefix}-{env}
+  }
+}
+```
+
+**AWS Authentication Strategy**:
+
+- **Local Development**: Uses `AWS_PROFILE` with SSO credentials via `fromSSO()`
+- **ECS Deployment**: Uses IAM task roles automatically (no configuration needed)
+- **Auto-Detection**: Detects context via `AWS_EXECUTION_ENV` environment variable
+
+### 2. NextJS Portal (`portal/`)
 
 **Purpose**: Web-based management interface for creating, monitoring, and managing coding interviews.
 

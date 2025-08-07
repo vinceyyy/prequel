@@ -55,8 +55,18 @@ prequel/
    aws sso login --profile <your-profile>
 
    cp .env.example .env.local
-   # Edit .env.local with your AWS configuration
+   # Edit .env.local with your AWS configuration:
+   # AWS_PROFILE=your-profile        # Required for local development
+   # AWS_REGION=your-region          # e.g., us-east-1
+   # PROJECT_PREFIX=your-prefix      # Must match infra terraform.tfvars
+   # ENVIRONMENT=dev                 # Must match infra terraform.tfvars
+   # DOMAIN_NAME=your-domain.com
    ```
+
+   **⚠️ Important**: The portal uses a **centralized configuration system** that auto-generates AWS resource names with environment suffixes. Your `PROJECT_PREFIX` and `ENVIRONMENT` must match exactly between `.env.local` and `infra/terraform.tfvars` for the portal to connect to the correct resources:
+   - **DynamoDB Tables**: `{PROJECT_PREFIX}-{ENVIRONMENT}-interviews`, `{PROJECT_PREFIX}-{ENVIRONMENT}-operations`
+   - **S3 Buckets**: `{PROJECT_PREFIX}-{ENVIRONMENT}-challenge`, `{PROJECT_PREFIX}-{ENVIRONMENT}-instance`, `{PROJECT_PREFIX}-{ENVIRONMENT}-history`
+   - **ECS Cluster**: `{PROJECT_PREFIX}-{ENVIRONMENT}`
 
 2. **Deploy infrastructure**
    ```bash
@@ -140,18 +150,16 @@ gets a dedicated container with 1 vCPU and 2GB RAM, completely isolated from oth
 functions ensures faster container startup. Containers are automatically destroyed after the configured duration (
 30min-4hrs).
 
-**Challenges** are stored in S3 and automatically synchronized to each interview environment during the "configuring"
-phase. The system supports JavaScript (Node.js + React), Python (Pandas + Jupyter), and SQL (SQLite) environments.
-Challenge files become available in the candidate's VS Code workspace once the status reaches "active".
+**Challenges** are stored in S3 (`{project-prefix}-{environment}-challenge` bucket) and automatically synchronized to each interview environment during the "configuring" phase. The system supports JavaScript (Node.js + React), Python (Pandas + Jupyter), and SQL (SQLite) environments. Challenge files become available in the candidate's VS Code workspace once the status reaches "active".
 
 ### Technical Workflow
 
 **For New Interviews:**
 
-1. Portal downloads Terraform templates from `s3://prequel-instance/instance/`
+1. Portal downloads Terraform templates from `s3://{project-prefix}-{environment}-instance/terraform/`
 2. Replaces `INTERVIEW_ID_PLACEHOLDER` with actual interview ID
 3. Creates interview-specific `terraform.tfvars` configuration
-4. Uploads complete workspace to `s3://prequel-instance/workspaces/{interview-id}/`
+4. Uploads complete workspace to `s3://{project-prefix}-{environment}-instance/workspaces/{interview-id}/`
 5. Terraform provisions ECS service, Route53 subdomain, and security groups
 6. Container starts, challenge files sync from S3, VS Code becomes accessible
 

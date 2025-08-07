@@ -39,16 +39,12 @@ The platform uses S3 to store and manage Terraform templates for interview insta
 infrastructure code without redeploying the NextJS application.
 
 ```
-S3 Bucket: prequel-instance
-├── instance/                       # Template files (source of truth)
+S3 Bucket: {project_prefix}-{environment}-instance
+├── terraform/                      # Template files (source of truth)
 │   ├── main.tf
 │   ├── service.tf
 │   ├── variables.tf
 │   └── outputs.tf
-├── challenge/                      # Challenge files
-│   ├── python/
-│   ├── javascript/
-│   └── sql/
 └── workspaces/
     └── {interview-id}/              # Instance-specific workspaces
         ├── main.tf                  # Generated from templates
@@ -56,6 +52,15 @@ S3 Bucket: prequel-instance
         ├── variables.tf
         ├── outputs.tf
         └── terraform.tfvars        # Runtime configuration
+
+S3 Bucket: {project_prefix}-{environment}-challenge
+├── python/                         # Python challenge files
+├── javascript/                     # JavaScript challenge files  
+└── sql/                           # SQL challenge files
+
+S3 Bucket: {project_prefix}-{environment}-history
+└── {interview-id}/                 # Candidate saved files (tar.gz format)
+    └── files.tar.gz
 ```
 
 ## Prerequisites
@@ -100,12 +105,23 @@ cp backend.config.example backend.config
 # Edit backend.config with your S3 backend configuration
 ```
 
-**Required Configuration:**
+**⚠️ Critical: Environment Consistency**
+
+The portal uses a **centralized configuration system** that auto-generates AWS resource names. Your infrastructure values must match your portal configuration:
 
 ```hcl
-aws_region  = "your-aws-region"
-environment = "prod"
-domain_name = "your-domain.com"
+# infra/terraform.tfvars
+project_prefix = "your-prefix"    # Must match PROJECT_PREFIX in .env.local
+environment    = "dev"            # Must match ENVIRONMENT in .env.local
+aws_region     = "us-east-1"      # Must match AWS_REGION in .env.local
+domain_name    = "your-domain.com"
+```
+
+```bash
+# .env.local (portal configuration)
+PROJECT_PREFIX=your-prefix        # Must match project_prefix above
+ENVIRONMENT=dev                   # Must match environment above
+AWS_REGION=us-east-1             # Must match aws_region above
 ```
 
 **Optional Customization:**
@@ -116,6 +132,13 @@ code_server_cpu    = 1024
 code_server_memory = 2048
 max_instances      = 10
 ```
+
+**Auto-Generated Resource Names:**
+
+All AWS resources use consistent naming with environment suffixes:
+- **DynamoDB Tables**: `{project_prefix}-{environment}-interviews`, `{project_prefix}-{environment}-operations`
+- **S3 Buckets**: `{project_prefix}-{environment}-challenge`, `{project_prefix}-{environment}-instance`, `{project_prefix}-{environment}-history`
+- **ECS Cluster**: `{project_prefix}-{environment}`
 
 ### 2. Deploy Infrastructure
 
@@ -182,7 +205,7 @@ After deployment, Terraform provides key values for the portal application:
 ### Common Infrastructure Issues
 
 **Template Download Fails:**
-Check S3 bucket permissions and ensure `prequel-instance` bucket exists. Verify AWS credentials have S3 read access.
+Check S3 bucket permissions and ensure `{project_prefix}-{environment}-instance` bucket exists. Verify AWS credentials have S3 read access.
 
 **Interview Creation Fails After Template Update:**
 Check CloudWatch logs for Terraform errors. Verify template syntax is valid and test templates locally before uploading.

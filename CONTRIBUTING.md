@@ -28,7 +28,13 @@ This guide is for developers contributing code to the Prequel project with real-
 3. **Setup environment:**
    ```bash
    cp .env.example .env.local
+   # Edit .env.local with your configuration:
+   # AWS_PROFILE=your-aws-sso-profile
+   # PROJECT_PREFIX=your-project-prefix  # Must match deployed infrastructure
+   # ENVIRONMENT=dev                     # Must match deployed infrastructure
    ```
+
+   **⚠️ Important**: The portal uses a **centralized configuration system** (`src/lib/config.ts`) that auto-generates AWS resource names. Your local environment must match your deployed infrastructure for the portal to connect to the correct DynamoDB tables and S3 buckets.
 
 4. **Start development:**
    ```bash
@@ -149,6 +155,9 @@ Follow existing code patterns and conventions throughout the codebase. Use exist
 
 **Real-time Architecture Requirements**
 Use `operationManager.emit()` for all operation status changes to ensure SSE events are properly triggered. All long-running tasks must use the background operations system, while time-based execution should be scheduled via `SchedulerService`. UI updates must be driven by SSE events only - avoid manual polling patterns. Always implement auto-destroy functionality to prevent resource waste.
+
+**Centralized Configuration System**
+The portal uses `src/lib/config.ts` for type-safe, centralized management of all environment variables and AWS resource configuration. This system automatically detects local vs ECS deployment contexts and uses appropriate AWS credentials (SSO for local development, IAM task roles for ECS). It auto-generates consistent AWS resource names from PROJECT_PREFIX and ENVIRONMENT, and provides complete TypeScript interfaces for all configuration values.
 
 **Key Architecture Components**
 The system relies on several core components: `src/lib/operations.ts` handles operation management with SSE event emission, `src/lib/scheduler.ts` provides background scheduler service with 30-second polling, `src/app/api/events/route.ts` serves as the SSE endpoint for real-time updates, `src/hooks/useSSE.ts` manages client-side SSE connections with auto-reconnection, and `src/hooks/useOperations.ts` provides background operation management hooks.
