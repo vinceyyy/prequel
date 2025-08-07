@@ -1,73 +1,62 @@
 import { NextResponse } from 'next/server'
-import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
-import { config } from '@/lib/config'
-
-const s3Client = new S3Client(config.aws.getCredentials())
-const BUCKET_NAME = config.storage.challengeBucket
+import { challengeService, getCpuCores } from '@/lib/challenges'
+import { logger } from '@/lib/logger'
 
 interface ChallengeInfo {
   id: string
   name: string
-  description?: string
+  description: string
+  ecsConfig: {
+    cpu: number
+    cpuCores: number
+    memory: number
+    storage: number
+  }
+  usageCount: number
+  createdAt: string
+  lastUsedAt?: string
 }
 
 export async function GET() {
   try {
-    console.log('[API] Getting available challenges from S3')
+    logger.info('[API] Getting available challenges from DynamoDB')
 
-    // List objects in the S3 bucket to get available challenges
-    const command = new ListObjectsV2Command({
-      Bucket: BUCKET_NAME,
-      Delimiter: '/', // This treats directories as separate items
-    })
+    // Get active challenges from DynamoDB
+    const challenges = await challengeService.listChallenges('newest')
 
-    const response = await s3Client.send(command)
+    // Transform challenges for interview selection with full details
+    const challengeOptions: ChallengeInfo[] = challenges.map(challenge => ({
+      id: challenge.id,
+      name: challenge.name,
+      description: challenge.description,
+      ecsConfig: {
+        cpu: challenge.ecsConfig.cpu,
+        cpuCores: getCpuCores(challenge.ecsConfig.cpu),
+        memory: challenge.ecsConfig.memory,
+        storage: challenge.ecsConfig.storage,
+      },
+      usageCount: challenge.usageCount,
+      createdAt: challenge.createdAt.toISOString(),
+      lastUsedAt: challenge.lastUsedAt?.toISOString(),
+    }))
 
-    // Extract challenge names from the common prefixes (directories)
-    const challenges: ChallengeInfo[] = []
-
-    if (response.CommonPrefixes) {
-      for (const prefix of response.CommonPrefixes) {
-        if (prefix.Prefix) {
-          // Remove trailing slash to get challenge name
-          const challengeId = prefix.Prefix.replace(/\/$/, '')
-
-          // Create a friendly name based on the challenge ID
-          const friendlyName = challengeId
-          // .split('-')
-          // .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          // .join(' ')
-
-          challenges.push({
-            id: challengeId,
-            name: friendlyName,
-          })
-        }
-      }
-    }
-
-    // Sort challenges alphabetically
-    challenges.sort((a, b) => a.name.localeCompare(b.name))
-
-    console.log(
-      `[API] Found ${challenges.length} challenges:`,
-      challenges.map(c => c.id)
-    )
+    logger.info(`[API] Found ${challengeOptions.length} active challenges`)
 
     return NextResponse.json({
       success: true,
-      challenges,
+      challenges: challengeOptions,
     })
   } catch (error) {
-    console.error('[API] Error fetching challenges:', error)
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch challenges from S3',
-        challenges: [],
-      },
-      { status: 500 }
+    logger.error(
+      `[API] Error fetching challenges: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
+
+    // Fallback: Return empty array instead of failing completely
+    // This allows the UI to continue working even if DynamoDB is unavailable
+    return NextResponse.json({
+      success: true, // Keep success true to avoid breaking the UI
+      challenges: [],
+      warning: 'Challenge database unavailable, no challenges loaded',
+    })
   }
 }

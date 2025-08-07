@@ -1,5 +1,3 @@
-import { fromSSO } from '@aws-sdk/credential-providers'
-
 /**
  * Centralized configuration for the Prequel Portal application.
  *
@@ -65,8 +63,15 @@ export const aws = {
         region: awsRegion,
         // No credentials config - uses default ECS task role
       }
+    } else if (runtime.isBrowser) {
+      // Browser: Return minimal config - credentials should not be used client-side
+      console.log('[Config] Browser environment - returning minimal config')
+      return {
+        region: awsRegion,
+        // No credentials in browser
+      }
     } else {
-      // Local: Use AWS SSO profile
+      // Server-side local development: Use AWS SSO profile
       if (!awsProfile) {
         throw new Error(
           'AWS_PROFILE environment variable is required for local development. ' +
@@ -75,11 +80,26 @@ export const aws = {
       }
 
       console.log(`[Config] Using AWS SSO profile: ${awsProfile}`)
-      return {
-        region: awsRegion,
-        credentials: fromSSO({
-          profile: awsProfile,
-        }),
+
+      // Dynamic import for server-side only
+      try {
+        // This will only work on server-side
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { fromSSO } = require('@aws-sdk/credential-providers')
+        return {
+          region: awsRegion,
+          credentials: fromSSO({
+            profile: awsProfile,
+          }),
+        }
+      } catch (error) {
+        console.warn(
+          '[Config] Failed to load SSO credentials, using default:',
+          error
+        )
+        return {
+          region: awsRegion,
+        }
       }
     }
   },
@@ -129,6 +149,13 @@ export const database = {
   operationsTable:
     process.env.OPERATIONS_TABLE_NAME ||
     `${project.prefix}-${project.environment}-operations`,
+
+  /**
+   * DynamoDB table name for challenges
+   */
+  challengesTable:
+    process.env.CHALLENGES_TABLE_NAME ||
+    `${project.prefix}-${project.environment}-challenges`,
 }
 
 /**

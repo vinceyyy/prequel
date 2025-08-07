@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { interviewManager } from '@/lib/interviews'
 import { operationManager } from '@/lib/operations'
+import { challengeService } from '@/lib/challenges'
 import { v4 as uuidv4 } from 'uuid'
 
 /**
@@ -129,6 +130,33 @@ export async function POST(request: NextRequest) {
       autoDestroyDate,
       saveFiles
     )
+
+    // Track challenge usage - increment usage count when interview is created
+    try {
+      // First, try to find the challenge by its ID
+      const challenges = await challengeService.listChallenges('newest')
+      const challengeRecord = challenges.find(c => c.id === challenge)
+
+      if (challengeRecord) {
+        await challengeService.incrementUsage(challengeRecord.id)
+        await operationManager.addOperationLog(
+          operationId,
+          `📊 Challenge usage tracked: ${challengeRecord.name}`
+        )
+      } else {
+        await operationManager.addOperationLog(
+          operationId,
+          `⚠️ Challenge not found in registry: ${challenge}`
+        )
+      }
+    } catch (error) {
+      // Don't fail the interview creation if challenge tracking fails
+      console.warn('Failed to track challenge usage:', error)
+      await operationManager.addOperationLog(
+        operationId,
+        `⚠️ Could not track challenge usage: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    }
 
     const instance = {
       id: interviewId,

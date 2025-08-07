@@ -18,6 +18,7 @@ interface Interview {
     | 'destroyed'
     | 'error'
   challenge: string
+  saveFiles: boolean
   accessUrl?: string
   password?: string
   createdAt: string
@@ -26,7 +27,6 @@ interface Interview {
   completedAt?: string
   destroyedAt?: string
   historyS3Key?: string
-  saveFiles?: boolean
 }
 
 export default function Home() {
@@ -47,7 +47,7 @@ export default function Home() {
   const [notification, setNotification] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     candidateName: '',
-    challenge: 'python',
+    challenge: '', // Will be set to first available challenge
     scheduledAt: '',
     autoDestroyMinutes: 60,
     enableScheduling: false,
@@ -61,7 +61,20 @@ export default function Home() {
   const { connected: sseConnected, lastEvent } = useSSE('/api/events')
 
   const [challenges, setChallenges] = useState<
-    Array<{ id: string; name: string }>
+    Array<{
+      id: string
+      name: string
+      description: string
+      ecsConfig: {
+        cpu: number
+        cpuCores: number
+        memory: number
+        storage: number
+      }
+      usageCount: number
+      createdAt: string
+      lastUsedAt?: string
+    }>
   >([])
 
   const loadChallenges = useCallback(async () => {
@@ -72,6 +85,10 @@ export default function Home() {
         if (data.success && data.challenges) {
           console.log('[DEBUG] Loaded challenges from API:', data.challenges)
           setChallenges(data.challenges)
+          // Set first challenge as default if no challenge selected
+          if (data.challenges.length > 0 && !formData.challenge) {
+            setFormData(prev => ({ ...prev, challenge: data.challenges[0].id }))
+          }
         }
       } else {
         console.warn('Failed to load challenges, using fallback')
@@ -79,7 +96,7 @@ export default function Home() {
     } catch (error) {
       console.error('Error loading challenges:', error)
     }
-  }, [])
+  }, [formData.challenge])
 
   const loadInterviews = useCallback(async () => {
     try {
@@ -242,7 +259,7 @@ export default function Home() {
       // Close the modal immediately since operation is now background
       setFormData({
         candidateName: '',
-        challenge: 'python',
+        challenge: challenges.length > 0 ? challenges[0].id : '',
         scheduledAt: '',
         autoDestroyMinutes: 60,
         enableScheduling: false,
@@ -268,6 +285,113 @@ export default function Home() {
       )
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDownloadFiles = async (interviewId: string) => {
+    try {
+      const response = await fetch(`/api/interviews/${interviewId}/files`)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to download files')
+      }
+
+      // Create download link
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+
+      // Extract filename from response headers or use default
+      const contentDisposition = response.headers.get('Content-Disposition')
+      let filename = `interview_${interviewId}_files.tar.gz`
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/)
+        if (filenameMatch) {
+          filename = filenameMatch[1]
+        }
+      }
+
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      setNotification('Files downloaded successfully')
+      setTimeout(() => setNotification(null), 3000)
+    } catch (error) {
+      console.error('Error downloading files:', error)
+      let errorMessage = 'Failed to download files'
+
+      if (error instanceof Error) {
+        // Use the API's error message if available
+        errorMessage = error.message
+
+        // Make some common errors more user-friendly
+        if (error.message.includes('Files were not saved')) {
+          errorMessage = '❌ Files were not saved for this interview'
+        } else if (error.message.includes('not yet available')) {
+          errorMessage =
+            '⏳ Files are still being processed or extraction failed'
+        } else if (error.message.includes('not found')) {
+          errorMessage =
+            '📁 Saved files not found - they may have been cleaned up'
+        } else if (error.message.includes('Failed to download files')) {
+          errorMessage =
+            '🚫 Download failed - please try again or contact support'
+        }
+      }
+
+      setNotification(`Download Error: ${errorMessage}`)
+      setTimeout(() => setNotification(null), 7000) // Longer timeout for error messages
+    }
+  }
+
+  const handleDeleteInterview = async (interviewId: string) => {
+    const interview = historicalInterviews.find(i => i.id === interviewId)
+    if (!interview) return
+
+    const hasFiles = !!interview.historyS3Key
+    const message = hasFiles
+      ? `Are you sure you want to permanently delete this interview record and all history files for ${interview.candidateName}? This action cannot be undone.`
+      : `Are you sure you want to permanently delete this interview record for ${interview.candidateName}? This action cannot be undone.`
+
+    if (!confirm(message)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/interviews/${interviewId}/delete`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete interview')
+      }
+
+      const result = await response.json()
+
+      // Show success notification
+      const successMessage = result.deletedHistoryFiles
+        ? 'Interview record and history files deleted successfully'
+        : 'Interview record deleted successfully'
+
+      setNotification(successMessage)
+      setTimeout(() => setNotification(null), 5000)
+
+      // Refresh the historical interviews list
+      loadHistoricalInterviews()
+    } catch (error) {
+      console.error('Error deleting interview:', error)
+      alert(
+        `Failed to delete interview: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      )
     }
   }
 
@@ -307,7 +431,11 @@ export default function Home() {
       {notification && (
         <div
           className={`fixed top-4 right-4 text-white px-6 py-3 rounded-xl shadow-lg z-50 fade-in ${
-            notification.includes('❌') ? 'bg-red-600' : 'bg-green-600'
+            notification.includes('❌') ||
+            notification.includes('Download Error') ||
+            notification.includes('Failed')
+              ? 'bg-red-600'
+              : 'bg-green-600'
           }`}
         >
           <div className="flex items-center space-x-2">
@@ -342,16 +470,9 @@ export default function Home() {
             >
               Create New Interview
             </button>
-            <button
-              onClick={
-                activeTab === 'current'
-                  ? loadInterviews
-                  : loadHistoricalInterviews
-              }
-              className="btn-secondary"
-            >
-              Refresh
-            </button>
+            <a href="/challenges" className="btn-secondary">
+              Manage Challenges
+            </a>
             <div className="flex items-center space-x-2">
               <div
                 className={`w-2 h-2 rounded-full ${
@@ -430,22 +551,80 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
+                  <label className="block text-sm font-medium text-slate-900 mb-2">
                     Interview Challenge
                   </label>
-                  <select
-                    value={formData.challenge}
-                    onChange={e =>
-                      setFormData({ ...formData, challenge: e.target.value })
-                    }
-                    className="input-field"
-                  >
-                    {challenges.map(challenge => (
-                      <option key={challenge.id} value={challenge.id}>
-                        {challenge.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {challenges.length === 0 ? (
+                      <div className="text-slate-500 text-sm p-3 border border-slate-200 rounded-lg">
+                        No challenges available. Create challenges first.
+                      </div>
+                    ) : (
+                      challenges.map(challenge => (
+                        <div key={challenge.id}>
+                          <label className="flex items-start space-x-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="challenge"
+                              value={challenge.id}
+                              checked={formData.challenge === challenge.id}
+                              onChange={e =>
+                                setFormData({
+                                  ...formData,
+                                  challenge: e.target.value,
+                                })
+                              }
+                              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-medium text-slate-900">
+                                  {challenge.name}
+                                </h4>
+                                <div className="flex items-center space-x-2 text-xs text-slate-500">
+                                  <span>Used {challenge.usageCount} times</span>
+                                </div>
+                              </div>
+                              <p className="text-sm text-slate-600 mt-1">
+                                {challenge.description}
+                              </p>
+                              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {challenge.ecsConfig.cpu} units (
+                                  {challenge.ecsConfig.cpuCores}{' '}
+                                  {challenge.ecsConfig.cpuCores === 1
+                                    ? 'core'
+                                    : 'cores'}
+                                  )
+                                </span>
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  {challenge.ecsConfig.memory} MB RAM
+                                </span>
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                  {challenge.ecsConfig.storage} GB storage
+                                </span>
+                              </div>
+                              <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                                <span>
+                                  Created:{' '}
+                                  {new Date(
+                                    challenge.createdAt
+                                  ).toLocaleDateString()}
+                                </span>
+                                <span>
+                                  {challenge.lastUsedAt
+                                    ? `Last used: ${new Date(
+                                        challenge.lastUsedAt
+                                      ).toLocaleDateString()}`
+                                    : 'Never used'}
+                                </span>
+                              </div>
+                            </div>
+                          </label>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
 
                 {/* Scheduling Options */}
@@ -553,6 +732,7 @@ export default function Home() {
                   onClick={handleCreateInterview}
                   disabled={
                     !formData.candidateName.trim() ||
+                    !formData.challenge ||
                     loading ||
                     (formData.enableScheduling && !formData.scheduledAt)
                   }
@@ -917,14 +1097,20 @@ export default function Home() {
                         </td>
                         <td className="px-3 sm:px-6 py-4 text-sm font-medium">
                           <div className="flex flex-wrap gap-2 items-center">
-                            {interview.historyS3Key && (
-                              <a
-                                href={`/api/interviews/${interview.id}/files`}
-                                download
+                            {interview.saveFiles ? (
+                              <button
+                                onClick={() =>
+                                  handleDownloadFiles(interview.id)
+                                }
                                 className="btn-secondary text-sm px-3 py-1"
+                                title="Download saved interview files"
                               >
                                 Download Files
-                              </a>
+                              </button>
+                            ) : (
+                              <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded border">
+                                History not saved
+                              </span>
                             )}
                             <button
                               onClick={() => {
@@ -934,6 +1120,15 @@ export default function Home() {
                               className="btn-primary text-sm px-3 py-1"
                             >
                               Logs
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleDeleteInterview(interview.id)
+                              }
+                              className="btn-danger text-sm px-3 py-1"
+                              title="Permanently delete this interview record and history files"
+                            >
+                              Delete
                             </button>
                           </div>
                         </td>

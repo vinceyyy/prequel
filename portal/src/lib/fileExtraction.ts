@@ -2,14 +2,12 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import { ECSClient, ListTasksCommand } from '@aws-sdk/client-ecs'
 import { logger } from './logger'
-import { getAWSCredentials } from './aws-config'
+import { config } from './config'
 
 const execAsync = promisify(exec)
 
-const PROJECT_PREFIX = process.env.PROJECT_PREFIX || 'prequel'
-const ENVIRONMENT = process.env.ENVIRONMENT || 'dev'
-const ECS_CLUSTER_NAME = `${PROJECT_PREFIX}-${ENVIRONMENT}`
-const HISTORY_BUCKET_NAME = `${PROJECT_PREFIX}-history`
+const ECS_CLUSTER_NAME = config.infrastructure.ecsCluster
+const HISTORY_BUCKET_NAME = config.storage.historyBucket
 
 /**
  * Default ignore patterns for files that should not be saved to S3.
@@ -113,7 +111,7 @@ export class FileExtractionService {
     this.awsProfile = process.env.AWS_PROFILE || 'default'
 
     // Initialize AWS clients with appropriate credentials
-    this.ecsClient = new ECSClient(getAWSCredentials())
+    this.ecsClient = new ECSClient(config.aws.getCredentials())
   }
 
   /**

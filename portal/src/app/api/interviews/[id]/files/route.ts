@@ -46,11 +46,23 @@ export async function GET(
       )
     }
 
+    // Check if files were supposed to be saved
+    if (!interview.saveFiles) {
+      return NextResponse.json(
+        {
+          error: 'Files were not saved for this interview',
+          details: 'File saving was disabled when the interview was created',
+        },
+        { status: 400 }
+      )
+    }
+
     if (!interview.historyS3Key) {
       return NextResponse.json(
         {
-          error: 'No saved files available for this interview',
-          details: 'Files were not saved during interview destruction',
+          error: 'Saved files are not yet available',
+          details:
+            'Files may still be processing or the extraction failed during interview destruction',
         },
         { status: 404 }
       )

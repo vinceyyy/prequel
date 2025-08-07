@@ -375,7 +375,9 @@ resource "aws_iam_role_policy" "portal_task" {
           aws_dynamodb_table.operations.arn,
           "${aws_dynamodb_table.operations.arn}/index/*",
           aws_dynamodb_table.interviews.arn,
-          "${aws_dynamodb_table.interviews.arn}/index/*"
+          "${aws_dynamodb_table.interviews.arn}/index/*",
+          aws_dynamodb_table.challenges.arn,
+          "${aws_dynamodb_table.challenges.arn}/index/*"
         ]
       }
     ]
