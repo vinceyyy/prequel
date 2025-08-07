@@ -139,21 +139,27 @@ export default function Home() {
     }
   }, []) // Empty dependency array - function is stable
 
-  // Step 1: One-off request when user first loads the page, blocking until response
+  // Step 1: Load both current interviews and history on initial page load
   useEffect(() => {
     console.log(
-      '[DEBUG] Main page: Step 1 - Initial load, checking existing interviews (one-off request)'
+      '[DEBUG] Main page: Step 1 - Initial load, loading current interviews, history, and challenges'
     )
     loadInterviews()
+    loadHistoricalInterviews()
     loadChallenges()
-  }, [loadInterviews, loadChallenges])
+  }, [loadInterviews, loadHistoricalInterviews, loadChallenges])
 
-  // Load historical interviews when history tab is activated
+  // 30-second polling for interview history updates
   useEffect(() => {
-    if (activeTab === 'history' && historicalInterviews.length === 0) {
+    const interval = setInterval(() => {
+      console.log(
+        '[DEBUG] Polling: Refreshing interview history (30s interval)'
+      )
       loadHistoricalInterviews()
-    }
-  }, [activeTab, historicalInterviews.length, loadHistoricalInterviews])
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(interval)
+  }, [loadHistoricalInterviews])
 
   // Listen for SSE events to refresh data
   useEffect(() => {
@@ -171,7 +177,8 @@ export default function Home() {
     }
   }, [lastEvent, loadInterviews])
 
-  // NO AUTOMATIC POLLING - interviews endpoint is manual refresh only
+  // NO AUTOMATIC POLLING for current interviews - SSE provides real-time updates
+  // History interviews use 30-second polling for reasonable freshness
 
   // Debug: Monitor when interviews state changes
   useEffect(() => {
@@ -554,8 +561,8 @@ export default function Home() {
                   {loading
                     ? 'Creating...'
                     : formData.enableScheduling
-                    ? 'Schedule Interview'
-                    : 'Create Interview'}
+                      ? 'Schedule Interview'
+                      : 'Create Interview'}
                 </button>
                 <button
                   onClick={() => setShowCreateForm(false)}
