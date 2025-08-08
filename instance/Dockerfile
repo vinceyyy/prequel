@@ -17,6 +17,13 @@ RUN apt-get update && \
     find /usr/share/doc -depth -type f ! -name copyright | xargs rm || true && \
     find /usr/share/man -depth -type f | xargs rm || true
 
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install AI assistances
+RUN npm install -g @openai/codex
+RUN npm install -g @anthropic-ai/claude-code
+
 # Create workspace directory (challenge will be downloaded at runtime)
 RUN mkdir -p /workspaces
 
