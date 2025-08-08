@@ -23,7 +23,8 @@ resources (ECS services, Route53 records) are created on-demand using Terraform 
 
 **Storage & Processing**
 
-- **S3 Buckets** - Terraform templates, challenge files, and workspace storage
+- **S3 Buckets** - Terraform templates, challenge files, and candidate file history storage
+- **ECR (Elastic Container Registry)** - Docker image repository for portal and code-server images
 - **Lambda Functions** - SOCI container indexing for faster startup times
 - **CloudWatch** - Logging and monitoring for all infrastructure components
 
@@ -145,7 +146,31 @@ All AWS resources use consistent naming with environment suffixes:
 ```bash
 terraform init -backend-config=backend.config
 terraform plan
-terraform apply
+terraform apply  # Includes automated portal Docker image building and pushing
+```
+
+**ECS Portal Bootstrapping:**
+
+The deployment process now includes automated portal Docker image building and pushing:
+
+- **Automated Image Building** - `bootstrap-portal-image.sh` script builds and pushes portal Docker image to ECR during Terraform deployment
+- **Cross-platform Support** - Uses Docker Buildx for AMD64 architecture (ECS compatibility)
+- **Dependency Management** - ECS service waits for image build completion via `null_resource` dependency
+- **Environment Integration** - All necessary environment variables passed from Terraform to build script
+
+**Build Triggers:**
+
+The portal image is rebuilt automatically when:
+- Portal `Dockerfile` changes
+- Portal `package.json` changes  
+- ECR repository configuration changes
+- Any Terraform infrastructure changes
+
+**Manual Image Rebuild:**
+
+```bash
+cd infra
+terraform apply -replace=null_resource.portal_image_build
 ```
 
 ## Infrastructure Outputs

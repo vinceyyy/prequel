@@ -120,6 +120,54 @@ npm run dev
 - [ ] Auto-destroy countdown displays correctly
 - [ ] Connection reconnects automatically if interrupted
 
+### Enhanced Challenge Management
+
+**File Upload Testing:**
+
+```bash
+# Test drag-and-drop functionality
+# 1. Navigate to Challenges page
+# 2. Create new challenge
+# 3. Test folder upload (try .vscode folder)
+# 4. Test mixed file/folder uploads
+# 5. Verify folder structure preserved in S3
+```
+
+**Manual Testing Checklist:**
+
+- [ ] Drag-and-drop accepts both files and folders
+- [ ] Folder structure preserved (check webkitRelativePath)
+- [ ] Upload progress indicators work correctly
+- [ ] Project structure guidelines displayed clearly
+- [ ] Error messages shown for failed uploads
+- [ ] Challenge deletion works and removes S3 files
+- [ ] Resource configurations (CPU/memory) display correctly
+
+### File History Management
+
+**Download Testing:**
+
+```bash
+# Test file saving and downloading
+# 1. Create interview with saveFiles enabled
+# 2. Let interview reach active state
+# 3. Add files to the interview workspace
+# 4. Destroy interview with file saving
+# 5. Check History tab shows download button
+# 6. Test download functionality
+```
+
+**Manual Testing Checklist:**
+
+- [ ] Download button shows only when saveFiles=true
+- [ ] Download button hidden when saveFiles=false with "History not saved"
+- [ ] Download works and returns tar.gz file
+- [ ] Error messages displayed when download fails
+- [ ] Error messages specific to different failure types:
+  - [ ] "Files were not saved for this interview"
+  - [ ] "Failed to access saved files"
+  - [ ] "Interview not found"
+
 ### Background Operations
 
 **Testing scheduled operations:**
@@ -236,6 +284,28 @@ Coverage reports are generated in `coverage/` directory. Open `coverage/lcov-rep
 2. Use descriptive test names: `it('should display error message when API fails')`
 3. Follow AAA pattern: Arrange, Act, Assert
 4. Mock external dependencies
+
+**Testing File Upload Components:**
+
+```typescript
+// Example test for drag-and-drop functionality
+test('should handle folder upload with preserved structure', async () => {
+  // Test webkitdirectory handling
+  // Mock File objects with webkitRelativePath
+  // Verify FormData includes both files and filePaths arrays
+})
+```
+
+**Testing Download Functionality:**
+
+```typescript
+// Example test for download button visibility
+test('should show download button when saveFiles is true', () => {
+  // Render component with interview having saveFiles: true
+  // Verify download button is visible
+  // Verify "History not saved" is not shown
+})
+```
 
 ### E2E Tests
 

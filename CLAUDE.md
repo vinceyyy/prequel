@@ -6,10 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Prequel is a coding interview platform that provisions on-demand VS Code instances in the browser for candidates. Features include:
 
+- **Enhanced Challenge Management**: Drag-and-drop file/folder uploads with `.vscode` support and automatic dependency installation
 - **Scheduled Interviews**: Create interviews for future execution with configurable auto-destroy timers
 - **Real-time Updates**: Live SSE-powered status updates without manual refresh
 - **Background Operations**: Non-blocking interview creation and destruction with detailed logs
 - **Auto-destroy Protection**: Mandatory resource cleanup to prevent AWS cost overruns
+- **File History Management**: Save and download candidate files with smart error handling
 
 ## Real-time Architecture
 
@@ -113,9 +115,18 @@ Without the plugin, file extraction will be skipped and interviews will still de
 cd infra
 terraform init -backend-config=backend.config  # Initialize with backend config
 terraform plan   # Plan infrastructure changes
-terraform apply  # Deploy infrastructure
+terraform apply  # Deploy infrastructure (includes automated portal image building)
 terraform destroy # Clean up resources
 ```
+
+**ECS Portal Bootstrapping:**
+
+The infrastructure now includes automated portal Docker image building and pushing during Terraform deployments:
+
+- **`infra/bootstrap-portal-image.sh`** - Script for building and pushing portal Docker image to ECR
+- **Cross-platform builds** - Uses Docker Buildx for AMD64 (ECS compatibility)
+- **Automatic triggering** - Runs during Terraform apply via `null_resource` provisioner
+- **Environment integration** - Passes all necessary environment variables from Terraform
 
 ## Local Development
 
@@ -307,23 +318,34 @@ npm run test:all     # Full test suite (5-10 minutes)
 The checkbox indicates features that are currently implemented.
 
 1. [X] Login to portal
-2. [X] Create instance
+2. [X] **Create and manage challenges**
+   1. [X] Upload challenge files and folders via drag-and-drop interface
+   2. [X] Support for `.vscode` configuration folders and complex project structures  
+   3. [X] Mixed file/folder uploads with automatic folder hierarchy preservation
+   4. [X] Project structure guidelines with ASCII tree examples
+   5. [X] Automatic dependency installation (package.json, pyproject.toml, requirements.txt)
+   6. [X] Challenge deletion and resource management
+   7. [X] Resource configuration display (CPU cores, RAM in GB, storage)
+3. [X] **Create interview instances**
     1. [X] Manually create an instance immediately
-    2. [X] Select a challenge from S3-stored options (javascript, python, sql, etc.)
+    2. [X] Select from available challenges with CPU/memory/storage display
     3. [X] Schedule instance creation for future execution
     4. [X] **Mandatory**: Choose interview duration (30min-4hrs) with automatic destruction
     5. [X] Real-time status updates via SSE (no manual refresh needed)
-3. [X] Wait for instance to become `Active`
+4. [X] Wait for instance to become `Active`
    - [X] Challenge files are automatically copied from S3 during configuring stage
    - [X] Live status updates show progression through states
-4. [X] Access active instance
+5. [X] Access active instance
    - [X] Copy URL and password from the portal
    - [X] Send credentials to candidate
-5. [X] Destroy instance
+6. [X] **Destroy instance and manage history**
     1. [X] Manual destruction via portal interface
     2. [X] **Automatic destruction** based on configured timeout
     3. [X] Background operations with detailed logs
-    4. [ ] Option to save candidate files to S3 (not yet implemented)
+    4. [X] Option to save candidate files to S3 during destruction
+    5. [X] Download saved files from history tab with proper error handling
+    6. [X] Smart download visibility based on `saveFiles` attribute
+    7. [X] User-friendly error messages for download failures
 
 ## Instance Status
 

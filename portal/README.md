@@ -137,6 +137,12 @@ Instant scheduling allows interviews to be created for future execution with dat
 **AWS Integration & Infrastructure**
 Automated infrastructure management through Terraform handles ECS, ALB, and Route53 provisioning seamlessly. S3 challenge storage enables dynamic challenge loading from S3 buckets, while SOCI indexing via Lambda provides container image optimization for faster startup times. IAM role authentication ensures secure AWS access without manual credential management.
 
+**Enhanced Challenge Management**
+Comprehensive challenge system with drag-and-drop file/folder uploads supports complex project structures including `.vscode` configurations. Mixed upload capability allows simultaneous file and folder selection, while automatic dependency installation detects package.json, pyproject.toml, and requirements.txt for environment setup. Project structure guidelines help users upload correctly formatted challenges.
+
+**Enhanced File Management & History**
+Smart download system shows download buttons based on `saveFiles` interview attribute rather than S3 file existence checks. Improved error handling provides user-friendly messages for download failures, with specific guidance for missing files. File extraction service uses centralized configuration for consistent S3 bucket naming across all environments.
+
 **Developer Experience**
 Full TypeScript integration provides type safety with strict configuration, while Tailwind CSS enables utility-first styling with responsive design. The real-time UI includes live connection indicators and instant status updates. Comprehensive testing coverage spans unit, integration, and E2E tests for reliable development workflows.
 
@@ -373,10 +379,101 @@ GET /api/challenges
 {
   "success": true,
   "challenges": [
-    { "id": "javascript", "name": "Javascript" },
-    { "id": "python", "name": "Python" },
-    { "id": "sql", "name": "Sql" }
+    {
+      "id": "javascript",
+      "name": "Javascript",
+      "configuration": {
+        "cpu": 1024,
+        "memory": 2048,
+        "storage": 20
+      }
+    },
+    {
+      "id": "python",
+      "name": "Python",
+      "configuration": {
+        "cpu": 2048,
+        "memory": 4096,
+        "storage": 20
+      }
+    }
   ]
+}
+```
+
+#### Create New Challenge
+
+```http
+POST /api/challenges/manage/create
+Content-Type: application/json
+
+{
+  "challengeName": "New Challenge",
+  "configuration": {
+    "cpu": 1024,
+    "memory": 2048,
+    "storage": 20
+  }
+}
+```
+
+#### Upload Challenge Files
+
+```http
+POST /api/challenges/manage/upload
+Content-Type: multipart/form-data
+
+FormData:
+- challengeId: string (challenge ID)
+- files: File[] (multiple files and folders)
+- filePaths: string[] (preserve folder structure)
+```
+
+**Features**:
+
+- **Folder Support** - Upload entire directory structures including `.vscode` configuration folders
+- **Mixed Upload** - Upload files and folders simultaneously via drag-and-drop
+- **Path Preservation** - Maintains folder hierarchy using `webkitRelativePath`
+- **User Guidelines** - Provides project structure examples and dependency installation info
+
+**Upload Guidelines Shown to Users**:
+
+```
+📁 Project Structure Guidelines:
+
+Upload files/folders to the PROJECT ROOT (not the project folder itself):
+
+✅ Correct Structure:
+project-root/
+├── src/
+│   ├── main.js
+│   └── utils.js
+├── .vscode/
+│   └── settings.json
+├── package.json         # Auto-installs dependencies
+├── pyproject.toml       # Auto-creates .venv
+└── README.md
+
+❌ Incorrect (don't upload the project folder):
+my-project/
+└── project-root/
+    ├── src/
+    └── package.json
+
+🔧 Automatic Dependency Installation:
+When uploading package.json, pyproject.toml, uv.lock, or requirements.txt
+to the project root, dependencies will be installed automatically before
+candidate access.
+```
+
+#### Delete Challenge
+
+```http
+DELETE /api/challenges/manage/delete
+Content-Type: application/json
+
+{
+  "challengeId": "challenge-to-delete"
 }
 ```
 
