@@ -3,12 +3,11 @@
 set -e
 
 # Set default challenge based on environment variable
-S3_BUCKET=${S3_CHALLENGE_BUCKET:-${PROJECT_PREFIX}-${ENVIRONMENT:-dev}-challenge}
 AWS_REGION=${AWS_REGION:-"us-east-1"}
-WORKSPACE_PATH="/workspaces/${CHALLENGE}"
+WORKSPACE_PATH="/workspaces/${CHALLENGE_KEY}"
 
-echo "Starting code-server for challenge: ${CHALLENGE}"
-echo "S3 bucket: ${S3_BUCKET}"
+echo "Starting code-server for challenge: ${CHALLENGE_KEY}"
+echo "S3 bucket: ${CHALLENGE_BUCKET}"
 echo "Workspace path: ${WORKSPACE_PATH}"
 
 # Function to download and setup challenge
@@ -23,12 +22,12 @@ setup_challenge() {
 
 	# Download challenge files from S3
 	echo "Downloading challenge files from S3..."
-	if aws s3 sync "s3://${S3_BUCKET}/${challenge_name}/" "$workspace_dir/" --region "$AWS_REGION"; then
+	if aws s3 sync "s3://${CHALLENGE_BUCKET}/${challenge_name}/" "$workspace_dir/" --region "$AWS_REGION"; then
 		echo "✅ Successfully downloaded challenge: ${challenge_name}"
 	else
 		echo "❌ Failed to download challenge: ${challenge_name}"
 		echo "Available challenges in S3:"
-		aws s3 ls "s3://${S3_BUCKET}/" --region "$AWS_REGION" || echo "Could not list S3 contents"
+		aws s3 ls "s3://${CHALLENGE_BUCKET}/" --region "$AWS_REGION" || echo "Could not list S3 contents"
 		return 1
 	fi
 
@@ -63,21 +62,15 @@ setup_challenge() {
 }
 
 # Download and setup the selected challenge
-if ! setup_challenge "$CHALLENGE"; then
-	echo "Failed to setup challenge: ${CHALLENGE}"
-	echo "Falling back to default python challenge..."
-	if ! setup_challenge "python"; then
-		echo "Failed to setup fallback challenge. Creating empty workspace..."
-		mkdir -p "$WORKSPACE_PATH"
-		chown -R coder:coder "$WORKSPACE_PATH"
-	else
-		CHALLENGE="python"
-		WORKSPACE_PATH="/workspaces/python"
-	fi
+if ! setup_challenge "$CHALLENGE_KEY"; then
+	echo "Failed to setup challenge: ${CHALLENGE_KEY}"
+	echo "Falling back to default empty workspace..."
+	CHALLENGE_KEY="default"
+	WORKSPACE_PATH="/workspaces/default"
 fi
 
 echo "🚀 Starting code-server..."
-echo "Challenge: ${CHALLENGE}"
+echo "Challenge: ${CHALLENGE_KEY}"
 echo "Workspace: ${WORKSPACE_PATH}"
 echo "Access URL will be available on port 8443"
 

@@ -4,9 +4,9 @@
   "security.workspace.trust.enabled": false,
   "editor.bracketPairColorization.enabled": true,
   "editor.guides.bracketPairs": "active",
-  "workbench.editorAssociations": {
-        "*.md": "vscode.markdown.preview.editor"
-    },
+//  "workbench.editorAssociations": {
+//        "*.md": "vscode.markdown.preview.editor"
+//    },
   "todohighlight.keywordsPattern": "TODO: .+",
     "todohighlight.defaultStyle": {
       "color": "#1f1f1f",

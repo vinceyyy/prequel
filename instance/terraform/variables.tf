@@ -30,3 +30,9 @@ variable "openai_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "image_tag" {
+  description = "Docker image tag for the code-server container"
+  type        = string
+  default     = "latest"
+}

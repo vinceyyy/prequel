@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.1"
+    }
   }
   backend "s3" {
     bucket = "TERRAFORM_STATE_BUCKET_PLACEHOLDER"         # will be substitute by the portal at run time
@@ -22,20 +26,20 @@ data "terraform_remote_state" "common" {
   config = {
     bucket = "TERRAFORM_STATE_BUCKET_PLACEHOLDER" # will be substitute by the portal at run time
     key    = "common"
-    region = "AWS_REGION_PLACEHOLDER"             # will be substitute by the portal at run time
+    region = "AWS_REGION_PLACEHOLDER" # will be substitute by the portal at run time
   }
 }
 
 locals {
-  interview_id = var.interview_id
+  interview_id   = var.interview_id
   candidate_name = replace(lower(var.candidate_name), " ", "-")
-  service_name = "interview-${local.interview_id}"
+  service_name   = "interview-${local.interview_id}"
   tags = {
-    InterviewId    = local.interview_id
-    CandidateName  = var.candidate_name
-    Challenge      = var.challenge
-    Environment    = "interview"
-    ManagedBy      = "terraform"
-    CreatedAt      = timestamp()
+    InterviewId   = local.interview_id
+    CandidateName = var.candidate_name
+    Challenge     = var.challenge
+    Environment   = "interview"
+    ManagedBy     = "terraform"
+    CreatedAt     = timestamp()
   }
 }

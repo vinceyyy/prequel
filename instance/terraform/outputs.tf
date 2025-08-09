@@ -10,17 +10,12 @@ output "service_name" {
 
 output "access_url" {
   description = "URL to access the interview"
-  value = data.terraform_remote_state.common.outputs.domain_name != "" ? "https://${local.interview_id}.${data.terraform_remote_state.common.outputs.domain_name}/" : "http://${aws_lb.interview.dns_name}/"
+  value       = data.terraform_remote_state.common.outputs.domain_name != "" ? "https://${local.interview_id}.${data.terraform_remote_state.common.outputs.domain_name}/" : "http://${data.terraform_remote_state.common.outputs.alb_dns_name}/"
 }
 
-output "alb_dns_name" {
-  description = "DNS name of the interview ALB"
-  value       = aws_lb.interview.dns_name
-}
-
-output "alb_arn" {
-  description = "ARN of the interview ALB"
-  value       = aws_lb.interview.arn
+output "shared_alb_dns_name" {
+  description = "DNS name of the shared ALB (same as portal)"
+  value       = data.terraform_remote_state.common.outputs.alb_dns_name
 }
 
 output "target_group_arn" {
@@ -28,9 +23,14 @@ output "target_group_arn" {
   value       = aws_lb_target_group.interview.arn
 }
 
-output "alb_security_group_id" {
-  description = "ID of the interview ALB security group"
-  value       = aws_security_group.interview_alb.id
+output "listener_rule_arn" {
+  description = "ARN of the ALB listener rule for this interview"
+  value       = data.terraform_remote_state.common.outputs.domain_name != "" ? aws_lb_listener_rule.interview[0].arn : null
+}
+
+output "listener_rule_priority" {
+  description = "Priority of the ALB listener rule"
+  value       = random_integer.priority.result
 }
 
 output "ecs_security_group_id" {
@@ -52,6 +52,16 @@ output "candidate_name" {
 output "challenge" {
   description = "Interview challenge"
   value       = var.challenge
+}
+
+output "subdomain" {
+  description = "Subdomain for this interview"
+  value       = data.terraform_remote_state.common.outputs.domain_name != "" ? "${local.interview_id}.${data.terraform_remote_state.common.outputs.domain_name}" : null
+}
+
+output "route53_record_name" {
+  description = "Route53 record name for the interview"
+  value       = data.terraform_remote_state.common.outputs.domain_name != "" ? aws_route53_record.interview[0].name : null
 }
 
 output "created_at" {
