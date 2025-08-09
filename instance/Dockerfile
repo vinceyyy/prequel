@@ -7,7 +7,7 @@ USER root
 # Install Python3, pip, Node.js, and AWS CLI (optimized for smaller size)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3 python3-pip python3-venv nodejs npm curl unzip && \
+        python3 python-is-python3 python3-pip python3-venv nodejs npm curl unzip && \
     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
     unzip awscliv2.zip && \
     ./aws/install && \
@@ -18,7 +18,7 @@ RUN apt-get update && \
     find /usr/share/man -depth -type f | xargs rm || true
 
 # Install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/bin" sh
 
 # Install AI assistances
 RUN npm install -g @openai/codex
