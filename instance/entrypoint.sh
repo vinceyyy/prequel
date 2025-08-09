@@ -37,12 +37,17 @@ setup_challenge() {
 		echo "Installing Python dependencies..."
 		cat "${workspace_dir}/requirements.txt"
 		cd "${workspace_dir}"
-		# python3 -m pip install --upgrade pip --break-system-packages --user
-		# python3 -m pip install -r requirements.txt --break-system-packages --user
 		python3 -m venv .venv
 		source .venv/bin/activate
 		python3 -m pip install -r requirements.txt
-		echo "✅ Python dependencies installed"
+		echo "✅ Python dependencies installed via pip"
+	fi
+	if [ -f "${workspace_dir}/pyproject.toml" ]; then
+		echo "Installing Python dependencies..."
+		cat "${workspace_dir}/pyproject.toml"
+		cd "${workspace_dir}"
+		uv sync --all-groups
+		echo "✅ Python dependencies installed via uv"
 	fi
 	if [ -f "$workspace_dir/package.json" ]; then
 		echo "Installing Node.js dependencies..."
