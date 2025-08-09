@@ -494,11 +494,8 @@ export class InterviewManager {
         instance,
         onData,
         async (accessUrl: string) => {
-          // Update DynamoDB when infrastructure is ready
-          await this.updateInterviewStatus(instance.id, 'configuring', {
-            accessUrl,
-            password: instance.password,
-          })
+          // Update DynamoDB when infrastructure is ready but don't expose URL yet
+          await this.updateInterviewStatus(instance.id, 'configuring')
 
           if (onInfrastructureReady) {
             onInfrastructureReady(accessUrl)
@@ -507,8 +504,11 @@ export class InterviewManager {
       )
 
       if (result.success) {
-        // Update DynamoDB to active status
-        await this.updateInterviewStatus(instance.id, 'active')
+        // Update DynamoDB to active status with access details
+        await this.updateInterviewStatus(instance.id, 'active', {
+          accessUrl: result.accessUrl,
+          password: instance.password,
+        })
 
         return {
           success: true,

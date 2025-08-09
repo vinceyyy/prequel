@@ -890,7 +890,7 @@ export default function Home() {
                           )}
                         </td>
                         <td className="px-3 sm:px-6 py-4 text-sm text-slate-900">
-                          {interview.accessUrl ? (
+                          {interview.status === 'active' && interview.accessUrl ? (
                             <div className="max-w-xs">
                               <a
                                 className="text-blue-600 underline cursor-pointer break-all hover:text-blue-700 transition-colors"
@@ -903,8 +903,14 @@ export default function Home() {
                                 Password: {interview.password}
                               </div>
                             </div>
+                          ) : interview.status === 'configuring' ? (
+                            <span className="text-slate-400">Configuring...</span>
+                          ) : interview.status === 'scheduled' ? (
+                            <span className="text-slate-400">Scheduled</span>
+                          ) : interview.status === 'initializing' ? (
+                            <span className="text-slate-400">Initializing...</span>
                           ) : (
-                            <span className="text-slate-400">Not started</span>
+                            <span className="text-slate-400">Not available</span>
                           )}
                         </td>
                         <td className="px-3 sm:px-6 py-4 text-sm font-medium">
