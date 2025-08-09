@@ -49,6 +49,11 @@ output "alb_https_listener_arn" {
   value       = var.domain_name != "" ? aws_lb_listener.https[0].arn : null
 }
 
+output "alb_security_group_id" {
+  description = "Security group ID of the ALB"
+  value       = aws_security_group.alb.id
+}
+
 output "default_password_parameter_arn" {
   description = "ARN of the SSM parameter containing default password"
   value       = aws_ssm_parameter.default_password.arn
@@ -75,9 +80,9 @@ output "ecs_task_role_arn" {
   value       = aws_iam_role.ecs_task.arn
 }
 
-output "cloudwatch_log_group_name" {
+output "interview_cloudwatch_log_group_name" {
   description = "Name of the CloudWatch log group"
-  value       = aws_cloudwatch_log_group.portal.name
+  value       = aws_cloudwatch_log_group.interview.name
 }
 
 output "route53_zone_id" {

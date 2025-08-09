@@ -13,9 +13,9 @@
  */
 
 resource "aws_dynamodb_table" "operations" {
-  name           = "${local.name}-operations"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "id"
+  name                        = "${local.name}-operations"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
   deletion_protection_enabled = false
 
   # Primary key: Operation ID
@@ -115,9 +115,9 @@ resource "aws_dynamodb_table" "operations" {
  */
 
 resource "aws_dynamodb_table" "interviews" {
-  name           = "${local.name}-interviews"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "id"
+  name                        = "${local.name}-interviews"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
   deletion_protection_enabled = false
 
   # Primary key: Interview ID
@@ -199,9 +199,9 @@ resource "aws_dynamodb_table" "interviews" {
  */
 
 resource "aws_dynamodb_table" "challenges" {
-  name           = "${local.name}-challenges"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "id"
+  name                        = "${local.name}-challenges"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
   deletion_protection_enabled = false
 
   # Primary key: Challenge ID

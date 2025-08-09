@@ -241,6 +241,14 @@ resource "aws_cloudwatch_log_group" "portal" {
   tags = local.tags
 }
 
+# Portal ECS resources
+resource "aws_cloudwatch_log_group" "interview" {
+  name              = "/ecs/${local.name}/interview"
+  retention_in_days = 7
+
+  tags = local.tags
+}
+
 resource "aws_iam_role" "portal_task" {
   name = "${local.name}-portal-task-role"
 
@@ -388,7 +396,7 @@ resource "aws_iam_role_policy" "portal_task" {
 resource "null_resource" "portal_image_build" {
   # Trigger rebuild when portal source code or Dockerfile changes
   triggers = {
-    dockerfile_hash = filesha256("../portal/Dockerfile")
+    dockerfile_hash   = filesha256("../portal/Dockerfile")
     package_json_hash = filesha256("../portal/package.json")
     # Trigger on ECR repository changes
     ecr_repository_url = aws_ecr_repository.portal.repository_url
@@ -398,10 +406,10 @@ resource "null_resource" "portal_image_build" {
   provisioner "local-exec" {
     command     = "./bootstrap-portal-image.sh"
     working_dir = path.module
-    
+
     environment = {
-      AWS_REGION              = var.aws_region
-      PROJECT_PREFIX          = var.project_prefix
+      AWS_REGION             = var.aws_region
+      PROJECT_PREFIX         = var.project_prefix
       ENVIRONMENT            = var.environment
       TERRAFORM_STATE_BUCKET = var.terraform_state_bucket
       ECR_REPOSITORY_URL     = aws_ecr_repository.portal.repository_url
