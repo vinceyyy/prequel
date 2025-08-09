@@ -105,6 +105,32 @@ export default function FileBrowser({
     }
   }
 
+  // Download entire challenge as zip
+  const downloadChallenge = async () => {
+    try {
+      const response = await fetch(
+        `/api/challenges/manage/${challengeId}/download`
+      )
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${challengeName.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_')}.zip`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      } else {
+        setError('Failed to download challenge')
+      }
+    } catch (error) {
+      console.error('Error downloading challenge:', error)
+      setError('Error downloading challenge')
+    }
+  }
+
   // Initial load
   useEffect(() => {
     loadFiles()
@@ -248,12 +274,21 @@ export default function FileBrowser({
             ))}
           </nav>
         </div>
-        <button
-          onClick={onBack}
-          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-        >
-          ← Back to Challenges
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={downloadChallenge}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            title="Download entire challenge as ZIP file"
+          >
+            ↓ Download ZIP
+          </button>
+          <button
+            onClick={onBack}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+          >
+            ← Back to Challenges
+          </button>
+        </div>
       </div>
 
       {error && (

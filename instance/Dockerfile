@@ -45,8 +45,8 @@ RUN code-server --install-extension ms-python.python \
     && code-server --install-extension dbcode.dbcode \
     && code-server --install-extension wayou.vscode-todo-highlight
 
-# Copy user settings
-COPY settings.json /home/coder/.local/share/code-server/User/settings.json
+# Copy user settings with proper ownership
+COPY --chown=coder:coder settings.json /home/coder/.local/share/code-server/User/settings.json
 
 # Expose code-server port
 EXPOSE 8443

@@ -16,13 +16,19 @@ interface RouteContext {
 /**
  * GET /api/challenges/manage/[id]/files/[...path]
  * Get the content of a specific file in a challenge
+ * Query params:
+ *   - download=true: Download file as attachment instead of returning JSON
  */
 export async function GET(request: NextRequest, { params }: RouteContext) {
   try {
     const { id: challengeId, path } = await params
     const filePath = path.join('/')
+    const { searchParams } = new URL(request.url)
+    const isDownload = searchParams.get('download') === 'true'
 
-    logger.info(`[API] Getting file content: ${challengeId}/${filePath}`)
+    logger.info(
+      `[API] Getting file content: ${challengeId}/${filePath}${isDownload ? ' (download)' : ' (preview)'}`
+    )
 
     // Security: Prevent path traversal attacks
     if (
@@ -73,6 +79,25 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     }
 
     const buffer = Buffer.concat(chunks)
+
+    // If download is requested, return the raw file
+    if (isDownload) {
+      const fileName = filePath.split('/').pop() || 'file'
+      const mimeType = getMimeType(filePath)
+
+      logger.info(
+        `[API] Downloading file: ${challengeId}/${filePath} (${buffer.length} bytes)`
+      )
+
+      return new Response(buffer, {
+        headers: {
+          'Content-Type': mimeType,
+          'Content-Disposition': `attachment; filename="${fileName}"`,
+          'Content-Length': buffer.length.toString(),
+          'Cache-Control': 'private, max-age=3600',
+        },
+      })
+    }
 
     // Check file size (limit to 1MB for display)
     const maxTextSize = 1024 * 1024 // 1MB
