@@ -3,6 +3,7 @@ import { promisify } from 'util'
 import path from 'path'
 import fs from 'fs/promises'
 import { fileExtractionService } from './fileExtraction'
+import { challengeService } from './challenges'
 import { config } from './config'
 
 const execAsync = promisify(exec)
@@ -1212,11 +1213,25 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
       if (saveFiles && candidateName && challenge) {
         streamData(`Extracting candidate files for ${candidateName}...\n`)
         try {
+          // Get challenge name from challenge ID
+          let challengeName = 'Unknown Challenge'
+          try {
+            const challengeData = await challengeService.getChallenge(challenge)
+            if (challengeData) {
+              challengeName = challengeData.name
+            }
+          } catch (error) {
+            streamData(
+              `Warning: Failed to get challenge name for ${challenge}: ${error instanceof Error ? error.message : 'Unknown error'}\n`
+            )
+          }
+
           const extractionResult =
             await fileExtractionService.extractAndUploadFiles({
               interviewId,
               candidateName,
-              challenge,
+              challengeId: challenge,
+              challengeName,
             })
 
           if (extractionResult.success && extractionResult.s3Key) {

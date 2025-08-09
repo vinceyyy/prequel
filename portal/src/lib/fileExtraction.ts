@@ -59,7 +59,8 @@ const DEFAULT_IGNORE_PATTERNS = [
 export interface FileExtractionConfig {
   interviewId: string
   candidateName: string
-  challenge: string
+  challengeId: string // Challenge ID (e.g., 'challenge-1754582796980-av473aawr')
+  challengeName: string // Challenge name (e.g., 'SQL Test')
   workspaceDir?: string // Default: '/config/workspace'
   ignorePatterns?: string[] // Additional patterns to ignore (merged with defaults)
   maxFileSizeMB?: number // Default: 100MB total
@@ -93,7 +94,8 @@ export interface FileExtractionResult {
  * const result = await extractor.extractAndUploadFiles({
  *   interviewId: 'abc12345',
  *   candidateName: 'John Doe',
- *   challenge: 'javascript'
+ *   challengeId: 'challenge-1754582796980-av473aawr',
+ *   challengeName: 'JavaScript Test'
  * })
  *
  * if (result.success) {
@@ -126,7 +128,8 @@ export class FileExtractionService {
     const {
       interviewId,
       candidateName,
-      challenge,
+      challengeId,
+      challengeName,
       workspaceDir = '/workspaces',
       ignorePatterns = [],
       maxFileSizeMB = 100,
@@ -136,7 +139,8 @@ export class FileExtractionService {
       logger.info('Starting file extraction and upload', {
         interviewId,
         candidateName,
-        challenge,
+        challengeId,
+        challengeName,
         workspaceDir,
       })
 
@@ -156,7 +160,12 @@ export class FileExtractionService {
         .replace(/\s+/g, ' ')
         .trim()
         .replace(/\s/g, '_')
-      const filesS3Key = `${today}_${sanitizedName}_${interviewId}.tar.gz`
+      const sanitizedChallengeName = challengeName
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\s/g, '_')
+      const filesS3Key = `${today}_${sanitizedName}_${sanitizedChallengeName}.tar.gz`
 
       // Step 3: Create and execute file extraction script inside container
       const extractionScript = this.generateExtractionScript(
@@ -167,7 +176,8 @@ export class FileExtractionService {
         filesS3Key,
         interviewId,
         candidateName,
-        challenge
+        challengeId,
+        challengeName
       )
 
       const scriptResult = await this.executeScriptInContainer(
@@ -246,7 +256,8 @@ export class FileExtractionService {
     s3Key: string,
     interviewId: string,
     candidateName: string,
-    challenge: string
+    challengeId: string,
+    challengeName: string
   ): string {
     const allIgnorePatterns = [
       ...DEFAULT_IGNORE_PATTERNS,
@@ -293,12 +304,13 @@ fi
 
 # Create interview metadata file
 echo "Creating interview metadata..."
-cat > "\$METADATA_PATH" << 'EOF'
+cat > "\$METADATA_PATH" << EOF
 {
   "interviewId": "${interviewId}",
   "candidateName": "${candidateName}",
-  "challenge": "${challenge}",
-  "extractedAt": "$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")",
+  "challenge": "${challengeName}",
+  "challengeId": "${challengeId}",
+  "extractedAt": "\$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")",
   "extractionVersion": "1.0.0"
 }
 EOF
@@ -314,11 +326,13 @@ echo "\$FILES" | head -10
 
 if [ -z "\$FILES" ]; then
   echo "No files found to archive"
-  # Create tar with just metadata at root level
-  cd "\$WORKSPACE_DIR"
-  cp "\$METADATA_PATH" "./interview.json"
-  tar -czf "\$ARCHIVE_PATH" interview.json
-  rm -f "./interview.json"
+  # Create archive structure with empty workspace folder
+  TEMP_ARCHIVE_DIR="/tmp/archive_structure"
+  mkdir -p "\$TEMP_ARCHIVE_DIR/workspace"
+  cp "\$METADATA_PATH" "\$TEMP_ARCHIVE_DIR/interview.json"
+  cd "\$TEMP_ARCHIVE_DIR"
+  tar -czf "\$ARCHIVE_PATH" .
+  rm -rf "\$TEMP_ARCHIVE_DIR"
   FILE_COUNT=0
   TOTAL_SIZE=\$(stat -c %s "\$METADATA_PATH")
 else
@@ -335,17 +349,35 @@ else
     exit 1
   fi
   
-  # Create tar archive with relative paths and metadata
+  # Create tar archive with workspace folder named "workspace"
   cd "\$WORKSPACE_DIR"
   # Copy metadata file to workspace root temporarily
   cp "\$METADATA_PATH" "./interview.json"
-  # Create file list with relative paths, plus metadata file at root
-  echo "\$FILES" | sed "s|\$WORKSPACE_DIR/||g" > /tmp/files_to_archive.txt
-  echo "interview.json" >> /tmp/files_to_archive.txt
-  tar -czf "\$ARCHIVE_PATH" -T /tmp/files_to_archive.txt
   
-  # Cleanup temp files
-  rm -f /tmp/files_to_archive.txt "./interview.json"
+  # Create a temporary directory to structure the archive correctly
+  TEMP_ARCHIVE_DIR="/tmp/archive_structure"
+  mkdir -p "\$TEMP_ARCHIVE_DIR/workspace"
+  
+  # Copy all files to the workspace folder, preserving structure
+  echo "\$FILES" | while IFS= read -r file; do
+    if [ -n "\$file" ]; then
+      # Get relative path from workspace dir
+      rel_path="\${file#\$WORKSPACE_DIR/}"
+      target_dir="\$TEMP_ARCHIVE_DIR/workspace/\$(dirname "\$rel_path")"
+      mkdir -p "\$target_dir"
+      cp "\$file" "\$target_dir/"
+    fi
+  done
+  
+  # Copy metadata to archive root
+  cp "\$METADATA_PATH" "\$TEMP_ARCHIVE_DIR/interview.json"
+  
+  # Create tar from the structured directory
+  cd "\$TEMP_ARCHIVE_DIR"
+  tar -czf "\$ARCHIVE_PATH" .
+  
+  # Cleanup temp structure
+  rm -rf "\$TEMP_ARCHIVE_DIR"
 fi
 
 # Upload to S3

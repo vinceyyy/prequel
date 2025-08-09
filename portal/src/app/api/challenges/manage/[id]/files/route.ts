@@ -36,7 +36,11 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     )
 
     // Construct the S3 prefix
-    const prefix = path ? `${challengeId}/${path}/` : `${challengeId}/`
+    // Ensure path ends with / when looking inside a directory
+    const cleanPath = path ? path.replace(/\/+$/, '') : '' // Remove trailing slashes
+    const prefix = cleanPath
+      ? `${challengeId}/${cleanPath}/`
+      : `${challengeId}/`
 
     logger.info(
       `[API] S3 ListObjects: bucket=${BUCKET_NAME}, prefix="${prefix}"`
@@ -74,7 +78,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
             // Skip empty names
             files.push({
               name: dirName,
-              path: commonPrefix.Prefix.replace(`${challengeId}/`, ''),
+              path: commonPrefix.Prefix.replace(`${challengeId}/`, '').replace(
+                /\/+$/,
+                ''
+              ), // Remove trailing slash
               size: 0,
               lastModified: '',
               isDirectory: true,

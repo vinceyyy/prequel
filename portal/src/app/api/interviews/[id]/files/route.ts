@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { interviewManager } from '@/lib/interviews'
+import { challengeService } from '@/lib/challenges'
 
 /**
  * Downloads candidate files from S3 for a completed interview.
@@ -103,11 +104,37 @@ export async function GET(
 
       const buffer = Buffer.concat(chunks)
 
-      // Generate filename with interview ID and candidate name
+      // Get challenge name from challenge ID
+      let challengeName = 'Unknown_Challenge'
+      try {
+        const challenge = await challengeService.getChallenge(
+          interview.challenge
+        )
+        if (challenge) {
+          challengeName = challenge.name
+        }
+      } catch (error) {
+        console.warn(
+          `Failed to get challenge name for ${interview.challenge}:`,
+          error
+        )
+      }
+
+      // Generate filename with date, candidate name, and challenge name
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
       const sanitizedCandidateName = interview.candidateName
-        .replace(/[^a-zA-Z0-9-_]/g, '_')
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\s/g, '_')
         .substring(0, 50)
-      const filename = `interview_${interviewId}_${sanitizedCandidateName}.tar.gz`
+      const sanitizedChallengeName = challengeName
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\s/g, '_')
+        .substring(0, 50)
+      const filename = `${today}_${sanitizedCandidateName}_${sanitizedChallengeName}.tar.gz`
 
       // Return the tar.gz file as a download
       return new Response(buffer, {
