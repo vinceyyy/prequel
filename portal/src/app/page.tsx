@@ -313,7 +313,7 @@ export default function Home() {
 
       // Extract filename from response headers or use default
       const contentDisposition = response.headers.get('Content-Disposition')
-      let filename = `interview_${interviewId}_files.tar.gz`
+      let filename = `interview-${interviewId}-files.tar.gz`
 
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/)

@@ -154,18 +154,21 @@ export class FileExtractionService {
       }
 
       // Step 2: Generate S3 key for this interview
+      // Format: YYYYMMDD-candidate_name-challenge_name.tar.gz
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
       const sanitizedName = candidateName
-        .replace(/[^a-zA-Z0-9\s]/g, '')
-        .replace(/\s+/g, ' ')
+        .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
+        .replace(/\s+/g, ' ')            // Normalize spaces
         .trim()
-        .replace(/\s/g, '_')
+        .replace(/\s/g, '_')             // Replace spaces with underscores
       const sanitizedChallengeName = challengeName
-        .replace(/[^a-zA-Z0-9\s]/g, '')
-        .replace(/\s+/g, ' ')
+        .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
+        .replace(/\s+/g, ' ')            // Normalize spaces
         .trim()
-        .replace(/\s/g, '_')
-      const filesS3Key = `${today}_${sanitizedName}_${sanitizedChallengeName}.tar.gz`
+        .replace(/\s/g, '_')             // Replace spaces with underscores
+      
+      // Use hyphens to separate parts for better readability
+      const filesS3Key = `${today}-${sanitizedName}-${sanitizedChallengeName}.tar.gz`
 
       // Step 3: Create and execute file extraction script inside container
       const extractionScript = this.generateExtractionScript(

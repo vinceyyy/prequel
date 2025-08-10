@@ -134,7 +134,8 @@ export async function GET(
         .trim()
         .replace(/\s/g, '_')
         .substring(0, 50)
-      const filename = `${today}_${sanitizedCandidateName}_${sanitizedChallengeName}.tar.gz`
+      // Use hyphens to separate parts for better readability
+      const filename = `${today}-${sanitizedCandidateName}-${sanitizedChallengeName}.tar.gz`
 
       // Return the tar.gz file as a download
       return new Response(buffer, {
