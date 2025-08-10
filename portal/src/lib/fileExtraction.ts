@@ -482,7 +482,7 @@ echo "File extraction completed successfully"
       // Base64 encode the script and decode/execute it in the container
       const scriptContent = await fs.readFile(scriptPath, 'utf8')
       const encodedScript = Buffer.from(scriptContent).toString('base64')
-      const command = `aws ecs execute-command --cluster ${ECS_CLUSTER_NAME} --task ${taskArn} --container code-server --command "/bin/sh -c 'echo ${encodedScript} | base64 -d | /bin/sh'"`
+      const command = `aws ecs execute-command --cluster ${ECS_CLUSTER_NAME} --task ${taskArn} --container code-server --non-interactive --command "/bin/sh -c 'echo ${encodedScript} | base64 -d | /bin/sh'"`
 
       const { stdout, stderr } = await execAsync(command, {
         env,
