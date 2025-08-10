@@ -115,7 +115,18 @@ export default function Home() {
         )
 
         const newInterviews = data.interviews || []
-        setInterviews(newInterviews)
+        
+        // Merge with any optimistic updates (preserving optimistic updates until real data arrives)
+        setInterviews(prev => {
+          // Create a map of new interviews by ID
+          const newInterviewsMap = new Map(newInterviews.map((i: Interview) => [i.id, i]))
+          
+          // Keep optimistic updates that aren't in the new data yet
+          const optimisticOnly = prev.filter(i => !newInterviewsMap.has(i.id))
+          
+          // Combine new data with remaining optimistic updates
+          return [...newInterviews, ...optimisticOnly]
+        })
       } else {
         console.error('Failed to load current interviews')
       }
@@ -189,6 +200,7 @@ export default function Home() {
         lastEvent.type === 'scheduler_event'
       ) {
         console.log('Refreshing interviews due to SSE event')
+        // Refresh immediately - optimistic update will be replaced with real data
         loadInterviews()
       }
     }
@@ -274,8 +286,22 @@ export default function Home() {
       setNotification(message)
       setTimeout(() => setNotification(null), 5000) // Clear after 5 seconds
 
-      // Refresh the interview list
-      loadInterviews()
+      // Add optimistic update - show the interview immediately in UI
+      const optimisticInterview = {
+        id: response.interviewId,
+        candidateName: formData.candidateName.trim(),
+        challenge: formData.challenge,
+        status: formData.enableScheduling ? 'scheduled' : 'initializing',
+        createdAt: new Date().toISOString(),
+        scheduledAt: formData.enableScheduling ? formData.scheduledAt : undefined,
+        autoDestroyAt: response.autoDestroyAt,
+        password: response.password,
+      }
+      
+      // Add to interviews list optimistically
+      setInterviews(prev => [optimisticInterview, ...prev])
+      
+      // SSE will update with real data when operation emits events
     } catch (error) {
       console.error('Error creating interview:', error)
       alert(
