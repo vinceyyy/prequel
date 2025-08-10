@@ -37,6 +37,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [creatingInterviewId, setCreatingInterviewId] = useState<string | null>(null)
   const [initialLoading, setInitialLoading] = useState(true)
   const [historyLoading, setHistoryLoading] = useState(false)
   const historyLoadingRef = useRef(false)
@@ -115,18 +116,7 @@ export default function Home() {
         )
 
         const newInterviews = data.interviews || []
-        
-        // Merge with any optimistic updates (preserving optimistic updates until real data arrives)
-        setInterviews(prev => {
-          // Create a map of new interviews by ID
-          const newInterviewsMap = new Map(newInterviews.map((i: Interview) => [i.id, i]))
-          
-          // Keep optimistic updates that aren't in the new data yet
-          const optimisticOnly = prev.filter(i => !newInterviewsMap.has(i.id))
-          
-          // Combine new data with remaining optimistic updates
-          return [...newInterviews, ...optimisticOnly]
-        })
+        setInterviews(newInterviews)
       } else {
         console.error('Failed to load current interviews')
       }
@@ -200,11 +190,16 @@ export default function Home() {
         lastEvent.type === 'scheduler_event'
       ) {
         console.log('Refreshing interviews due to SSE event')
-        // Refresh immediately - optimistic update will be replaced with real data
         loadInterviews()
+        
+        // Clear creating loading state if this is for the interview we're waiting for
+        if (lastEvent.type === 'operation_update' && 
+            lastEvent.operation?.interviewId === creatingInterviewId) {
+          setCreatingInterviewId(null)
+        }
       }
     }
-  }, [lastEvent, loadInterviews])
+  }, [lastEvent, loadInterviews, creatingInterviewId])
 
   // NO AUTOMATIC POLLING for current interviews - SSE provides real-time updates
   // History interviews use 30-second polling for reasonable freshness
@@ -266,9 +261,13 @@ export default function Home() {
         throw new Error(errorData.error || 'Failed to create interview')
       }
 
-      await response.json()
+      const data = await response.json()
 
       // Close the modal immediately since operation is now background
+      // Set the creating interview ID to show loading state
+      setCreatingInterviewId(data.interviewId)
+      
+      // Reset form and close modal
       setFormData({
         candidateName: '',
         challenge: challenges.length > 0 ? challenges[0].id : '',
@@ -285,23 +284,6 @@ export default function Home() {
         : `Interview creation started for ${formData.candidateName.trim()}`
       setNotification(message)
       setTimeout(() => setNotification(null), 5000) // Clear after 5 seconds
-
-      // Add optimistic update - show the interview immediately in UI
-      const optimisticInterview = {
-        id: response.interviewId,
-        candidateName: formData.candidateName.trim(),
-        challenge: formData.challenge,
-        status: formData.enableScheduling ? 'scheduled' : 'initializing',
-        createdAt: new Date().toISOString(),
-        scheduledAt: formData.enableScheduling ? formData.scheduledAt : undefined,
-        autoDestroyAt: response.autoDestroyAt,
-        password: response.password,
-      }
-      
-      // Add to interviews list optimistically
-      setInterviews(prev => [optimisticInterview, ...prev])
-      
-      // SSE will update with real data when operation emits events
     } catch (error) {
       console.error('Error creating interview:', error)
       alert(
@@ -776,6 +758,18 @@ export default function Home() {
         {/* Current Interviews Tab */}
         {activeTab === 'current' && (
           <div className="card overflow-hidden">
+            {/* Show loading state when creating a new interview */}
+            {creatingInterviewId && (
+              <div className="px-6 py-4 bg-blue-50 border-b border-blue-100">
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+                  <span className="text-blue-700">
+                    Creating interview... Waiting for it to appear in the list.
+                  </span>
+                </div>
+              </div>
+            )}
+            
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-slate-50">
