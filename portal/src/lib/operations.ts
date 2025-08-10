@@ -16,8 +16,10 @@ import { config } from './config'
  * Used by SSE endpoint to notify connected clients in real-time.
  */
 export interface OperationEvent {
-  type: 'operation_update'
-  operation: Operation
+  type: 'operation_update' | 'operation_logs'
+  operation?: Operation
+  operationId?: string
+  logs?: string[]
   timestamp: string
 }
 
@@ -158,6 +160,29 @@ class OperationManager {
         listener(event)
       } catch (error) {
         operationsLogger.error('Error in operation event listener', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
+    })
+  }
+
+  /**
+   * Emits a log update event to all registered listeners.
+   * Enables real-time log streaming via Server-Sent Events.
+   */
+  private emitLogUpdate(operationId: string, logs: string[]): void {
+    const event: OperationEvent = {
+      type: 'operation_logs',
+      operationId,
+      logs,
+      timestamp: new Date().toISOString(),
+    }
+
+    this.eventListeners.forEach(listener => {
+      try {
+        listener(event)
+      } catch (error) {
+        operationsLogger.error('Error in operation log event listener', {
           error: error instanceof Error ? error.message : 'Unknown error',
         })
       }
@@ -620,6 +645,9 @@ class OperationManager {
             }),
           })
         )
+
+        // Emit SSE event for log updates - enables real-time log streaming
+        this.emitLogUpdate(operationId, logs)
       } catch (error) {
         operationsLogger.error('Error flushing logs for operation', {
           operationId,

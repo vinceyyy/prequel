@@ -38,11 +38,14 @@ export interface SSEEvent {
     | 'operation_status'
     | 'scheduler_event'
     | 'operation_update'
+    | 'operation_logs'
   timestamp: string
   operations?: OperationData[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   event?: any
   operation?: OperationData
+  operationId?: string
+  logs?: string[]
 }
 
 export function useSSE(url: string) {

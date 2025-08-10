@@ -92,28 +92,39 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Listen for operation events (status changes)
+      // Listen for operation events (status changes and log updates)
       const operationEventListener = (event: OperationEvent) => {
         try {
-          const eventData = JSON.stringify({
-            type: 'operation_update',
-            timestamp: new Date().toISOString(),
-            operation: {
-              id: event.operation.id,
-              type: event.operation.type,
-              status: event.operation.status,
-              interviewId: event.operation.interviewId,
-              candidateName: event.operation.candidateName,
-              challenge: event.operation.challenge,
-              scheduledAt: event.operation.scheduledAt,
-              autoDestroyAt: event.operation.autoDestroyAt,
-              createdAt: event.operation.createdAt,
-              executionStartedAt: event.operation.executionStartedAt,
-              completedAt: event.operation.completedAt,
-              result: event.operation.result,
-            },
-          })
-          controller.enqueue(encoder.encode(`data: ${eventData}\n\n`))
+          if (event.type === 'operation_update' && event.operation) {
+            const eventData = JSON.stringify({
+              type: 'operation_update',
+              timestamp: new Date().toISOString(),
+              operation: {
+                id: event.operation.id,
+                type: event.operation.type,
+                status: event.operation.status,
+                interviewId: event.operation.interviewId,
+                candidateName: event.operation.candidateName,
+                challenge: event.operation.challenge,
+                scheduledAt: event.operation.scheduledAt,
+                autoDestroyAt: event.operation.autoDestroyAt,
+                createdAt: event.operation.createdAt,
+                executionStartedAt: event.operation.executionStartedAt,
+                completedAt: event.operation.completedAt,
+                result: event.operation.result,
+              },
+            })
+            controller.enqueue(encoder.encode(`data: ${eventData}\n\n`))
+          } else if (event.type === 'operation_logs') {
+            // Send log update events for real-time log streaming
+            const eventData = JSON.stringify({
+              type: 'operation_logs',
+              timestamp: new Date().toISOString(),
+              operationId: event.operationId,
+              logs: event.logs,
+            })
+            controller.enqueue(encoder.encode(`data: ${eventData}\n\n`))
+          }
         } catch (error) {
           console.error('Error sending operation event:', error)
         }
