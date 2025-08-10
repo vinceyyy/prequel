@@ -393,11 +393,28 @@ fi
 
 # Upload to S3
 echo "Uploading archive to s3://\$BUCKET_NAME/\$S3_KEY"
-if ! aws s3 cp "\$ARCHIVE_PATH" "s3://\$BUCKET_NAME/\$S3_KEY"; then
+echo "Checking S3 bucket accessibility..."
+if aws s3 ls "s3://\$BUCKET_NAME/" > /dev/null 2>&1; then
+  echo "✅ S3 bucket is accessible"
+else
+  echo "❌ S3 bucket is not accessible or doesn't exist"
+  echo "Available S3 buckets:"
+  aws s3 ls 2>&1 | head -10
+fi
+
+echo "Attempting S3 upload with explicit error handling..."
+AWS_OUTPUT=\$(aws s3 cp "\$ARCHIVE_PATH" "s3://\$BUCKET_NAME/\$S3_KEY" 2>&1)
+AWS_EXIT_CODE=\$?
+echo "AWS CLI output: \$AWS_OUTPUT"
+echo "AWS CLI exit code: \$AWS_EXIT_CODE"
+
+if [ \$AWS_EXIT_CODE -ne 0 ]; then
   echo "ERROR: Failed to upload archive to S3"
   echo "Archive exists: \$(ls -lh \$ARCHIVE_PATH)"
   echo "AWS CLI version: \$(aws --version)"
   echo "AWS credentials: \$(aws sts get-caller-identity 2>&1 || echo 'No credentials found')"
+  echo "Bucket contents preview:"
+  aws s3 ls "s3://\$BUCKET_NAME/" 2>&1 | head -5
   exit 1
 fi
 
