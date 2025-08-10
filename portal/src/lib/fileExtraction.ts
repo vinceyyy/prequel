@@ -394,28 +394,67 @@ fi
 # Upload to S3
 echo "Uploading archive to s3://\$BUCKET_NAME/\$S3_KEY"
 echo "Checking S3 bucket accessibility..."
-if aws s3 ls "s3://\$BUCKET_NAME/" > /dev/null 2>&1; then
-  echo "✅ S3 bucket is accessible"
+echo "Testing basic AWS CLI S3 functionality..."
+LIST_OUTPUT=\$(aws s3 ls 2>&1)
+LIST_EXIT_CODE=\$?
+echo "S3 list output: \$LIST_OUTPUT"
+echo "S3 list exit code: \$LIST_EXIT_CODE"
+
+if [ \$LIST_EXIT_CODE -eq 0 ]; then
+  echo "✅ Basic S3 operations work"
+  if aws s3 ls "s3://\$BUCKET_NAME/" > /dev/null 2>&1; then
+    echo "✅ Target S3 bucket is accessible"
+  else
+    echo "❌ Target S3 bucket is not accessible or doesn't exist"
+    echo "Available S3 buckets:"
+    echo "\$LIST_OUTPUT" | head -10
+  fi
 else
-  echo "❌ S3 bucket is not accessible or doesn't exist"
-  echo "Available S3 buckets:"
-  aws s3 ls 2>&1 | head -10
+  echo "❌ Basic S3 operations failed"
+  echo "This indicates an AWS CLI configuration issue"
 fi
 
 echo "Attempting S3 upload with explicit error handling..."
-AWS_OUTPUT=\$(aws s3 cp "\$ARCHIVE_PATH" "s3://\$BUCKET_NAME/\$S3_KEY" 2>&1)
+echo "Current AWS region: \${AWS_REGION:-'not set'}"
+echo "Local archive file: \$ARCHIVE_PATH"
+echo "S3 destination: s3://\$BUCKET_NAME/\$S3_KEY"
+echo "Archive file details:"
+ls -la "\$ARCHIVE_PATH" || echo "Archive file not found!"
+echo "Testing archive file access:"
+if [ -r "\$ARCHIVE_PATH" ]; then
+  echo "✅ Archive file is readable"
+  echo "File size: \$(stat -c %s "\$ARCHIVE_PATH") bytes"
+  echo "File type: \$(file "\$ARCHIVE_PATH")"
+else
+  echo "❌ Archive file is not readable"
+  exit 1
+fi
+AWS_OUTPUT=\$(aws s3 cp "\$ARCHIVE_PATH" "s3://\$BUCKET_NAME/\$S3_KEY" --region "\${AWS_REGION:-us-east-1}" 2>&1)
 AWS_EXIT_CODE=\$?
 echo "AWS CLI output: \$AWS_OUTPUT"
 echo "AWS CLI exit code: \$AWS_EXIT_CODE"
 
 if [ \$AWS_EXIT_CODE -ne 0 ]; then
-  echo "ERROR: Failed to upload archive to S3"
+  echo "ERROR: S3 upload failed with aws s3 cp, trying aws s3api put-object..."
   echo "Archive exists: \$(ls -lh \$ARCHIVE_PATH)"
   echo "AWS CLI version: \$(aws --version)"
   echo "AWS credentials: \$(aws sts get-caller-identity 2>&1 || echo 'No credentials found')"
-  echo "Bucket contents preview:"
-  aws s3 ls "s3://\$BUCKET_NAME/" 2>&1 | head -5
-  exit 1
+  
+  # Try alternative upload method
+  echo "Attempting upload with s3api put-object..."
+  S3API_OUTPUT=\$(aws s3api put-object --bucket "\$BUCKET_NAME" --key "\$S3_KEY" --body "\$ARCHIVE_PATH" --region "\${AWS_REGION:-us-east-1}" 2>&1)
+  S3API_EXIT_CODE=\$?
+  echo "S3API output: \$S3API_OUTPUT"
+  echo "S3API exit code: \$S3API_EXIT_CODE"
+  
+  if [ \$S3API_EXIT_CODE -ne 0 ]; then
+    echo "ERROR: Both upload methods failed"
+    echo "Bucket contents preview:"
+    aws s3 ls "s3://\$BUCKET_NAME/" 2>&1 | head -5
+    exit 1
+  else
+    echo "✅ Upload succeeded with s3api method"
+  fi
 fi
 
 # Verify upload succeeded
