@@ -54,9 +54,9 @@ output "alb_security_group_id" {
   value       = aws_security_group.alb.id
 }
 
-output "default_password_parameter_arn" {
-  description = "ARN of the SSM parameter containing default password"
-  value       = aws_ssm_parameter.default_password.arn
+output "openai_admin_key_parameter_arn" {
+  description = "ARN of the SSM parameter containing OpenAI admin key"
+  value       = aws_ssm_parameter.openai_admin_key.arn
 }
 
 output "portal_url" {
@@ -140,10 +140,6 @@ output "history_bucket_arn" {
   value       = aws_s3_bucket.history.arn
 }
 
-output "code_server_security_group_id" {
-  description = "ID of the code server security group"
-  value       = aws_security_group.code_server.id
-}
 
 output "project_prefix" {
   description = "Project prefix used for resource naming"

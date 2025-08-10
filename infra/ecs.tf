@@ -150,81 +150,12 @@ resource "aws_iam_role_policy" "ecs_task_ssm_execute" {
   })
 }
 
-resource "aws_cloudwatch_log_group" "code_server" {
-  name              = "/ecs/${local.name}/code-server"
-  retention_in_days = 7
 
-  tags = local.tags
-}
 
-resource "aws_ecs_task_definition" "code_server" {
-  family                   = "${local.name}-code-server"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = var.code_server_cpu
-  memory                   = var.code_server_memory
-  execution_role_arn       = aws_iam_role.ecs_execution.arn
-  task_role_arn            = aws_iam_role.ecs_task.arn
-
-  container_definitions = jsonencode([
-    {
-      name  = "code-server"
-      image = var.code_server_image
-
-      portMappings = [
-        {
-          containerPort = 8443
-          hostPort      = 8443
-          protocol      = "tcp"
-        }
-      ]
-
-      environment = [
-        {
-          name  = "PUID"
-          value = "1000"
-        },
-        {
-          name  = "PGID"
-          value = "1000"
-        },
-        {
-          name  = "TZ"
-          value = "UTC"
-        },
-        {
-          name  = "DEFAULT_WORKSPACE"
-          value = "/config/workspace"
-        }
-      ]
-
-      secrets = [
-        {
-          name      = "PASSWORD"
-          valueFrom = aws_ssm_parameter.default_password.arn
-        }
-      ]
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.code_server.name
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "ecs"
-        }
-      }
-
-      essential = true
-    }
-  ])
-
-  tags = local.tags
-}
-
-resource "aws_ssm_parameter" "default_password" {
-  name  = "/${local.name}/code-server/default-password"
+resource "aws_ssm_parameter" "openai_admin_key" {
+  name  = "/${local.name}/openai/admin-key"
   type  = "SecureString"
-  value = "ChangeMe123!"
+  value = var.openai_admin_key
 
   tags = local.tags
 
@@ -233,17 +164,17 @@ resource "aws_ssm_parameter" "default_password" {
   }
 }
 
-# Portal ECS resources
-resource "aws_cloudwatch_log_group" "portal" {
-  name              = "/ecs/${local.name}/portal"
+# Log group for all the interview instances
+resource "aws_cloudwatch_log_group" "interview" {
+  name              = "/ecs/${local.name}/interview"
   retention_in_days = 7
 
   tags = local.tags
 }
 
 # Portal ECS resources
-resource "aws_cloudwatch_log_group" "interview" {
-  name              = "/ecs/${local.name}/interview"
+resource "aws_cloudwatch_log_group" "portal" {
+  name              = "/ecs/${local.name}/portal"
   retention_in_days = 7
 
   tags = local.tags
@@ -483,8 +414,8 @@ resource "aws_ecs_task_definition" "portal" {
           value = var.auth_passcode
         },
         {
-          name  = "OPENAI_API_KEY"
-          value = var.openai_api_key
+          name  = "OPENAI_PROJECT_ID"
+          value = var.openai_project_id
         },
         {
           name  = "OPERATIONS_TABLE_NAME"
@@ -497,6 +428,13 @@ resource "aws_ecs_task_definition" "portal" {
         {
           name  = "LOG_LEVEL"
           value = var.log_level
+        }
+      ]
+
+      secrets = [
+        {
+          name      = "OPENAI_ADMIN_KEY"
+          valueFrom = aws_ssm_parameter.openai_admin_key.arn
         }
       ]
 

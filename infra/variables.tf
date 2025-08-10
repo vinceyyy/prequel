@@ -38,23 +38,6 @@ variable "certificate_arn" {
   default     = ""
 }
 
-variable "code_server_image" {
-  description = "Docker image for code-server"
-  type        = string
-  default     = "lscr.io/linuxserver/code-server:latest"
-}
-
-variable "code_server_cpu" {
-  description = "CPU units for code-server tasks"
-  type        = number
-  default     = 1024
-}
-
-variable "code_server_memory" {
-  description = "Memory (MiB) for code-server tasks"
-  type        = number
-  default     = 2048
-}
 
 variable "max_instances" {
   description = "Maximum number of concurrent code-server instances"
@@ -76,10 +59,16 @@ variable "auth_passcode" {
   sensitive   = true
 }
 
-variable "openai_api_key" {
-  description = "OpenAI API key for the candidate to use (temporary solution)"
+variable "openai_admin_key" {
+  description = "OpenAI admin key to provision service account"
   type        = string
   sensitive   = true
+}
+
+variable "openai_project_id" {
+  description = "The OpenAI project to provision service account in"
+  type        = string
+  sensitive   = false
 }
 
 variable "log_level" {

@@ -145,33 +145,6 @@ resource "aws_security_group" "alb" {
   }
 }
 
-resource "aws_security_group" "code_server" {
-  name_prefix = "${local.name}-code-server-"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    description     = "Code Server from ALB"
-    from_port       = 8443
-    to_port         = 8443
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(local.tags, {
-    Name = "${local.name}-code-server-sg"
-  })
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
 
 resource "aws_security_group" "portal" {
   name_prefix = "${local.name}-portal-"

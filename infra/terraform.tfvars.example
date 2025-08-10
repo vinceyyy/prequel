@@ -20,11 +20,6 @@ domain_name = "your-domain.com"
 # Optional: Provide existing certificate ARN (if you don't want Terraform to create one)
 # certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012"
 
-# Code Server Configuration
-code_server_image = "lscr.io/linuxserver/code-server:latest"
-code_server_cpu = 1024
-code_server_memory = 2048
-
 # Scaling
 max_instances = 10
 
@@ -32,8 +27,9 @@ max_instances = 10
 enable_auth = true
 auth_passcode = "your-production-secure-passcode"
 
-# OpenAI API key for the candidate to use (temporary solution)
-openai_api_key = "sk-******************************"
+# OpenAI Service Configuration
+openai_admin_key = "sk-admin-your-key-*******************"
+openai_project_id = "your-project-id"
 
 # Logging Configuration
 log_level = "info"  # Options: debug, info, warn, error

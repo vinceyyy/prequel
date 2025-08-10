@@ -11,6 +11,12 @@ resources (ECS services, Route53 records) are created on-demand using Terraform 
 
 ## Architecture
 
+### Recent Architectural Improvements
+
+**Shared ALB Architecture** - Interviews now share a single Application Load Balancer instead of creating dedicated ALBs. This reduces interview creation time from 4-6 minutes to ~1 minute by eliminating ALB provisioning overhead. Each interview gets a unique subdomain (interview-id.domain.com) with host-based routing rules.
+
+**Secure Secret Management** - OpenAI admin keys are now stored in AWS Systems Manager Parameter Store as encrypted SecureString values instead of environment variables, improving security and enabling centralized secret management.
+
 ### Shared Infrastructure Components
 
 **Core Services**
@@ -128,10 +134,8 @@ AWS_REGION=us-east-1             # Must match aws_region above
 **Optional Customization:**
 
 ```hcl
-vpc_cidr           = "10.0.0.0/16"
-code_server_cpu    = 1024
-code_server_memory = 2048
-max_instances      = 10
+vpc_cidr      = "10.0.0.0/16"
+max_instances = 10
 ```
 
 **Auto-Generated Resource Names:**
@@ -180,7 +184,7 @@ After deployment, Terraform provides key values for the portal application:
 - `ecs_cluster_name` - For creating ECS services
 - `alb_dns_name` - Load balancer endpoint
 - `portal_url` - Portal access URL
-- `code_server_security_group_id` - For ECS tasks
+- `alb_security_group_id` - For ECS interview tasks (shared ALB)
 - `private_subnet_ids` - For ECS task placement
 
 ## Cost Optimization
