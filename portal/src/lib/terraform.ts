@@ -194,7 +194,7 @@ class TerraformManager {
     const env: Record<string, string | undefined> = {
       ...process.env,
       AWS_REGION: this.awsRegion,
-      TF_CLI_ARGS: '-no-color -input=false',
+      TF_CLI_ARGS: '-no-color',
       NO_COLOR: '1',
       TF_INPUT: 'false',
     }
@@ -738,7 +738,7 @@ openai_service_account_name = "cleanup-placeholder-service-account-name"
       executionLog.push('Retrieving infrastructure outputs...')
       streamData('Retrieving infrastructure outputs...\n')
       const outputResult = await this.execTerraformStreaming(
-        'terraform output -input=false -json',
+        'terraform output -json',
         workspaceDir,
         streamData
       )
@@ -1477,7 +1477,7 @@ openai_service_account_name = "cleanup-placeholder-service-account-name"
       }
 
       const outputResult = await this.execTerraformStreaming(
-        'terraform output -input=false -json',
+        'terraform output -json',
         workspaceDir
       )
 
