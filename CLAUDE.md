@@ -12,6 +12,7 @@ Prequel is a coding interview platform that provisions on-demand VS Code instanc
 - **Background Operations**: Non-blocking interview creation and destruction with detailed logs
 - **Auto-destroy Protection**: Mandatory resource cleanup to prevent AWS cost overruns
 - **File History Management**: Save and download candidate files with smart error handling
+- **AWS Resource Cleanup**: Comprehensive system to identify and clean up dangling resources
 
 ## Real-time Architecture
 
@@ -34,6 +35,12 @@ Prequel is a coding interview platform that provisions on-demand VS Code instanc
 - Mandatory auto-destroy prevents forgotten resources with duplicate prevention
 - Configurable durations: 30min, 45min, 1hr, 1.5hr, 2hr, 3hr, 4hr
 - Efficient operation lookup using DynamoDB Global Secondary Indexes
+
+**Resource Cleanup System:**
+- Automated detection of dangling terraform workspaces and AWS resources
+- Multi-interface access: Web UI (Admin tab), REST API, and optional CLI script
+- Safety features: dry-run mode, concurrency control, skip active interviews
+- Comprehensive error handling for S3, DynamoDB, and terraform operations
 
 ## Architecture
 
@@ -63,6 +70,24 @@ npm run test:dev     # Watch mode for development
 npm run test         # Unit tests only
 npm run test:e2e     # E2E tests only
 npm run test:coverage # Coverage report
+```
+
+**Cleanup Operations:**
+
+```bash
+# Server-side cleanup script (optional)
+node cleanup-resources.js   # Interactive CLI for resource cleanup
+
+# Web-based cleanup via Admin tab in portal
+# - Access cleanup dashboard at portal Admin tab
+# - Preview dangling resources before cleanup
+# - One-click cleanup with safety features
+# - Real-time progress monitoring
+
+# API-based cleanup for automation
+curl "http://localhost:3000/api/admin/cleanup"                    # List resources
+curl -X POST "http://localhost:3000/api/admin/cleanup"           # Clean up resources
+curl -X POST "http://localhost:3000/api/admin/cleanup?dryRun=true"  # Preview only
 ```
 
 **File Extraction Requirements:**
@@ -346,6 +371,12 @@ The checkbox indicates features that are currently implemented.
     5. [X] Download saved files from history tab with proper error handling
     6. [X] Smart download visibility based on `saveFiles` attribute
     7. [X] User-friendly error messages for download failures
+7. [X] **Admin resource cleanup**
+    1. [X] Comprehensive cleanup system for dangling AWS resources
+    2. [X] Multi-interface access: Web UI (Admin tab), REST API, CLI script  
+    3. [X] Safety features: dry-run preview, concurrency control, skip active interviews
+    4. [X] Automatic detection of terraform workspaces without DynamoDB records
+    5. [X] Graceful error handling for S3, DynamoDB, and terraform operations
 
 ## Instance Status
 
