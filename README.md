@@ -75,17 +75,10 @@ prequel/
    # Edit terraform.tfvars with your configuration
    # IMPORTANT: Make sure project_prefix and environment match your .env.local
    
-   # Update custom backend bucket/key names:
-   # 1. Edit terraform.tfvars: terraform_state_bucket = "your-bucket-name"
-   # 2. Edit main.tf backend config: 
-   #    bucket = "your-bucket-name"
-   #    key = "your-project-key" (optional, defaults to "prequel")
-   # 3. Edit instance/terraform/main.tf (6 places):
-   #    bucket = "your-bucket-name" (lines 10, 23)
-   #    key = "your-project-key" (line 24, must match main.tf)
-   #    region = "your-region" (lines 12, 25)
+   cp backend.config.example backend.config
+   # Edit backend.config with your S3 backend configuration
    
-   terraform init
+   terraform init -backend-config=backend.config
    terraform apply
    ```
 
@@ -141,9 +134,7 @@ The platform orchestrates four main components to deliver seamless coding interv
 application) serves as your control center with Server-Sent Events providing real-time status updates. When you create
 an interview, the portal downloads Terraform templates from S3 and provisions dedicated AWS resources.
 
-The **infrastructure** component uses a two-tier approach: shared AWS infrastructure (VPC, ECS cluster, ALB) remains
-always provisioned, while interview-specific resources (ECS services, Route53 records) are created on-demand using
-Terraform. This hybrid approach keeps base costs around $50/month while adding only $0.50/hour per active interview.
+The **infrastructure** component uses a two-tier approach: shared AWS infrastructure (VPC, ECS cluster, shared ALB) remains always provisioned, while interview-specific resources (ECS services, Route53 records, ALB listener rules) are created on-demand using Terraform. The shared ALB architecture reduces interview creation time from 4-6 minutes to ~1 minute. This hybrid approach keeps base costs around $50/month while adding only $0.50/hour per active interview.
 
 **Interview instances** run as isolated ECS Fargate containers with pre-configured VS Code environments. Each candidate
 gets a dedicated container with 1 vCPU and 2GB RAM, completely isolated from other interviews. SOCI indexing via Lambda
@@ -160,7 +151,7 @@ functions ensures faster container startup. Containers are automatically destroy
 2. Replaces `INTERVIEW_ID_PLACEHOLDER` with actual interview ID
 3. Creates interview-specific `terraform.tfvars` configuration
 4. Uploads complete workspace to `s3://{project-prefix}-{environment}-instance/workspaces/{interview-id}/`
-5. Terraform provisions ECS service, Route53 subdomain, and security groups
+5. Terraform provisions ECS service, ALB listener rule, Route53 subdomain, and security groups
 6. Container starts, challenge files sync from S3, VS Code becomes accessible
 
 **For Scheduled Interviews:**

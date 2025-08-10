@@ -25,10 +25,16 @@ variable "password" {
   sensitive   = true
 }
 
-variable "openai_api_key" {
-  description = "OpenAI API key for the candidate to use"
+variable "openai_project_id" {
+  description = "The OpenAI project to provision service account in"
   type        = string
-  sensitive   = true
+  sensitive   = false
+}
+
+variable "openai_service_account_name" {
+  description = "The OpenAI service account name"
+  type        = string
+  sensitive   = false
 }
 
 variable "image_tag" {

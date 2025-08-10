@@ -231,7 +231,8 @@ export const services = {
   /**
    * OpenAI API key for AI assistance in interviews
    */
-  openaiApiKey: process.env.OPENAI_API_KEY || '',
+  openaiAdminKey: process.env.OPENAI_ADMIN_KEY || '',
+  openaiProjectId: process.env.OPENAI_PROJECT_ID || '',
 }
 
 /**

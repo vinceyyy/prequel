@@ -460,12 +460,13 @@ class TerraformManager {
     instance: Omit<InterviewInstance, 'accessUrl' | 'status' | 'createdAt'>
   ): Promise<void> {
     const tfvarsContent = `
+aws_region = "${this.awsRegion}"
 interview_id = "${instance.id}"
 candidate_name = "${instance.candidateName}"
 challenge = "${instance.challenge}"
 password = "${instance.password}"
-openai_api_key = "${process.env.OPENAI_API_KEY}"
-aws_region = "${this.awsRegion}"
+openai_project_id = "${config.services.openaiProjectId}"
+openai_service_account_name = "${instance.candidateName}"
 `.trim()
     console.log(`[createTfvarsFile] tfvarsContent: ${tfvarsContent}`)
 
@@ -480,7 +481,8 @@ candidate_name = "unknown"
 challenge = "javascript"
 password = "destroy-temp-password"
 aws_region = "${this.awsRegion}"
-openai_api_key = "${process.env.OPENAI_API_KEY}"
+openai_project_id = "${config.services.openaiProjectId}"
+openai_service_account_name = "${interviewId}"
 `.trim()
   }
 
@@ -544,7 +546,9 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
           attempts++
           const elapsed = Date.now() - startTime
           streamData(
-            `⏳ Service not ready yet (${response.status}), waiting... (${Math.round(elapsed / 1000)}s elapsed)\n`
+            `⏳ Service not ready yet (${
+              response.status
+            }), waiting... (${Math.round(elapsed / 1000)}s elapsed)\n`
           )
         }
       } catch (error) {
@@ -553,11 +557,15 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
 
         if (error instanceof Error && error.name === 'TimeoutError') {
           streamData(
-            `⏳ Service not responding yet, waiting... (${Math.round(elapsed / 1000)}s elapsed)\n`
+            `⏳ Service not responding yet, waiting... (${Math.round(
+              elapsed / 1000
+            )}s elapsed)\n`
           )
         } else {
           streamData(
-            `⏳ Connection failed, service may still be starting... (${Math.round(elapsed / 1000)}s elapsed)\n`
+            `⏳ Connection failed, service may still be starting... (${Math.round(
+              elapsed / 1000
+            )}s elapsed)\n`
           )
         }
       }
@@ -567,7 +575,9 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
     }
 
     const elapsed = Date.now() - startTime
-    const errorMsg = `Service health check failed after ${Math.round(elapsed / 1000)}s. ECS service may still be installing dependencies.`
+    const errorMsg = `Service health check failed after ${Math.round(
+      elapsed / 1000
+    )}s. ECS service may still be installing dependencies.`
     streamData(`❌ ${errorMsg}\n`)
     return { success: false, error: errorMsg }
   }
@@ -841,13 +851,19 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
 
       streamData(`Scaling down service ${serviceName} to 0...\n`)
       await execAsync(
-        `${this.getAwsCliPrefix()}aws ecs update-service --cluster ${config.infrastructure.ecsCluster} --service ${serviceName} --desired-count 0 --region ${this.awsRegion}`,
+        `${this.getAwsCliPrefix()}aws ecs update-service --cluster ${
+          config.infrastructure.ecsCluster
+        } --service ${serviceName} --desired-count 0 --region ${
+          this.awsRegion
+        }`,
         { timeout: 30000 }
       )
 
       streamData(`Waiting for service tasks to stop...\n`)
       await execAsync(
-        `${this.getAwsCliPrefix()}aws ecs wait services-stable --cluster ${config.infrastructure.ecsCluster} --services ${serviceName} --region ${this.awsRegion}`,
+        `${this.getAwsCliPrefix()}aws ecs wait services-stable --cluster ${
+          config.infrastructure.ecsCluster
+        } --services ${serviceName} --region ${this.awsRegion}`,
         { timeout: 120000 }
       )
 
@@ -933,14 +949,20 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
     // Clean up ECS service
     streamData(`Cleaning up ECS service interview-${interviewId}...\n`)
     await execAsync(
-      `${this.getAwsCliPrefix()}aws ecs delete-service --cluster ${config.infrastructure.ecsCluster} --service interview-${interviewId} --force --region ${this.awsRegion} || true`,
+      `${this.getAwsCliPrefix()}aws ecs delete-service --cluster ${
+        config.infrastructure.ecsCluster
+      } --service interview-${interviewId} --force --region ${
+        this.awsRegion
+      } || true`,
       { timeout: 30000 }
     )
 
     // Clean up target group
     streamData(`Cleaning up target group for interview-${interviewId}...\n`)
     await execAsync(
-      `${this.getAwsCliPrefix()}aws elbv2 delete-target-group --target-group-arn \$(aws elbv2 describe-target-groups --names interview-${interviewId}-tg --query 'TargetGroups[0].TargetGroupArn' --output text --region ${this.awsRegion}) --region ${this.awsRegion} || true`,
+      `${this.getAwsCliPrefix()}aws elbv2 delete-target-group --target-group-arn \$(aws elbv2 describe-target-groups --names interview-${interviewId}-tg --query 'TargetGroups[0].TargetGroupArn' --output text --region ${
+        this.awsRegion
+      }) --region ${this.awsRegion} || true`,
       { timeout: 30000 }
     )
 
@@ -948,7 +970,9 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
     streamData(`Cleaning up dedicated ALB for interview-${interviewId}...\n`)
     const albName = `interview-${interviewId}-alb`.substring(0, 32)
     await execAsync(
-      `${this.getAwsCliPrefix()}aws elbv2 delete-load-balancer --load-balancer-arn \$(aws elbv2 describe-load-balancers --names ${albName} --query 'LoadBalancers[0].LoadBalancerArn' --output text --region ${this.awsRegion}) --region ${this.awsRegion} || true`,
+      `${this.getAwsCliPrefix()}aws elbv2 delete-load-balancer --load-balancer-arn \$(aws elbv2 describe-load-balancers --names ${albName} --query 'LoadBalancers[0].LoadBalancerArn' --output text --region ${
+        this.awsRegion
+      }) --region ${this.awsRegion} || true`,
       { timeout: 30000 }
     )
 
@@ -957,25 +981,43 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
       `Cleaning up Route53 record for ${interviewId}.${this.domainName}...\n`
     )
     await execAsync(
-      `${this.getAwsCliPrefix()}aws route53 list-resource-record-sets --hosted-zone-id \$(aws route53 list-hosted-zones --query 'HostedZones[?Name==\`${this.domainName}.\`].Id' --output text | cut -d'/' -f3 --region ${this.awsRegion}) --query 'ResourceRecordSets[?Name==\`${interviewId}.${this.domainName}.\`]' --output json --region ${this.awsRegion} | jq -r '.[0] | if . then "{\\"Action\\": \\"DELETE\\", \\"ResourceRecordSet\\": .}" else empty end' | if read change; then aws route53 change-resource-record-sets --hosted-zone-id \$(aws route53 list-hosted-zones --query 'HostedZones[?Name==\`${this.domainName}.\`].Id' --output text | cut -d'/' -f3) --change-batch "{\\"Changes\\": [\$change]}" --region ${this.awsRegion}; fi || true`,
+      `${this.getAwsCliPrefix()}aws route53 list-resource-record-sets --hosted-zone-id \$(aws route53 list-hosted-zones --query 'HostedZones[?Name==\`${
+        this.domainName
+      }.\`].Id' --output text | cut -d'/' -f3 --region ${
+        this.awsRegion
+      }) --query 'ResourceRecordSets[?Name==\`${interviewId}.${
+        this.domainName
+      }.\`]' --output json --region ${
+        this.awsRegion
+      } | jq -r '.[0] | if . then "{\\"Action\\": \\"DELETE\\", \\"ResourceRecordSet\\": .}" else empty end' | if read change; then aws route53 change-resource-record-sets --hosted-zone-id \$(aws route53 list-hosted-zones --query 'HostedZones[?Name==\`${
+        this.domainName
+      }.\`].Id' --output text | cut -d'/' -f3) --change-batch "{\\"Changes\\": [\$change]}" --region ${
+        this.awsRegion
+      }; fi || true`,
       { timeout: 30000 }
     )
 
     // Clean up security groups for the ALB and ECS
     streamData(`Cleaning up security groups for ALB and ECS...\n`)
     await execAsync(
-      `${this.getAwsCliPrefix()}aws ec2 delete-security-group --group-id \$(aws ec2 describe-security-groups --filters "Name=group-name,Values=interview-${interviewId}-ecs" --query 'SecurityGroups[0].GroupId' --output text --region ${this.awsRegion}) --region ${this.awsRegion} || true`,
+      `${this.getAwsCliPrefix()}aws ec2 delete-security-group --group-id \$(aws ec2 describe-security-groups --filters "Name=group-name,Values=interview-${interviewId}-ecs" --query 'SecurityGroups[0].GroupId' --output text --region ${
+        this.awsRegion
+      }) --region ${this.awsRegion} || true`,
       { timeout: 30000 }
     )
     await execAsync(
-      `${this.getAwsCliPrefix()}aws ec2 delete-security-group --group-id \$(aws ec2 describe-security-groups --filters "Name=group-name,Values=interview-${interviewId}-alb" --query 'SecurityGroups[0].GroupId' --output text --region ${this.awsRegion}) --region ${this.awsRegion} || true`,
+      `${this.getAwsCliPrefix()}aws ec2 delete-security-group --group-id \$(aws ec2 describe-security-groups --filters "Name=group-name,Values=interview-${interviewId}-alb" --query 'SecurityGroups[0].GroupId' --output text --region ${
+        this.awsRegion
+      }) --region ${this.awsRegion} || true`,
       { timeout: 30000 }
     )
 
     // Clean up SSM parameter
     streamData(`Cleaning up SSM parameter...\n`)
     await execAsync(
-      `${this.getAwsCliPrefix()}aws ssm delete-parameter --name /${config.project.prefix}/interviews/${interviewId}/password --region ${this.awsRegion} || true`,
+      `${this.getAwsCliPrefix()}aws ssm delete-parameter --name /${
+        config.project.prefix
+      }/interviews/${interviewId}/password --region ${this.awsRegion} || true`,
       { timeout: 30000 }
     )
 
@@ -1222,7 +1264,9 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
             }
           } catch (error) {
             streamData(
-              `Warning: Failed to get challenge name for ${challenge}: ${error instanceof Error ? error.message : 'Unknown error'}\n`
+              `Warning: Failed to get challenge name for ${challenge}: ${
+                error instanceof Error ? error.message : 'Unknown error'
+              }\n`
             )
           }
 
@@ -1239,17 +1283,23 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
             streamData(`Files saved to S3: ${extractionResult.s3Key}\n`)
             streamData(`Total files: ${extractionResult.totalFiles || 0}\n`)
             streamData(
-              `Total size: ${Math.round((extractionResult.totalSizeBytes || 0) / 1024)} KB\n`
+              `Total size: ${Math.round(
+                (extractionResult.totalSizeBytes || 0) / 1024
+              )} KB\n`
             )
           } else {
             streamData(
-              `File extraction failed: ${extractionResult.error || 'Unknown error'}\n`
+              `File extraction failed: ${
+                extractionResult.error || 'Unknown error'
+              }\n`
             )
             streamData(`Continuing with interview destruction...\n`)
           }
         } catch (error) {
           streamData(
-            `File extraction error: ${error instanceof Error ? error.message : 'Unknown error'}\n`
+            `File extraction error: ${
+              error instanceof Error ? error.message : 'Unknown error'
+            }\n`
           )
           streamData(`Continuing with interview destruction...\n`)
         }
@@ -1383,7 +1433,9 @@ openai_api_key = "${process.env.OPENAI_API_KEY}"
     } catch (error) {
       return {
         success: false,
-        error: `Health check retry failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: `Health check retry failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
       }
     }
   }

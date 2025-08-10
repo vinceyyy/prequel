@@ -144,6 +144,10 @@ resource "aws_ecs_task_definition" "interview" {
         {
           name  = "INTERVIEW_ID"
           value = local.interview_id
+        },
+        {
+          name  = "OPENAI_API_KEY"
+          value = openai_project_service_account.account.api_key
         }
       ]
       secrets = [
