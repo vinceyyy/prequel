@@ -492,14 +492,15 @@ echo "File extraction completed successfully"
 
       // Parse results from script output
       const output = stdout + stderr
-      
+
       // Check for successful upload indicators (even if we don't get the final SUCCESS marker)
-      const uploadSuccessful = 
+      const uploadSuccessful =
         output.includes('EXTRACTION_RESULT: SUCCESS') ||
         output.includes('✅ Upload succeeded') ||
-        output.includes('ETag') ||  // S3API returns ETag on success
-        (output.includes('Archive created successfully') && output.includes('S3API output:'))  // Archive created and upload attempted
-      
+        output.includes('ETag') || // S3API returns ETag on success
+        (output.includes('Archive created successfully') &&
+          output.includes('S3API output:')) // Archive created and upload attempted
+
       if (uploadSuccessful) {
         const fileCountMatch = output.match(/FILE_COUNT: (\d+)/)
         const totalSizeMatch = output.match(/TOTAL_SIZE: (\d+)/)

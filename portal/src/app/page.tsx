@@ -37,7 +37,9 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [creatingInterviewId, setCreatingInterviewId] = useState<string | null>(null)
+  const [creatingInterviewId, setCreatingInterviewId] = useState<string | null>(
+    null
+  )
   const [initialLoading, setInitialLoading] = useState(true)
   const [historyLoading, setHistoryLoading] = useState(false)
   const historyLoadingRef = useRef(false)
@@ -191,10 +193,12 @@ export default function Home() {
       ) {
         console.log('Refreshing interviews due to SSE event')
         loadInterviews()
-        
+
         // Clear creating loading state if this is for the interview we're waiting for
-        if (lastEvent.type === 'operation_update' && 
-            lastEvent.operation?.interviewId === creatingInterviewId) {
+        if (
+          lastEvent.type === 'operation_update' &&
+          lastEvent.operation?.interviewId === creatingInterviewId
+        ) {
           setCreatingInterviewId(null)
         }
       }
@@ -266,7 +270,7 @@ export default function Home() {
       // Close the modal immediately since operation is now background
       // Set the creating interview ID to show loading state
       setCreatingInterviewId(data.interviewId)
-      
+
       // Reset form and close modal
       setFormData({
         candidateName: '',
@@ -769,7 +773,7 @@ export default function Home() {
                 </div>
               </div>
             )}
-            
+
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-slate-50">
