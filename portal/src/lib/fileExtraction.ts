@@ -387,25 +387,35 @@ fi
 # Upload to S3
 echo "Uploading archive to s3://\$BUCKET_NAME/\$S3_KEY"
 
-# Quick upload attempt with minimal diagnostics
-if aws s3 cp "\$ARCHIVE_PATH" "s3://\$BUCKET_NAME/\$S3_KEY" --region "\${AWS_REGION:-us-east-1}" 2>&1; then
-  echo "✅ Upload successful"
+# Try s3 cp first (might fail due to Python issues)
+S3_CP_OUTPUT=\$(aws s3 cp "\$ARCHIVE_PATH" "s3://\$BUCKET_NAME/\$S3_KEY" --region "\${AWS_REGION:-us-east-1}" 2>&1)
+S3_CP_EXIT=\$?
+
+if [ \$S3_CP_EXIT -eq 0 ]; then
+  echo "✅ Upload successful with s3 cp"
 else
-  echo "S3 upload failed, trying alternative method..."
-  if aws s3api put-object --bucket "\$BUCKET_NAME" --key "\$S3_KEY" --body "\$ARCHIVE_PATH" --region "\${AWS_REGION:-us-east-1}" 2>&1; then
-    echo "✅ Upload succeeded with s3api method"
+  echo "S3 cp failed, trying s3api put-object..."
+  
+  # Try s3api put-object (more reliable in container environment)
+  S3API_OUTPUT=\$(aws s3api put-object --bucket "\$BUCKET_NAME" --key "\$S3_KEY" --body "\$ARCHIVE_PATH" --region "\${AWS_REGION:-us-east-1}" 2>&1)
+  S3API_EXIT=\$?
+  
+  if [ \$S3API_EXIT -eq 0 ]; then
+    # Check if we got an ETag in the response (indicates successful upload)
+    if echo "\$S3API_OUTPUT" | grep -q "ETag"; then
+      echo "✅ Upload succeeded with s3api method"
+      echo "Response: \$S3API_OUTPUT"
+    else
+      echo "ERROR: Upload may have failed - no ETag in response"
+      echo "Response: \$S3API_OUTPUT"
+      exit 1
+    fi
   else
     echo "ERROR: Both upload methods failed"
+    echo "s3 cp output: \$S3_CP_OUTPUT"
+    echo "s3api output: \$S3API_OUTPUT"
     exit 1
   fi
-fi
-
-# Verify upload succeeded
-if aws s3 ls "s3://\$BUCKET_NAME/\$S3_KEY" > /dev/null 2>&1; then
-  echo "✅ Archive uploaded successfully to S3"
-else
-  echo "ERROR: Archive upload verification failed"
-  exit 1
 fi
 
 # Output results for parsing
@@ -482,7 +492,7 @@ echo "File extraction completed successfully"
       // Base64 encode the script and decode/execute it in the container
       const scriptContent = await fs.readFile(scriptPath, 'utf8')
       const encodedScript = Buffer.from(scriptContent).toString('base64')
-      const command = `aws ecs execute-command --cluster ${ECS_CLUSTER_NAME} --task ${taskArn} --container code-server --non-interactive --command "/bin/sh -c 'echo ${encodedScript} | base64 -d | /bin/sh'"`
+      const command = `aws ecs execute-command --cluster ${ECS_CLUSTER_NAME} --task ${taskArn} --container code-server --interactive --command "/bin/sh -c 'echo ${encodedScript} | base64 -d | /bin/sh'"`
 
       const { stdout, stderr } = await execAsync(command, {
         env,
