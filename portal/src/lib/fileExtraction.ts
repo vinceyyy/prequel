@@ -61,7 +61,7 @@ export interface FileExtractionConfig {
   candidateName: string
   challengeId: string // Challenge ID (e.g., 'challenge-1754582796980-av473aawr')
   challengeName: string // Challenge name (e.g., 'SQL Test')
-  workspaceDir?: string // Default: '/config/workspace'
+  workspaceDir?: string // Default: '/workspaces/${challengeId}'
   ignorePatterns?: string[] // Additional patterns to ignore (merged with defaults)
   maxFileSizeMB?: number // Default: 100MB total
 }
@@ -130,7 +130,7 @@ export class FileExtractionService {
       candidateName,
       challengeId,
       challengeName,
-      workspaceDir = '/workspaces',
+      workspaceDir = `/workspaces/${challengeId}`,
       ignorePatterns = [],
       maxFileSizeMB = 100,
     } = config
@@ -293,6 +293,7 @@ METADATA_PATH="/tmp/interview.json"
 echo "Starting file extraction from \$WORKSPACE_DIR"
 
 # Check if workspace directory exists
+echo "Checking workspace directory: \$WORKSPACE_DIR"
 if [ ! -d "\$WORKSPACE_DIR" ]; then
   echo "ERROR: Workspace directory \$WORKSPACE_DIR does not exist"
   echo "Available directories in /:"
@@ -300,6 +301,10 @@ if [ ! -d "\$WORKSPACE_DIR" ]; then
   echo "Available directories in /workspaces:"
   ls -la /workspaces/ 2>/dev/null || echo "No /workspaces directory found"
   exit 1
+else
+  echo "✅ Workspace directory exists: \$WORKSPACE_DIR"
+  echo "Contents of workspace directory:"
+  ls -la "\$WORKSPACE_DIR" 2>/dev/null || echo "Failed to list workspace contents"
 fi
 
 # Create interview metadata file
@@ -349,11 +354,6 @@ else
     exit 1
   fi
   
-  # Create tar archive with workspace folder named "workspace"
-  cd "\$WORKSPACE_DIR"
-  # Copy metadata file to workspace root temporarily
-  cp "\$METADATA_PATH" "./interview.json"
-  
   # Create a temporary directory to structure the archive correctly
   TEMP_ARCHIVE_DIR="/tmp/archive_structure"
   mkdir -p "\$TEMP_ARCHIVE_DIR/workspace"
@@ -365,7 +365,7 @@ else
       rel_path="\${file#\$WORKSPACE_DIR/}"
       target_dir="\$TEMP_ARCHIVE_DIR/workspace/\$(dirname "\$rel_path")"
       mkdir -p "\$target_dir"
-      cp "\$file" "\$target_dir/"
+      cp "\$file" "\$target_dir/" || echo "Warning: Failed to copy \$file"
     fi
   done
   
@@ -374,7 +374,18 @@ else
   
   # Create tar from the structured directory
   cd "\$TEMP_ARCHIVE_DIR"
-  tar -czf "\$ARCHIVE_PATH" .
+  tar -czf "\$ARCHIVE_PATH" . || {
+    echo "ERROR: Failed to create tar archive"
+    exit 1
+  }
+  
+  # Verify archive was created
+  if [ ! -f "\$ARCHIVE_PATH" ]; then
+    echo "ERROR: Archive file was not created at \$ARCHIVE_PATH"
+    exit 1
+  fi
+  
+  echo "Archive created successfully: \$(ls -lh \$ARCHIVE_PATH)"
   
   # Cleanup temp structure
   rm -rf "\$TEMP_ARCHIVE_DIR"
@@ -382,7 +393,21 @@ fi
 
 # Upload to S3
 echo "Uploading archive to s3://\$BUCKET_NAME/\$S3_KEY"
-aws s3 cp "\$ARCHIVE_PATH" "s3://\$BUCKET_NAME/\$S3_KEY"
+if ! aws s3 cp "\$ARCHIVE_PATH" "s3://\$BUCKET_NAME/\$S3_KEY"; then
+  echo "ERROR: Failed to upload archive to S3"
+  echo "Archive exists: \$(ls -lh \$ARCHIVE_PATH)"
+  echo "AWS CLI version: \$(aws --version)"
+  echo "AWS credentials: \$(aws sts get-caller-identity 2>&1 || echo 'No credentials found')"
+  exit 1
+fi
+
+# Verify upload succeeded
+if aws s3 ls "s3://\$BUCKET_NAME/\$S3_KEY" > /dev/null 2>&1; then
+  echo "✅ Archive uploaded successfully to S3"
+else
+  echo "ERROR: Archive upload verification failed"
+  exit 1
+fi
 
 # Output results for parsing
 echo "EXTRACTION_RESULT: SUCCESS"
