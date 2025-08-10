@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
+import CleanupDashboard from '@/components/CleanupDashboard'
 import AuthStatus from '@/components/AuthStatus'
 import { useOperations } from '@/hooks/useOperations'
 import { useSSE } from '@/hooks/useSSE'
@@ -34,7 +35,9 @@ export default function Home() {
   const [historicalInterviews, setHistoricalInterviews] = useState<Interview[]>(
     []
   )
-  const [activeTab, setActiveTab] = useState<'current' | 'history'>('current')
+  const [activeTab, setActiveTab] = useState<'current' | 'history' | 'admin'>(
+    'current'
+  )
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [creatingInterviewId, setCreatingInterviewId] = useState<string | null>(
@@ -531,6 +534,16 @@ export default function Home() {
                     {historicalInterviews.length}
                   </span>
                 )}
+              </button>
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === 'admin'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                Admin
               </button>
             </nav>
           </div>
@@ -1167,6 +1180,13 @@ export default function Home() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* Admin Tab */}
+        {activeTab === 'admin' && (
+          <div className="card overflow-hidden">
+            <CleanupDashboard />
           </div>
         )}
 

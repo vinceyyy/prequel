@@ -194,8 +194,9 @@ class TerraformManager {
     const env: Record<string, string | undefined> = {
       ...process.env,
       AWS_REGION: this.awsRegion,
-      TF_CLI_ARGS: '-no-color',
+      TF_CLI_ARGS: '-no-color -input=false',
       NO_COLOR: '1',
+      TF_INPUT: 'false',
     }
 
     if (this.isRunningInECS) {
@@ -481,8 +482,11 @@ candidate_name = "unknown"
 challenge = "javascript"
 password = "destroy-temp-password"
 aws_region = "${this.awsRegion}"
-openai_project_id = "${config.services.openaiProjectId}"
-openai_service_account_name = "${interviewId}"
+openai_admin_key = "sk-admin-cleanup-placeholder-admin-key"
+openai_api_key = "cleanup-placeholder-api-key"
+openai_project_name = "${config.services.openaiProjectId || 'cleanup-project'}"
+openai_project_id = "${config.services.openaiProjectId || 'cleanup-project'}"
+openai_service_account_name = "cleanup-placeholder-service-account-name"
 `.trim()
   }
 
@@ -665,7 +669,7 @@ openai_service_account_name = "${interviewId}"
       executionLog.push('Initializing Terraform...')
       streamData('Initializing Terraform...\n')
       const initResult = await this.execTerraformStreaming(
-        'terraform init',
+        'terraform init -input=false',
         workspaceDir,
         streamData
       )
@@ -692,7 +696,7 @@ openai_service_account_name = "${interviewId}"
       executionLog.push('Planning infrastructure changes...')
       streamData('Planning infrastructure changes...\n')
       const planResult = await this.execTerraformStreaming(
-        'terraform plan -out=tfplan',
+        'terraform plan -input=false -out=tfplan',
         workspaceDir,
         streamData
       )
@@ -713,7 +717,7 @@ openai_service_account_name = "${interviewId}"
       executionLog.push('Applying infrastructure changes...')
       streamData('Applying infrastructure changes...\n')
       const applyResult = await this.execTerraformStreaming(
-        'terraform apply -auto-approve tfplan',
+        'terraform apply -input=false -auto-approve tfplan',
         workspaceDir,
         streamData
       )
@@ -734,7 +738,7 @@ openai_service_account_name = "${interviewId}"
       executionLog.push('Retrieving infrastructure outputs...')
       streamData('Retrieving infrastructure outputs...\n')
       const outputResult = await this.execTerraformStreaming(
-        'terraform output -json',
+        'terraform output -input=false -json',
         workspaceDir,
         streamData
       )
@@ -1041,7 +1045,7 @@ openai_service_account_name = "${interviewId}"
     // Initialize Terraform
     streamData(`Initializing Terraform...\n`)
     const initResult = await this.execTerraformStreaming(
-      'terraform init -reconfigure',
+      'terraform init -input=false -reconfigure',
       workspaceDir,
       streamData
     )
@@ -1074,7 +1078,7 @@ openai_service_account_name = "${interviewId}"
     // Run terraform destroy
     streamData(`Starting terraform destroy for interview ${interviewId}...\n`)
     return await this.execTerraformStreaming(
-      'terraform destroy -auto-approve -var-file=terraform.tfvars',
+      'terraform destroy -input=false -auto-approve -var-file=terraform.tfvars',
       workspaceDir,
       streamData
     )
@@ -1097,7 +1101,7 @@ openai_service_account_name = "${interviewId}"
 
     // Retry init after fixing permissions
     return await this.execTerraformStreaming(
-      'terraform init -reconfigure',
+      'terraform init -input=false -reconfigure',
       workspaceDir,
       streamData
     )
@@ -1473,7 +1477,7 @@ openai_service_account_name = "${interviewId}"
       }
 
       const outputResult = await this.execTerraformStreaming(
-        'terraform output -json',
+        'terraform output -input=false -json',
         workspaceDir
       )
 
