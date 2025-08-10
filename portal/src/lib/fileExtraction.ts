@@ -302,9 +302,7 @@ if [ ! -d "\$WORKSPACE_DIR" ]; then
   ls -la /workspaces/ 2>/dev/null || echo "No /workspaces directory found"
   exit 1
 else
-  echo "✅ Workspace directory exists: \$WORKSPACE_DIR"
-  echo "Contents of workspace directory:"
-  ls -la "\$WORKSPACE_DIR" 2>/dev/null || echo "Failed to list workspace contents"
+  echo "✅ Workspace directory found"
 fi
 
 # Create interview metadata file
@@ -322,12 +320,7 @@ EOF
 
 # Find files to include (applying ignore patterns)
 echo "Scanning for files to archive..."
-echo "Debug: Using ignore patterns: ${findExclusions}"
-echo "Debug: First 10 files found:"
-find "\$WORKSPACE_DIR" -type f | head -10
-echo "Debug: First 10 files after filtering:"
-FILES=\$(find "\$WORKSPACE_DIR" -type f ${findExclusions} | head -200)
-echo "\$FILES" | head -10
+FILES=\$(find "\$WORKSPACE_DIR" -type f ${findExclusions})
 
 if [ -z "\$FILES" ]; then
   echo "No files found to archive"
@@ -393,67 +386,17 @@ fi
 
 # Upload to S3
 echo "Uploading archive to s3://\$BUCKET_NAME/\$S3_KEY"
-echo "Checking S3 bucket accessibility..."
-echo "Testing basic AWS CLI S3 functionality..."
-LIST_OUTPUT=\$(aws s3 ls 2>&1)
-LIST_EXIT_CODE=\$?
-echo "S3 list output: \$LIST_OUTPUT"
-echo "S3 list exit code: \$LIST_EXIT_CODE"
 
-if [ \$LIST_EXIT_CODE -eq 0 ]; then
-  echo "✅ Basic S3 operations work"
-  if aws s3 ls "s3://\$BUCKET_NAME/" > /dev/null 2>&1; then
-    echo "✅ Target S3 bucket is accessible"
-  else
-    echo "❌ Target S3 bucket is not accessible or doesn't exist"
-    echo "Available S3 buckets:"
-    echo "\$LIST_OUTPUT" | head -10
-  fi
+# Quick upload attempt with minimal diagnostics
+if aws s3 cp "\$ARCHIVE_PATH" "s3://\$BUCKET_NAME/\$S3_KEY" --region "\${AWS_REGION:-us-east-1}" 2>&1; then
+  echo "✅ Upload successful"
 else
-  echo "❌ Basic S3 operations failed"
-  echo "This indicates an AWS CLI configuration issue"
-fi
-
-echo "Attempting S3 upload with explicit error handling..."
-echo "Current AWS region: \${AWS_REGION:-'not set'}"
-echo "Local archive file: \$ARCHIVE_PATH"
-echo "S3 destination: s3://\$BUCKET_NAME/\$S3_KEY"
-echo "Archive file details:"
-ls -la "\$ARCHIVE_PATH" || echo "Archive file not found!"
-echo "Testing archive file access:"
-if [ -r "\$ARCHIVE_PATH" ]; then
-  echo "✅ Archive file is readable"
-  echo "File size: \$(stat -c %s "\$ARCHIVE_PATH") bytes"
-  echo "File type: \$(file "\$ARCHIVE_PATH")"
-else
-  echo "❌ Archive file is not readable"
-  exit 1
-fi
-AWS_OUTPUT=\$(aws s3 cp "\$ARCHIVE_PATH" "s3://\$BUCKET_NAME/\$S3_KEY" --region "\${AWS_REGION:-us-east-1}" 2>&1)
-AWS_EXIT_CODE=\$?
-echo "AWS CLI output: \$AWS_OUTPUT"
-echo "AWS CLI exit code: \$AWS_EXIT_CODE"
-
-if [ \$AWS_EXIT_CODE -ne 0 ]; then
-  echo "ERROR: S3 upload failed with aws s3 cp, trying aws s3api put-object..."
-  echo "Archive exists: \$(ls -lh \$ARCHIVE_PATH)"
-  echo "AWS CLI version: \$(aws --version)"
-  echo "AWS credentials: \$(aws sts get-caller-identity 2>&1 || echo 'No credentials found')"
-  
-  # Try alternative upload method
-  echo "Attempting upload with s3api put-object..."
-  S3API_OUTPUT=\$(aws s3api put-object --bucket "\$BUCKET_NAME" --key "\$S3_KEY" --body "\$ARCHIVE_PATH" --region "\${AWS_REGION:-us-east-1}" 2>&1)
-  S3API_EXIT_CODE=\$?
-  echo "S3API output: \$S3API_OUTPUT"
-  echo "S3API exit code: \$S3API_EXIT_CODE"
-  
-  if [ \$S3API_EXIT_CODE -ne 0 ]; then
-    echo "ERROR: Both upload methods failed"
-    echo "Bucket contents preview:"
-    aws s3 ls "s3://\$BUCKET_NAME/" 2>&1 | head -5
-    exit 1
-  else
+  echo "S3 upload failed, trying alternative method..."
+  if aws s3api put-object --bucket "\$BUCKET_NAME" --key "\$S3_KEY" --body "\$ARCHIVE_PATH" --region "\${AWS_REGION:-us-east-1}" 2>&1; then
     echo "✅ Upload succeeded with s3api method"
+  else
+    echo "ERROR: Both upload methods failed"
+    exit 1
   fi
 fi
 
@@ -539,11 +482,11 @@ echo "File extraction completed successfully"
       // Base64 encode the script and decode/execute it in the container
       const scriptContent = await fs.readFile(scriptPath, 'utf8')
       const encodedScript = Buffer.from(scriptContent).toString('base64')
-      const command = `aws ecs execute-command --cluster ${ECS_CLUSTER_NAME} --task ${taskArn} --container code-server --interactive --command "/bin/sh -c 'echo ${encodedScript} | base64 -d | /bin/sh'"`
+      const command = `aws ecs execute-command --cluster ${ECS_CLUSTER_NAME} --task ${taskArn} --container code-server --command "/bin/sh -c 'echo ${encodedScript} | base64 -d | /bin/sh'"`
 
       const { stdout, stderr } = await execAsync(command, {
         env,
-        timeout: 120000, // 2 minute timeout
+        timeout: 300000, // 5 minute timeout (increased from 2 minutes)
       })
 
       // Cleanup script file
