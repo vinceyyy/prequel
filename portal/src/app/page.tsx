@@ -5,7 +5,7 @@ import OperationDashboard from '@/components/OperationDashboard'
 import CleanupDashboard from '@/components/CleanupDashboard'
 import AuthStatus from '@/components/AuthStatus'
 import { useOperations } from '@/hooks/useOperations'
-import { useSSE } from '@/hooks/useSSE'
+import { useSSE, type OperationData } from '@/hooks/useSSE'
 
 interface Interview {
   id: string
@@ -184,26 +184,103 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [loadHistoricalInterviews])
 
-  // Listen for SSE events to refresh data
+  // Listen for SSE events to update data immediately and refresh
   useEffect(() => {
     if (lastEvent) {
       console.log('Received SSE event:', lastEvent)
 
-      // Refresh interviews when operations complete or update
+      // Handle operation updates immediately for better UX
+      if (lastEvent.type === 'operation_update' && lastEvent.operation) {
+        const operation: OperationData = lastEvent.operation
+        console.log('Processing operation update:', operation)
+
+        // Map operation status to interview status for immediate updates
+        let interviewStatus: Interview['status'] = 'initializing'
+
+        if (operation.status === 'scheduled') {
+          interviewStatus = 'scheduled'
+        } else if (operation.status === 'running') {
+          if (operation.result?.infrastructureReady) {
+            interviewStatus = 'configuring'
+          } else {
+            interviewStatus = 'initializing'
+          }
+        } else if (operation.status === 'completed') {
+          if (operation.result?.success) {
+            interviewStatus = operation.result?.healthCheckPassed
+              ? 'active'
+              : 'configuring'
+          } else {
+            interviewStatus = 'error'
+          }
+        } else if (operation.status === 'failed') {
+          interviewStatus = 'error'
+        }
+
+        console.log('Immediately updating interview status and details:', {
+          interviewId: operation.interviewId,
+          status: interviewStatus,
+          hasAccessUrl: !!operation.result?.accessUrl,
+          hasPassword: !!operation.result?.password,
+        })
+
+        // Update interview state with latest operation data
+        setInterviews(prev => {
+          const updated = prev.map(interview => {
+            if (interview.id === operation.interviewId) {
+              return {
+                ...interview,
+                status: interviewStatus,
+                // Only update access details if they're available
+                ...(operation.result?.accessUrl && {
+                  accessUrl: operation.result.accessUrl,
+                  password: operation.result.password,
+                }),
+              }
+            }
+            return interview
+          })
+
+          // If interview doesn't exist in current state, add it
+          const exists = prev.some(i => i.id === operation.interviewId)
+          if (!exists && operation.candidateName && operation.challenge) {
+            const newInterview: Interview = {
+              id: operation.interviewId,
+              candidateName: operation.candidateName,
+              challenge: operation.challenge,
+              status: interviewStatus,
+              createdAt: operation.createdAt || new Date().toISOString(),
+              scheduledAt: operation.scheduledAt,
+              autoDestroyAt: operation.autoDestroyAt,
+              saveFiles: true, // Default value
+              // Only include access details if available
+              ...(operation.result?.accessUrl && {
+                accessUrl: operation.result.accessUrl,
+                password: operation.result.password,
+              }),
+            }
+            return [...updated, newInterview]
+          }
+
+          return updated
+        })
+
+        // Clear creating loading state if this is for the interview we're waiting for
+        if (operation.interviewId === creatingInterviewId) {
+          setCreatingInterviewId(null)
+        }
+      }
+
+      // Refresh interviews from API for consistency (after immediate update)
       if (
         lastEvent.type === 'operation_update' ||
         lastEvent.type === 'scheduler_event'
       ) {
-        console.log('Refreshing interviews due to SSE event')
-        loadInterviews()
-
-        // Clear creating loading state if this is for the interview we're waiting for
-        if (
-          lastEvent.type === 'operation_update' &&
-          lastEvent.operation?.interviewId === creatingInterviewId
-        ) {
-          setCreatingInterviewId(null)
-        }
+        console.log('Refreshing interviews from API due to SSE event')
+        // Use setTimeout to allow immediate UI update first
+        setTimeout(() => {
+          loadInterviews()
+        }, 100)
       }
     }
   }, [lastEvent, loadInterviews, creatingInterviewId])

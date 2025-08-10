@@ -1,5 +1,36 @@
 import { useEffect, useRef, useState } from 'react'
 
+export interface OperationResult {
+  success: boolean
+  accessUrl?: string
+  password?: string
+  healthCheckPassed?: boolean
+  infrastructureReady?: boolean
+  error?: string
+  fullOutput?: string
+}
+
+export interface OperationData {
+  id: string
+  type: 'create' | 'destroy'
+  status:
+    | 'scheduled'
+    | 'pending'
+    | 'running'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
+  interviewId: string
+  candidateName?: string
+  challenge?: string
+  scheduledAt?: string
+  autoDestroyAt?: string
+  createdAt?: string
+  executionStartedAt?: string
+  completedAt?: string
+  result?: OperationResult
+}
+
 export interface SSEEvent {
   type:
     | 'connection'
@@ -8,12 +39,10 @@ export interface SSEEvent {
     | 'scheduler_event'
     | 'operation_update'
   timestamp: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  operations?: any[]
+  operations?: OperationData[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   event?: any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  operation?: any
+  operation?: OperationData
 }
 
 export function useSSE(url: string) {
