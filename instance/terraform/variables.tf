@@ -42,3 +42,9 @@ variable "image_tag" {
   type        = string
   default     = "latest"
 }
+
+variable "welcome_text" {
+  description = "Welcome text for code-server"
+  type        = string
+  default     = "Welcome!"
+}

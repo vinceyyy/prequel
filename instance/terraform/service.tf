@@ -148,7 +148,11 @@ resource "aws_ecs_task_definition" "interview" {
         {
           name  = "OPENAI_API_KEY"
           value = openai_project_service_account.account.api_key
-        }
+        },
+        {
+          name  = "WELCOME_TEXT"
+          value = var.welcome_text
+        },
       ]
       secrets = [
         {

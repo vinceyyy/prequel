@@ -468,6 +468,7 @@ challenge = "${instance.challenge}"
 password = "${instance.password}"
 openai_project_id = "${config.services.openaiProjectId}"
 openai_service_account_name = "${instance.candidateName}"
+welcome_text = "Welcome, ${instance.candidateName}!"
 `.trim()
     console.log(`[createTfvarsFile] tfvarsContent: ${tfvarsContent}`)
 

@@ -80,4 +80,6 @@ exec /usr/bin/entrypoint.sh \
 	--auth password \
 	--disable-telemetry \
 	--disable-update-check \
+	--disable-file-downloads \
+	--welcome-text "${WELCOME_TEXT}" \
 	"$WORKSPACE_PATH"
