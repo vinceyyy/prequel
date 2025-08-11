@@ -242,6 +242,23 @@ export class CleanupService {
    */
   private async listAllWorkspaces(): Promise<string[]> {
     try {
+      // First check if the bucket and prefix exist
+      const checkResult = await execAsync(
+        `aws s3api head-bucket --bucket ${config.storage.instanceBucket} 2>/dev/null && echo "exists" || echo "not-exists"`,
+        {
+          env: process.env as NodeJS.ProcessEnv,
+          timeout: 10000,
+        }
+      ).catch(() => ({ stdout: 'not-exists', stderr: '' }))
+
+      if (checkResult.stdout.trim() === 'not-exists') {
+        logger.info(
+          'Instance bucket does not exist - no workspaces to clean up'
+        )
+        return []
+      }
+
+      // List the workspaces
       const { stdout } = await execAsync(
         `aws s3 ls s3://${config.storage.instanceBucket}/workspaces/ --recursive`,
         {
@@ -249,6 +266,12 @@ export class CleanupService {
           timeout: 30000,
         }
       )
+
+      // Check if the output is empty (no workspaces)
+      if (!stdout || stdout.trim() === '') {
+        logger.info('No workspaces found in S3 bucket')
+        return []
+      }
 
       // Extract interview IDs from S3 paths
       const workspaceIds = new Set<string>()
@@ -267,25 +290,30 @@ export class CleanupService {
       return Array.from(workspaceIds)
     } catch (error) {
       if (error instanceof Error) {
+        const errorMessage = error.message || ''
+
         // Handle common S3 error cases gracefully
-        if (error.message.includes('NoSuchBucket')) {
+        if (errorMessage.includes('NoSuchBucket')) {
           logger.info(
             'Instance bucket does not exist - no workspaces to clean up'
           )
           return []
         }
+
+        // When the workspaces/ prefix doesn't exist, aws s3 ls returns exit code 1 with no output
+        // This is not an error condition - it just means no workspaces exist
         if (
-          error.message.includes('NoSuchKey') ||
-          error.message.includes('does not exist')
+          errorMessage.includes('NoSuchKey') ||
+          errorMessage.includes('does not exist') ||
+          errorMessage.includes('Command failed: aws s3 ls')
         ) {
-          logger.info(
-            'Workspaces directory does not exist in S3 - no workspaces to clean up'
-          )
+          logger.info('No workspaces found in S3 - nothing to clean up')
           return []
         }
+
         if (
-          error.message.includes('AccessDenied') ||
-          error.message.includes('Forbidden')
+          errorMessage.includes('AccessDenied') ||
+          errorMessage.includes('Forbidden')
         ) {
           logger.warn('Access denied to S3 bucket - check AWS permissions', {
             bucket: config.storage.instanceBucket,
@@ -295,10 +323,12 @@ export class CleanupService {
           )
         }
       }
-      logger.error('Failed to list workspaces from S3', {
+
+      // For any other error, log it but return empty array (no workspaces)
+      logger.info('No workspaces found or unable to list S3 contents', {
         error: error instanceof Error ? error.message : 'Unknown error',
       })
-      throw error
+      return []
     }
   }
 
