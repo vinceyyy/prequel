@@ -106,6 +106,15 @@ export class SchedulerService {
    * Processes operations scheduled to start at or before the current time.
    * Called every 30 seconds to check for due operations.
    *
+   * **Pre-provisioning Strategy:**
+   * Starts provisioning 5 minutes before the scheduled time to ensure the
+   * instance is active and ready exactly at the scheduled time.
+   *
+   * Timeline example:
+   * - Scheduled time: 2:00 PM
+   * - Provisioning starts: 1:55 PM (5 minutes early)
+   * - Instance active: ~1:58-2:00 PM (ready at scheduled time)
+   *
    * Uses DynamoDB GSI to efficiently query operations with 'scheduled' status.
    */
   private async processScheduledOperations() {
@@ -120,46 +129,61 @@ export class SchedulerService {
       }
 
       for (const operation of scheduledOps) {
-        if (operation.scheduledAt && operation.scheduledAt <= now) {
-          schedulerLogger.info('Processing scheduled operation', {
-            operationId: operation.id,
-            interviewId: operation.interviewId,
-            type: operation.type,
-            candidateName: operation.candidateName,
-          })
+        if (operation.scheduledAt) {
+          // Start provisioning 5 minutes before scheduled time to ensure instance is ready
+          const provisioningTime = new Date(
+            operation.scheduledAt.getTime() - 5 * 60 * 1000
+          )
 
-          try {
-            if (
-              operation.type === 'create' &&
-              operation.candidateName &&
-              operation.challenge
-            ) {
-              await this.executeScheduledCreate({
-                id: operation.id,
-                interviewId: operation.interviewId,
-                candidateName: operation.candidateName,
-                challenge: operation.challenge,
-              })
-            } else if (operation.type === 'destroy') {
-              await this.executeScheduledDestroy({
-                id: operation.id,
-                interviewId: operation.interviewId,
-                candidateName: operation.candidateName,
-                challenge: operation.challenge,
-                saveFiles: operation.saveFiles,
-              })
-            }
-          } catch (error) {
-            schedulerLogger.error('Error processing scheduled operation', {
+          if (provisioningTime <= now) {
+            schedulerLogger.info('Processing scheduled operation', {
               operationId: operation.id,
               interviewId: operation.interviewId,
-              error: error instanceof Error ? error.message : 'Unknown error',
+              type: operation.type,
+              candidateName: operation.candidateName,
+              scheduledAt: operation.scheduledAt.toISOString(),
+              provisioningStartTime: provisioningTime.toISOString(),
+              minutesBeforeScheduled: Math.round(
+                (operation.scheduledAt.getTime() - now.getTime()) / 60000
+              ),
             })
-            await operationManager.addOperationLog(
-              operation.id,
-              `❌ Scheduler error: ${error instanceof Error ? error.message : 'Unknown error'}`
-            )
-            await operationManager.updateOperationStatus(operation.id, 'failed')
+
+            try {
+              if (
+                operation.type === 'create' &&
+                operation.candidateName &&
+                operation.challenge
+              ) {
+                await this.executeScheduledCreate({
+                  id: operation.id,
+                  interviewId: operation.interviewId,
+                  candidateName: operation.candidateName,
+                  challenge: operation.challenge,
+                })
+              } else if (operation.type === 'destroy') {
+                await this.executeScheduledDestroy({
+                  id: operation.id,
+                  interviewId: operation.interviewId,
+                  candidateName: operation.candidateName,
+                  challenge: operation.challenge,
+                  saveFiles: operation.saveFiles,
+                })
+              }
+            } catch (error) {
+              schedulerLogger.error('Error processing scheduled operation', {
+                operationId: operation.id,
+                interviewId: operation.interviewId,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              })
+              await operationManager.addOperationLog(
+                operation.id,
+                `❌ Scheduler error: ${error instanceof Error ? error.message : 'Unknown error'}`
+              )
+              await operationManager.updateOperationStatus(
+                operation.id,
+                'failed'
+              )
+            }
           }
         }
       }
