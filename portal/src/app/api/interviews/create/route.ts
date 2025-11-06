@@ -178,11 +178,11 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Store password in operation result so it's available via SSE
-      await operationManager.setOperationResult(operationId, {
-        success: true,
-        password: password,
-      })
+      // Store password in operation result without changing status
+      await operationManager.updateScheduledInterviewPassword(
+        operationId,
+        password
+      )
 
       return NextResponse.json({
         operationId,
