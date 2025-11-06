@@ -83,6 +83,7 @@ export async function GET() {
  */
 function getOperationInterviews(
   operations: Array<{
+    id: string
     type: string
     interviewId: string
     candidateName?: string
@@ -127,6 +128,7 @@ function getOperationInterviews(
       createdAt: op.createdAt.toISOString(),
       scheduledAt: op.scheduledAt?.toISOString(),
       autoDestroyAt: op.autoDestroyAt?.toISOString(),
+      operationId: op.id,
     }))
 }
 

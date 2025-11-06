@@ -28,6 +28,7 @@ interface Interview {
   completedAt?: string
   destroyedAt?: string
   historyS3Key?: string
+  operationId?: string
 }
 
 export default function Home() {
@@ -255,6 +256,7 @@ export default function Home() {
               saveFiles: true, // Default value
               accessUrl: operation.result?.accessUrl,
               password: operation.result?.password,
+              operationId: operation.id,
             }
             return [...updated, newInterview]
           }
@@ -357,6 +359,7 @@ export default function Home() {
           createdAt: new Date().toISOString(),
           scheduledAt: data.scheduledAt,
           autoDestroyAt: data.autoDestroyAt,
+          operationId: data.operationId,
         }
         setInterviews(prev => [...prev, scheduledInterview])
       } else {
@@ -497,6 +500,47 @@ export default function Home() {
           error instanceof Error ? error.message : 'Unknown error'
         }`
       )
+    }
+  }
+
+  const cancelScheduledInterview = async (interview: Interview) => {
+    if (!interview.operationId) {
+      setNotification('❌ Cannot cancel: operation ID not found')
+      setTimeout(() => setNotification(null), 5000)
+      return
+    }
+
+    const message = `Are you sure you want to cancel the scheduled interview for ${interview.candidateName}? This action cannot be undone.`
+
+    if (!confirm(message)) {
+      return
+    }
+
+    try {
+      const response = await fetch(
+        `/api/operations/${interview.operationId}/cancel`,
+        {
+          method: 'POST',
+        }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to cancel interview')
+      }
+
+      // Show notification
+      setNotification(`Interview cancelled for ${interview.candidateName}`)
+      setTimeout(() => setNotification(null), 5000)
+
+      // Remove from interviews list immediately
+      setInterviews(prev => prev.filter(i => i.id !== interview.id))
+    } catch (error) {
+      console.error('Error cancelling interview:', error)
+      setNotification(
+        `❌ Failed to cancel interview: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+      setTimeout(() => setNotification(null), 5000)
     }
   }
 
@@ -1077,9 +1121,14 @@ export default function Home() {
                               </button>
                             )}
                             {interview.status === 'scheduled' && (
-                              <span className="text-purple-600 font-medium">
-                                Scheduled...
-                              </span>
+                              <button
+                                onClick={() =>
+                                  cancelScheduledInterview(interview)
+                                }
+                                className="btn-danger text-sm"
+                              >
+                                Cancel
+                              </button>
                             )}
                             {interview.status === 'initializing' && (
                               <span className="text-blue-600 font-medium">
