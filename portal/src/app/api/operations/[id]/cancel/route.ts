@@ -50,7 +50,11 @@ export async function POST(
     }
 
     // Check if operation can be cancelled
-    if (operation.status !== 'pending' && operation.status !== 'running') {
+    if (
+      operation.status !== 'pending' &&
+      operation.status !== 'running' &&
+      operation.status !== 'scheduled'
+    ) {
       return NextResponse.json(
         {
           success: false,
