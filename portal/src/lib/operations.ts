@@ -740,11 +740,12 @@ class OperationManager {
   }
 
   /**
-   * Updates the password for a scheduled interview without changing operation status.
+   * Updates credentials (URL and password) for a scheduled interview without changing operation status.
    * Used to store credentials immediately when an interview is scheduled.
    */
-  async updateScheduledInterviewPassword(
+  async updateScheduledInterviewCredentials(
     operationId: string,
+    accessUrl: string,
     password: string
   ): Promise<void> {
     const operation = await this.getOperation(operationId)
@@ -752,6 +753,7 @@ class OperationManager {
 
     const updatedResult = {
       ...operation.result,
+      accessUrl,
       password,
     }
 
