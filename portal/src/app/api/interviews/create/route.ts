@@ -178,6 +178,12 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Store password in operation result so it's available via SSE
+      await operationManager.setOperationResult(operationId, {
+        success: true,
+        password: password,
+      })
+
       return NextResponse.json({
         operationId,
         interviewId,
