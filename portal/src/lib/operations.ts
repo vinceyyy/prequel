@@ -740,6 +740,46 @@ class OperationManager {
   }
 
   /**
+   * Updates the password for a scheduled interview without changing operation status.
+   * Used to store credentials immediately when an interview is scheduled.
+   */
+  async updateScheduledInterviewPassword(
+    operationId: string,
+    password: string
+  ): Promise<void> {
+    const operation = await this.getOperation(operationId)
+    if (!operation) return
+
+    const updatedResult = {
+      ...operation.result,
+      password,
+    }
+
+    await this.dynamoClient.send(
+      new UpdateItemCommand({
+        TableName: this.tableName,
+        Key: marshall({ id: operationId }),
+        UpdateExpression: 'SET #result = :result',
+        ExpressionAttributeNames: {
+          '#result': 'result',
+        },
+        ExpressionAttributeValues: marshall(
+          {
+            ':result': updatedResult,
+          },
+          { removeUndefinedValues: true }
+        ),
+      })
+    )
+
+    // Fetch updated operation and emit event
+    const updatedOperation = await this.getOperation(operationId)
+    if (updatedOperation) {
+      this.emit(updatedOperation)
+    }
+  }
+
+  /**
    * Cancels an operation that is pending or running.
    */
   async cancelOperation(operationId: string): Promise<boolean> {
