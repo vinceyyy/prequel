@@ -32,9 +32,11 @@ Prequel is a coding interview platform that provisions on-demand VS Code instanc
 **Scheduling System:**
 - Built-in scheduler running within NextJS container (no external dependencies)
 - Processes scheduled interviews and auto-destroy timeouts using DynamoDB GSI queries
+- **Pre-provisioning**: Starts provisioning 5 minutes before scheduled time to ensure instances are ready exactly when needed
 - Mandatory auto-destroy prevents forgotten resources with duplicate prevention
 - Configurable durations: 30min, 45min, 1hr, 1.5hr, 2hr, 3hr, 4hr
 - Efficient operation lookup using DynamoDB Global Secondary Indexes
+- 30-second polling interval for reliable scheduling
 
 **Resource Cleanup System:**
 - Automated detection of dangling terraform workspaces and AWS resources
@@ -357,6 +359,7 @@ The checkbox indicates features that are currently implemented.
     3. [X] Schedule instance creation for future execution
     4. [X] **Mandatory**: Choose interview duration (30min-4hrs) with automatic destruction
     5. [X] Real-time status updates via SSE (no manual refresh needed)
+    6. [X] **Pre-provisioning**: Scheduled interviews automatically start 5 minutes early to be ready at scheduled time
 4. [X] Wait for instance to become `Active`
    - [X] Challenge files are automatically copied from S3 during configuring stage
    - [X] Live status updates show progression through states
@@ -385,6 +388,8 @@ The checkbox indicates features that are currently implemented.
 1. **Scheduled** - Interview scheduled for future execution
    - Displayed with scheduled start time and auto-destroy time
    - Purple status indicator in UI
+   - **Pre-provisioning**: Provisioning begins 5 minutes before scheduled time
+   - Instance will be Active and ready at the exact scheduled time
 
 2. **Initializing** - Provisioning AWS infrastructure (not customizable)
    - Terraform creating ECS service, ALB target group, etc.
@@ -413,3 +418,33 @@ The checkbox indicates features that are currently implemented.
    - Red status indicator in UI
 
 **Status changes trigger immediate SSE events for real-time UI updates**
+
+## Scheduled Interview Timing
+
+**Pre-provisioning Strategy:**
+Scheduled interviews use a pre-provisioning strategy to ensure instances are ready exactly at the scheduled time.
+
+**Timeline Example:**
+If you schedule an interview for **2:00 PM**:
+- **1:55 PM** - Scheduler detects it's time to start (5 minutes early)
+- **1:55 PM** - Status changes from `Scheduled` to `Initializing` (Terraform provisioning begins)
+- **1:57 PM** - Status changes to `Configuring` (ECS container boots, files copied)
+- **1:58-2:00 PM** - Status changes to `Active` (ready for candidate access)
+- **Result**: Instance is accessible exactly at 2:00 PM ✅
+
+**How It Works:**
+1. Scheduler runs every 30 seconds checking for scheduled operations
+2. Provisioning begins when: `current_time >= (scheduled_time - 5 minutes)`
+3. Infrastructure takes ~3-5 minutes to provision and configure
+4. Instance becomes Active at or slightly before the scheduled time
+
+**Benefits:**
+- ✅ Candidates can access immediately at scheduled time (no waiting)
+- ✅ Predictable timing for coordinated interviews
+- ✅ Better user experience compared to waiting after scheduled time
+- ✅ URL and password displayed immediately when scheduling
+
+**Implementation:**
+- Located in `portal/src/lib/scheduler.ts:processScheduledOperations()`
+- Calculates: `provisioningTime = scheduledAt - 5 minutes`
+- Detailed logging shows provisioning timeline and countdown
