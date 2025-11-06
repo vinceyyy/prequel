@@ -1,4 +1,15 @@
 {
+  "enabledPlugins": {
+    "superpowers@superpowers-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "superpowers": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers-marketplace"
+      }
+    }
+  },
   "permissions": {
     "allow": [
       "Bash(grep:*)",
