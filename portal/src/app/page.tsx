@@ -244,6 +244,10 @@ export default function Home() {
           // If interview doesn't exist in current state, add it
           const exists = prev.some(i => i.id === operation.interviewId)
           if (!exists && operation.candidateName && operation.challenge) {
+            // Construct URL for scheduled interviews
+            const domain = window.location.hostname
+            const constructedUrl = `https://${operation.interviewId}.${domain}/`
+
             const newInterview: Interview = {
               id: operation.interviewId,
               candidateName: operation.candidateName,
@@ -253,11 +257,13 @@ export default function Home() {
               scheduledAt: operation.scheduledAt,
               autoDestroyAt: operation.autoDestroyAt,
               saveFiles: true, // Default value
-              // Only include access details if available
-              ...(operation.result?.accessUrl && {
-                accessUrl: operation.result.accessUrl,
-                password: operation.result.password,
-              }),
+              // For scheduled interviews, use constructed URL; otherwise use result URL
+              accessUrl:
+                operation.status === 'scheduled'
+                  ? constructedUrl
+                  : operation.result?.accessUrl,
+              // Password should be available in operation result or can be left undefined for now
+              password: operation.result?.password,
             }
             return [...updated, newInterview]
           }
@@ -347,9 +353,29 @@ export default function Home() {
 
       const data = await response.json()
 
-      // Close the modal immediately since operation is now background
-      // Set the creating interview ID to show loading state
-      setCreatingInterviewId(data.interviewId)
+      // Construct full URL from interviewId and current domain
+      const domain = window.location.hostname
+      const accessUrl = `https://${data.interviewId}.${domain}/`
+
+      // If scheduled, add interview to state immediately with credentials
+      if (formData.enableScheduling) {
+        const scheduledInterview: Interview = {
+          id: data.interviewId,
+          candidateName: data.candidateName,
+          challenge: data.challenge,
+          status: 'scheduled',
+          saveFiles: formData.saveFiles,
+          accessUrl: accessUrl,
+          password: data.password,
+          createdAt: new Date().toISOString(),
+          scheduledAt: data.scheduledAt,
+          autoDestroyAt: data.autoDestroyAt,
+        }
+        setInterviews(prev => [...prev, scheduledInterview])
+      } else {
+        // For immediate interviews, set creating interview ID to show loading state
+        setCreatingInterviewId(data.interviewId)
+      }
 
       // Reset form and close modal
       setFormData({
@@ -1004,8 +1030,25 @@ export default function Home() {
                           )}
                         </td>
                         <td className="px-3 sm:px-6 py-4 text-sm text-slate-900">
-                          {interview.status === 'active' &&
-                          interview.accessUrl ? (
+                          {interview.status === 'scheduled' &&
+                          interview.accessUrl &&
+                          interview.password ? (
+                            <div className="max-w-xs">
+                              <div className="bg-purple-50 p-2 rounded-md border border-purple-200 mb-2">
+                                <div className="text-xs text-purple-700 mb-1 flex items-center">
+                                  <span className="mr-1">⏰</span>
+                                  <span>Available at scheduled time</span>
+                                </div>
+                                <div className="text-blue-600 break-all font-mono text-xs">
+                                  {interview.accessUrl}
+                                </div>
+                                <div className="text-slate-700 break-all mt-1 font-mono text-xs">
+                                  Password: {interview.password}
+                                </div>
+                              </div>
+                            </div>
+                          ) : interview.status === 'active' &&
+                            interview.accessUrl ? (
                             <div className="max-w-xs">
                               <a
                                 className="text-blue-600 underline cursor-pointer break-all hover:text-blue-700 transition-colors"
@@ -1023,7 +1066,9 @@ export default function Home() {
                               Configuring...
                             </span>
                           ) : interview.status === 'scheduled' ? (
-                            <span className="text-slate-400">Scheduled</span>
+                            <span className="text-slate-400">
+                              Scheduled (credentials loading...)
+                            </span>
                           ) : interview.status === 'initializing' ? (
                             <span className="text-slate-400">
                               Initializing...
