@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { interviewManager } from '@/lib/interviews'
 import { operationManager } from '@/lib/operations'
 import { challengeService } from '@/lib/challenges'
+import { config } from '@/lib/config'
 import { v4 as uuidv4 } from 'uuid'
 
 /**
@@ -178,9 +179,16 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Store password in operation result without changing status
-      await operationManager.updateScheduledInterviewPassword(
+      // Construct access URL using domain from config
+      const domainName = config.project.domainName
+      const accessUrl = domainName
+        ? `https://${interviewId}.${domainName}/`
+        : `http://localhost:8443/` // Fallback for local development
+
+      // Store credentials in operation result without changing status
+      await operationManager.updateScheduledInterviewCredentials(
         operationId,
+        accessUrl,
         password
       )
 
@@ -190,6 +198,7 @@ export async function POST(request: NextRequest) {
         candidateName,
         challenge,
         password,
+        accessUrl,
         scheduledAt: scheduledDate.toISOString(),
         autoDestroyAt: autoDestroyDate.toISOString(),
         message: `Interview scheduled for ${scheduledDate.toLocaleString()}`,

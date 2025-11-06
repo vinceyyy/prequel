@@ -244,10 +244,6 @@ export default function Home() {
           // If interview doesn't exist in current state, add it
           const exists = prev.some(i => i.id === operation.interviewId)
           if (!exists && operation.candidateName && operation.challenge) {
-            // Construct URL for scheduled interviews
-            const domain = window.location.hostname
-            const constructedUrl = `https://${operation.interviewId}.${domain}/`
-
             const newInterview: Interview = {
               id: operation.interviewId,
               candidateName: operation.candidateName,
@@ -257,12 +253,7 @@ export default function Home() {
               scheduledAt: operation.scheduledAt,
               autoDestroyAt: operation.autoDestroyAt,
               saveFiles: true, // Default value
-              // For scheduled interviews, use constructed URL; otherwise use result URL
-              accessUrl:
-                operation.status === 'scheduled'
-                  ? constructedUrl
-                  : operation.result?.accessUrl,
-              // Password should be available in operation result or can be left undefined for now
+              accessUrl: operation.result?.accessUrl,
               password: operation.result?.password,
             }
             return [...updated, newInterview]
@@ -353,10 +344,6 @@ export default function Home() {
 
       const data = await response.json()
 
-      // Construct full URL from interviewId and current domain
-      const domain = window.location.hostname
-      const accessUrl = `https://${data.interviewId}.${domain}/`
-
       // If scheduled, add interview to state immediately with credentials
       if (formData.enableScheduling) {
         const scheduledInterview: Interview = {
@@ -365,7 +352,7 @@ export default function Home() {
           challenge: data.challenge,
           status: 'scheduled',
           saveFiles: formData.saveFiles,
-          accessUrl: accessUrl,
+          accessUrl: data.accessUrl,
           password: data.password,
           createdAt: new Date().toISOString(),
           scheduledAt: data.scheduledAt,
