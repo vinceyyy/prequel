@@ -782,11 +782,14 @@ class OperationManager {
   }
 
   /**
-   * Cancels an operation that is pending or running.
+   * Cancels an operation that is pending, running, or scheduled.
    */
   async cancelOperation(operationId: string): Promise<boolean> {
     const operation = await this.getOperation(operationId)
-    if (!operation || !['pending', 'running'].includes(operation.status)) {
+    if (
+      !operation ||
+      !['pending', 'running', 'scheduled'].includes(operation.status)
+    ) {
       return false
     }
 
