@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { interviewManager } from '@/lib/interviews'
 import { operationManager } from '@/lib/operations'
+import { takehomeManager } from '@/lib/takehome'
 
 export async function DELETE(
   request: NextRequest,
@@ -218,6 +219,28 @@ export async function POST(
             operationId,
             '✅ Interview destroyed successfully!'
           )
+
+          // Check if this is a take-home interview and mark complete
+          if (interviewId.startsWith('takehome-')) {
+            try {
+              const takehomes = await takehomeManager.getActiveTakehomes()
+              const takehome = takehomes.find(
+                t => t.interviewId === interviewId
+              )
+              if (takehome) {
+                await takehomeManager.completeTakehome(takehome.passcode)
+                await operationManager.addOperationLog(
+                  operationId,
+                  'Marked take-home test as completed'
+                )
+              }
+            } catch (error) {
+              console.error(
+                'Failed to mark take-home test as completed:',
+                error
+              )
+            }
+          }
 
           await operationManager.setOperationResult(operationId, {
             success: true,
