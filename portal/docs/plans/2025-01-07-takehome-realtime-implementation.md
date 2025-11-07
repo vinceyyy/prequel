@@ -13,6 +13,7 @@
 ## Task 1: Update Interview Schema and Types
 
 **Files:**
+
 - Modify: `portal/src/lib/interviews.ts:30-55`
 
 **Step 1: Add type field to Interview interface**
@@ -101,6 +102,7 @@ git commit -m "feat: add take-home fields to Interview schema"
 ## Task 2: Add DynamoDB Indexes for Take-Home
 
 **Files:**
+
 - Modify: `infra/dynamodb.tf:1-50`
 
 **Step 1: Add PasscodeIndex GSI**
@@ -150,6 +152,7 @@ git commit -m "infra: add PasscodeIndex and TypeStatusIndex to interviews table"
 ## Task 3: Add getInterviewByPasscode Method
 
 **Files:**
+
 - Modify: `portal/src/lib/interviews.ts:150-200`
 
 **Step 1: Add getInterviewByPasscode method to InterviewManager**
@@ -236,6 +239,7 @@ git commit -m "feat: add getInterviewByPasscode method to InterviewManager"
 ## Task 4: Update createInterview to Support Take-Home Type
 
 **Files:**
+
 - Modify: `portal/src/lib/interviews.ts:100-150`
 
 **Step 1: Update createInterview method signature and implementation**
@@ -305,6 +309,7 @@ git commit -m "feat: update createInterview to support take-home type"
 ## Task 5: Add Operation-to-Interview Status Sync
 
 **Files:**
+
 - Modify: `portal/src/lib/operations.ts:700-800`
 
 **Step 1: Add syncInterviewStatus method to OperationManager**
@@ -396,6 +401,7 @@ git commit -m "feat: add operation-to-interview status sync"
 ## Task 6: Create API Endpoint for Passcode Lookup
 
 **Files:**
+
 - Create: `portal/src/app/api/interviews/by-passcode/[passcode]/route.ts`
 
 **Step 1: Create the route file**
@@ -458,6 +464,7 @@ git commit -m "feat: add API endpoint for passcode lookup"
 ## Task 7: Create Interview Activation Endpoint
 
 **Files:**
+
 - Create: `portal/src/app/api/interviews/[id]/activate/route.ts`
 
 **Step 1: Create the activation route**
@@ -655,6 +662,7 @@ git commit -m "feat: add interview activation endpoint for take-home tests"
 ## Task 8: Update Take-Home Creation API
 
 **Files:**
+
 - Modify: `portal/src/app/api/takehome/route.ts:20-80`
 
 **Step 1: Update POST handler to create unified interview**
@@ -675,10 +683,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate passcode and ID
-    const passcode = Math.random()
-      .toString(36)
-      .substring(2, 10)
-      .toUpperCase()
+    const passcode = Math.random().toString(36).substring(2, 10).toUpperCase()
     const timestamp = Date.now()
     const random = Math.random().toString(36).substring(2, 7)
     const interviewId = `takehome-${timestamp}-${random}`
@@ -735,6 +740,7 @@ git commit -m "feat: update take-home creation to use unified interview table"
 ## Task 9: Update Candidate Page with Real-Time Status
 
 **Files:**
+
 - Modify: `portal/src/app/take-home/[passcode]/page.tsx:1-200`
 
 **Step 1: Add SSE integration and status display**
@@ -1076,6 +1082,7 @@ git commit -m "feat: add real-time status updates to candidate take-home page"
 ## Task 10: Update Admin Dashboard Take-Home Tab
 
 **Files:**
+
 - Modify: `portal/src/app/page.tsx:1750-1790`
 
 **Step 1: Update Take-Home Tests tab to filter by type**
@@ -1154,6 +1161,7 @@ git commit -m "feat: update admin dashboard to show take-homes from unified tabl
 ## Task 11: Update TakehomeTable Component
 
 **Files:**
+
 - Modify: `portal/src/components/TakehomeTable.tsx:5-238`
 
 **Step 1: Update interface to accept Interview type**
@@ -1498,6 +1506,7 @@ git commit -m "feat: update TakehomeTable to work with unified interview records
 ## Task 12: Update Interview Loading Logic
 
 **Files:**
+
 - Modify: `portal/src/app/page.tsx:350-410`
 
 **Step 1: Update loadInterviews to include take-home tests**
@@ -1553,6 +1562,7 @@ git commit -m "feat: ensure interview loading includes take-home tests"
 ## Task 13: Add Logs Button for Take-Home Tests
 
 **Files:**
+
 - Modify: `portal/src/components/TakehomeTable.tsx:200-210`
 
 **Step 1: Add Logs button to Actions column**
@@ -1627,6 +1637,7 @@ git commit -m "feat: add Logs button to take-home tests table"
 ## Task 14: Run Tests and Fix Issues
 
 **Files:**
+
 - Various test files
 
 **Step 1: Run unit tests**
@@ -1641,6 +1652,7 @@ Expected: Some tests may fail due to schema changes. Review failures.
 **Step 2: Update failing tests**
 
 For each failing test related to Interview schema:
+
 - Add `type: 'regular'` to mock interview data
 - Update interface expectations
 
@@ -1678,6 +1690,7 @@ git commit -m "test: update tests for unified interview schema"
 ## Task 15: Run Linter and Formatter
 
 **Files:**
+
 - All modified files
 
 **Step 1: Run ESLint**
@@ -1709,6 +1722,7 @@ git commit -m "style: run linter and formatter"
 ## Task 16: Manual Testing - Create Take-Home Test
 
 **Files:**
+
 - N/A (manual testing)
 
 **Step 1: Start dev server**
@@ -1734,6 +1748,7 @@ npm run dev
 **Step 3: Verify take-home appears in table**
 
 Expected:
+
 - Take-home appears in "Take-Home Tests" tab
 - Status shows "Available" (green badge)
 - URL shows `/take-home/[PASSCODE]`
@@ -1744,6 +1759,7 @@ Expected:
 ## Task 17: Manual Testing - Activate Take-Home
 
 **Files:**
+
 - N/A (manual testing)
 
 **Step 1: Copy take-home URL**
@@ -1756,6 +1772,7 @@ From the "Take-Home Tests" tab, click copy URL button.
 2. Paste URL: http://localhost:3000/take-home/[PASSCODE]
 
 Expected:
+
 - Page loads with instructions
 - Shows "Start Test" button
 - Shows custom instructions
@@ -1763,6 +1780,7 @@ Expected:
 **Step 3: Click "Start Test"**
 
 Expected:
+
 - Button shows "Starting..."
 - Page updates to show provisioning status
 - Status badge appears: "Activated" → "Provisioning" → "Configuring"
@@ -1770,6 +1788,7 @@ Expected:
 **Step 4: Wait for workspace to be ready (3-5 minutes)**
 
 Expected:
+
 - Real-time status updates without refresh
 - Progress indicator shows
 - When ready: Access card appears with URL and password
@@ -1779,6 +1798,7 @@ Expected:
 In the main portal window:
 
 Expected:
+
 - Take-home status updates in real-time
 - Shows "Provisioning" → "Configuring" → "Running"
 - Access details appear inline
@@ -1789,6 +1809,7 @@ Expected:
 ## Task 18: Manual Testing - Page Refresh
 
 **Files:**
+
 - N/A (manual testing)
 
 **Step 1: Close candidate page during provisioning**
@@ -1800,6 +1821,7 @@ While workspace is provisioning, close the take-home page tab.
 Open http://localhost:3000/take-home/[PASSCODE] again.
 
 Expected:
+
 - Page loads and shows current status
 - If still provisioning: Shows progress
 - If ready: Shows access details immediately
@@ -1809,6 +1831,7 @@ Expected:
 ## Task 19: Manual Testing - Logs Button
 
 **Files:**
+
 - N/A (manual testing)
 
 **Step 1: Click "Logs" button in take-home table**
@@ -1816,6 +1839,7 @@ Expected:
 From "Take-Home Tests" tab, click "Logs" button.
 
 Expected:
+
 - Operation logs modal opens
 - Shows real-time provisioning logs
 - Logs stream as operation progresses
@@ -1823,6 +1847,7 @@ Expected:
 **Step 2: Verify logs content**
 
 Expected logs to include:
+
 - "Starting take-home interview for [Name]"
 - Terraform output
 - "Infrastructure ready..."
@@ -1833,6 +1858,7 @@ Expected logs to include:
 ## Task 20: Update CLAUDE.md Documentation
 
 **Files:**
+
 - Modify: `portal/CLAUDE.md:1-100`
 
 **Step 1: Add take-home information to documentation**
@@ -1849,6 +1875,7 @@ Take-home tests are stored in the same `interviews` DynamoDB table as regular in
 - `type: 'take-home'` - Tests with passcode-based candidate access
 
 **Key Fields for Take-Home:**
+
 - `passcode`: 8-character code for candidate access URL
 - `validUntil`: Invitation expiration date
 - `customInstructions`: Additional instructions for candidates
@@ -1856,6 +1883,7 @@ Take-home tests are stored in the same `interviews` DynamoDB table as regular in
 - `activatedAt`: Timestamp when candidate clicked "Start Test"
 
 **Status Flow:**
+
 1. Created: `status='scheduled'` (invitation available)
 2. Activated: `status='activated'` (candidate clicked start)
 3. Provisioning: `status='initializing'` → `status='configuring'`
@@ -1863,12 +1891,14 @@ Take-home tests are stored in the same `interviews` DynamoDB table as regular in
 5. Completed: `status='completed'`
 
 **Real-Time Updates:**
+
 - Operations auto-sync status to interview records
 - SSE events trigger UI updates on both candidate and admin pages
 - Candidate page shows live provisioning progress
 - Admin dashboard shows inline access details and status
 
 **Candidate Experience:**
+
 - Access via `/take-home/[passcode]` (no login required)
 - Real-time provisioning progress
 - Access details displayed when ready
@@ -1876,6 +1906,7 @@ Take-home tests are stored in the same `interviews` DynamoDB table as regular in
 - Never sees admin portal
 
 **Admin Experience:**
+
 - Take-homes stay in "Take-Home Tests" tab
 - Real-time status updates via SSE
 - Inline access details display
@@ -1895,6 +1926,7 @@ git commit -m "docs: add take-home test architecture to CLAUDE.md"
 ## Task 21: Final Build and Verification
 
 **Files:**
+
 - N/A (build verification)
 
 **Step 1: Build the project**
@@ -1930,6 +1962,7 @@ Press Ctrl+C to stop.
 ## Task 22: Final Commit and Push
 
 **Files:**
+
 - All modified files
 
 **Step 1: Review all changes**

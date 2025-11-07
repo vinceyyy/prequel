@@ -11,6 +11,7 @@ This design unifies take-home tests and regular interviews into a single table, 
 ## Requirements
 
 ### Candidate Experience
+
 1. Candidate stays on `/take-home/[passcode]` page after clicking "Start Test"
 2. Real-time progress display during provisioning (Initializing → Configuring → Active)
 3. Display URL and password when workspace is ready
@@ -18,6 +19,7 @@ This design unifies take-home tests and regular interviews into a single table, 
 5. Page refresh shows current status (safe to close and reopen)
 
 ### Admin Experience
+
 1. Take-home tests stay in "Take-Home Tests" tab (never move to "Current Interviews")
 2. Real-time status updates via SSE without manual refresh
 3. Inline display of access details when ready
@@ -25,6 +27,7 @@ This design unifies take-home tests and regular interviews into a single table, 
 5. Revoke button destroys running instance or cancels invitation
 
 ### Technical Requirements
+
 1. Merge `takehome` table into `interviews` table
 2. Auto-sync operation status to interview records
 3. SSE events trigger UI updates on both admin and candidate pages
@@ -39,11 +42,11 @@ This design unifies take-home tests and regular interviews into a single table, 
 
 ```typescript
 interface Interview {
-  id: string  // 'int-xxx' for regular, 'takehome-xxx' for take-home
+  id: string // 'int-xxx' for regular, 'takehome-xxx' for take-home
   candidateName: string
   challenge: string
   status: InterviewStatus
-  type: 'regular' | 'take-home'  // NEW: Differentiates types
+  type: 'regular' | 'take-home' // NEW: Differentiates types
 
   // Access credentials
   accessUrl?: string
@@ -51,7 +54,7 @@ interface Interview {
 
   // Common lifecycle
   createdAt: Date
-  autoDestroyAt?: Date  // Mandatory for both types
+  autoDestroyAt?: Date // Mandatory for both types
   completedAt?: Date
   destroyedAt?: Date
 
@@ -59,11 +62,11 @@ interface Interview {
   scheduledAt?: Date
 
   // Take-home specific
-  passcode?: string   // 8-char code for candidate access
-  validUntil?: Date   // Invitation expiry
+  passcode?: string // 8-char code for candidate access
+  validUntil?: Date // Invitation expiry
   customInstructions?: string
   durationMinutes?: number
-  activatedAt?: Date  // When candidate clicked "Start Test"
+  activatedAt?: Date // When candidate clicked "Start Test"
 
   // File management
   saveFiles?: boolean
@@ -112,12 +115,12 @@ interface Interview {
 
 ```typescript
 const statusMap = {
-  'pending': 'scheduled',
-  'running': 'initializing',
+  pending: 'scheduled',
+  running: 'initializing',
   // 'configuring' set by infrastructure ready callback
-  'completed': 'active',
-  'failed': 'error',
-  'cancelled': 'error',
+  completed: 'active',
+  failed: 'error',
+  cancelled: 'error',
 }
 ```
 
@@ -231,7 +234,7 @@ export async function POST(request) {
   const interview = await interviewManager.createInterview({
     id: `takehome-${timestamp}-${random}`,
     type: 'take-home',
-    status: 'active',  // Invitation is active
+    status: 'active', // Invitation is active
     passcode: generatePasscode(),
     validUntil: calculateValidUntil(body.validDays),
     customInstructions: body.customInstructions,
@@ -289,10 +292,17 @@ export default function TakeHomePage({ params }) {
     <div>
       {interview.status === 'active' && <StartButton onClick={handleStart} />}
       {interview.status === 'activated' && <Progress status="Starting..." />}
-      {interview.status === 'initializing' && <Progress status="Provisioning..." />}
-      {interview.status === 'configuring' && <Progress status="Configuring..." />}
+      {interview.status === 'initializing' && (
+        <Progress status="Provisioning..." />
+      )}
+      {interview.status === 'configuring' && (
+        <Progress status="Configuring..." />
+      )}
       {interview.status === 'active' && interview.accessUrl && (
-        <AccessDetails url={interview.accessUrl} password={interview.password} />
+        <AccessDetails
+          url={interview.accessUrl}
+          password={interview.password}
+        />
       )}
       {interview.status === 'completed' && <CompletedMessage />}
     </div>
@@ -306,9 +316,8 @@ export default function TakeHomePage({ params }) {
 
 ```tsx
 function TakehomeTestsTab() {
-  const interviews = allInterviews.filter(i =>
-    i.type === 'take-home' &&
-    i.status !== 'completed'
+  const interviews = allInterviews.filter(
+    i => i.type === 'take-home' && i.status !== 'completed'
   )
 
   return (
@@ -337,10 +346,13 @@ function TakehomeTestsTab() {
                 <div className="text-xs">
                   <div>URL: {interview.accessUrl}</div>
                   <div>Password: {interview.password}</div>
-                  <div>Time left: {formatTimeRemaining(interview.autoDestroyAt)}</div>
+                  <div>
+                    Time left: {formatTimeRemaining(interview.autoDestroyAt)}
+                  </div>
                 </div>
               )}
-              {(interview.status === 'initializing' || interview.status === 'configuring') && (
+              {(interview.status === 'initializing' ||
+                interview.status === 'configuring') && (
                 <div className="text-xs">
                   <Spinner /> Provisioning...
                 </div>
@@ -378,35 +390,41 @@ const getStatusBadge = (status: string) => {
 ## Implementation Plan
 
 ### Phase 1: Database Schema
+
 1. Add new fields to `interviews` table schema
 2. Create new DynamoDB indexes (PasscodeIndex, TypeStatusIndex)
 3. Update Interview TypeScript interfaces
 
 ### Phase 2: Core Logic
+
 1. Update `interviewManager.createInterview()` to support type='take-home'
 2. Add `interviewManager.getInterviewByPasscode()`
 3. Update `operationManager` to sync interview status on changes
 4. Modify take-home creation API to create interview records
 
 ### Phase 3: API Endpoints
+
 1. Create `GET /api/interviews/by-passcode/[passcode]`
 2. Create `POST /api/interviews/[id]/activate`
 3. Update `POST /api/takehome` to create unified interview records
 4. Update `POST /api/takehome/[passcode]/revoke` to work with interviews
 
 ### Phase 4: Candidate Page
+
 1. Update `/take-home/[passcode]/page.tsx` with SSE integration
 2. Add real-time status display components
 3. Add access details card with URL/password/countdown
 4. Handle all status states (not started → running → completed)
 
 ### Phase 5: Admin Dashboard
+
 1. Update "Take-Home Tests" tab to filter interviews by type
 2. Add inline status display with real-time updates
 3. Update TakehomeTable component with new columns
 4. Ensure SSE updates trigger re-renders
 
 ### Phase 6: Migration & Cleanup
+
 1. Keep old takehome table for backward compatibility
 2. Add code to read from both sources temporarily
 3. Migrate existing take-home records (optional)
@@ -415,17 +433,20 @@ const getStatusBadge = (status: string) => {
 ## Testing Strategy
 
 ### Unit Tests
+
 - Interview CRUD with type='take-home'
 - Passcode lookup queries
 - Status sync from operations to interviews
 - SSE event handling
 
 ### Integration Tests
+
 - Full take-home creation → activation → provisioning flow
 - Status updates propagate correctly
 - SSE events trigger UI updates
 
 ### Manual Tests
+
 1. Create take-home test as admin
 2. Open candidate page, verify instructions display
 3. Click "Start Test", verify real-time progress
@@ -437,12 +458,14 @@ const getStatusBadge = (status: string) => {
 ## Migration Strategy
 
 **Backward Compatibility:**
+
 - Keep old `takehome` table during transition
 - New take-homes write to unified `interviews` table
 - Code reads from both sources (old takehome table + new interviews)
 - Gradually migrate or let old records expire naturally
 
 **Rollback Plan:**
+
 - If issues arise, revert to old takehome table
 - Unified schema is additive (doesn't break existing interviews)
 - Can toggle between old/new via feature flag

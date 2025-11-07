@@ -35,11 +35,18 @@ export async function GET() {
       candidateName: interview.candidateName,
       challenge: interview.challenge,
       status: interview.status,
+      type: interview.type,
       accessUrl: interview.accessUrl,
       password: interview.password,
       createdAt: interview.createdAt.toISOString(),
       scheduledAt: interview.scheduledAt?.toISOString(),
       autoDestroyAt: interview.autoDestroyAt?.toISOString(),
+      // Take-home specific fields
+      passcode: interview.passcode,
+      validUntil: interview.validUntil?.toISOString(),
+      customInstructions: interview.customInstructions,
+      durationMinutes: interview.durationMinutes,
+      activatedAt: interview.activatedAt?.toISOString(),
     }))
 
     // Get interviews from active operations (for real-time status during creation)
@@ -107,6 +114,7 @@ function getOperationInterviews(
       id: op.interviewId,
       candidateName: op.candidateName || 'Unknown',
       challenge: op.challenge || 'unknown',
+      type: 'regular' as const, // Operations are always for regular interviews
       status:
         op.status === 'scheduled'
           ? 'scheduled'

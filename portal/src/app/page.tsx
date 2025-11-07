@@ -224,6 +224,7 @@ interface Interview {
     | 'destroyed'
     | 'error'
   challenge: string
+  type?: 'regular' | 'take-home' // Differentiates interview types
   saveFiles: boolean
   accessUrl?: string
   password?: string
@@ -234,6 +235,10 @@ interface Interview {
   destroyedAt?: string
   historyS3Key?: string
   operationId?: string
+  passcode?: string // For take-home tests
+  validUntil?: string // For take-home tests
+  customInstructions?: string // For take-home tests
+  durationMinutes?: number // For take-home tests
 }
 
 interface Takehome {
@@ -248,6 +253,9 @@ interface Takehome {
   durationMinutes: number
   url: string
   interviewId?: string
+  accessUrl?: string
+  password?: string
+  autoDestroyAt?: string
 }
 
 interface TakehomeData {
@@ -358,16 +366,47 @@ export default function Home() {
       if (response.ok) {
         const data = await response.json()
         console.log(
-          '[DEBUG] Loaded current interviews from API:',
+          '[DEBUG] Loaded interviews from unified API:',
           data.interviews?.map((i: Interview) => ({
             id: i.id,
             status: i.status,
             candidateName: i.candidateName,
+            type: i.type,
           }))
         )
 
-        const newInterviews = data.interviews || []
-        setInterviews(newInterviews)
+        if (data.interviews) {
+          // Separate by type
+          const regularInterviews = data.interviews.filter(
+            (i: Interview) => i.type !== 'take-home'
+          )
+          const takehomeInterviews = data.interviews.filter(
+            (i: Interview) => i.type === 'take-home'
+          )
+
+          console.log(
+            `[DEBUG] Filtered: ${regularInterviews.length} regular, ${takehomeInterviews.length} take-home`
+          )
+
+          setInterviews(regularInterviews)
+          setTakehomes(
+            takehomeInterviews.map((i: Interview) => ({
+              passcode: i.passcode || '',
+              candidateName: i.candidateName,
+              challenge: i.challenge,
+              status: i.status,
+              validUntil: i.validUntil || '',
+              customInstructions: i.customInstructions || '',
+              durationMinutes: i.durationMinutes || 240,
+              url: `${window.location.origin}/take-home/${i.passcode}`,
+              interviewId: i.id,
+              accessUrl: i.accessUrl,
+              password: i.password,
+              autoDestroyAt: i.autoDestroyAt,
+              createdAt: i.createdAt,
+            }))
+          )
+        }
       } else {
         console.error('Failed to load current interviews')
       }
@@ -1757,6 +1796,10 @@ export default function Home() {
               takehomes={takehomes}
               challenges={challenges}
               onRevoke={revokeTakehome}
+              onViewLogs={interviewId => {
+                setSelectedInterviewForLogs(interviewId)
+                setShowLogsModal(true)
+              }}
             />
           </div>
         )}

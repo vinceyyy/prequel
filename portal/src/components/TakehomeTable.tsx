@@ -14,6 +14,9 @@ interface Takehome {
   durationMinutes: number
   url: string
   interviewId?: string
+  accessUrl?: string
+  password?: string
+  autoDestroyAt?: string
 }
 
 interface Challenge {
@@ -25,15 +28,18 @@ interface TakehomeTableProps {
   takehomes: Takehome[]
   challenges: Challenge[]
   onRevoke: (passcode: string) => void
+  onViewLogs?: (interviewId: string) => void
 }
 
 export function TakehomeTable({
   takehomes,
   challenges,
   onRevoke,
+  onViewLogs,
 }: TakehomeTableProps) {
   const [copiedPasscode, setCopiedPasscode] = useState<string | null>(null)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
+  const [revokingPasscode, setRevokingPasscode] = useState<string | null>(null)
 
   const copyToClipboard = async (text: string, passcode: string) => {
     try {
@@ -46,6 +52,15 @@ export function TakehomeTable({
     }
   }
 
+  const handleRevoke = async (passcode: string) => {
+    setRevokingPasscode(passcode)
+    try {
+      await onRevoke(passcode)
+    } finally {
+      setRevokingPasscode(null)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
@@ -55,9 +70,11 @@ export function TakehomeTable({
           </span>
         )
       case 'activated':
+      case 'initializing':
+      case 'configuring':
         return (
           <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold">
-            In Progress
+            Provisioning
           </span>
         )
       case 'completed':
@@ -70,6 +87,18 @@ export function TakehomeTable({
         return (
           <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold">
             Revoked
+          </span>
+        )
+      case 'destroying':
+        return (
+          <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-semibold">
+            Destroying
+          </span>
+        )
+      case 'error':
+        return (
+          <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold">
+            Error
           </span>
         )
       default:
@@ -153,6 +182,38 @@ export function TakehomeTable({
                   </td>
                   <td className="py-3 px-4">
                     {getStatusBadge(takehome.status)}
+
+                    {/* Show access details when workspace is ready */}
+                    {takehome.accessUrl && takehome.password && (
+                      <div className="mt-2 text-xs bg-green-50 border border-green-200 rounded p-2">
+                        <div className="font-medium text-green-900 mb-1">
+                          Workspace Ready:
+                        </div>
+                        <div className="text-green-800 break-all">
+                          <span className="font-semibold">URL:</span>{' '}
+                          {takehome.accessUrl}
+                        </div>
+                        <div className="text-green-800">
+                          <span className="font-semibold">Password:</span>{' '}
+                          {takehome.password}
+                        </div>
+                        {takehome.autoDestroyAt && (
+                          <div className="text-green-700 mt-1">
+                            Expires:{' '}
+                            {new Date(takehome.autoDestroyAt).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Show progress during provisioning */}
+                    {(takehome.status === 'initializing' ||
+                      takehome.status === 'configuring') && (
+                      <div className="mt-2 text-xs text-blue-600">
+                        <div className="inline-block animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2"></div>
+                        Provisioning...
+                      </div>
+                    )}
                   </td>
                   <td className="py-3 px-4 text-sm text-slate-600">
                     {isExpired ? (
@@ -163,20 +224,29 @@ export function TakehomeTable({
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex gap-2">
-                      {takehome.status === 'active' && (
+                      {takehome.interviewId && onViewLogs && (
                         <button
-                          onClick={() => onRevoke(takehome.passcode)}
-                          className="text-sm px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded"
+                          onClick={() => onViewLogs(takehome.interviewId!)}
+                          className="text-sm px-3 py-1 bg-slate-600 hover:bg-slate-700 text-white rounded"
+                          title="View operation logs"
                         >
-                          Revoke
+                          Logs
                         </button>
                       )}
-                      {takehome.status !== 'active' && (
-                        <span className="text-slate-500 text-sm">
-                          {takehome.status === 'completed' && 'Completed'}
-                          {takehome.status === 'revoked' && 'Revoked'}
-                          {takehome.status === 'activated' && 'In Progress'}
-                        </span>
+                      {takehome.status === 'active' && (
+                        <button
+                          onClick={() => handleRevoke(takehome.passcode)}
+                          disabled={revokingPasscode === takehome.passcode}
+                          className={`text-sm px-3 py-1 rounded ${
+                            revokingPasscode === takehome.passcode
+                              ? 'bg-slate-400 cursor-not-allowed'
+                              : 'bg-red-600 hover:bg-red-700'
+                          } text-white`}
+                        >
+                          {revokingPasscode === takehome.passcode
+                            ? 'Revoking...'
+                            : 'Revoke'}
+                        </button>
                       )}
                       <button
                         onClick={() =>
