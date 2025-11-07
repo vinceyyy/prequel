@@ -1753,7 +1753,11 @@ export default function Home() {
         {/* Take-Home Tests Tab */}
         {activeTab === 'takehome' && (
           <div className="card overflow-hidden">
-            <TakehomeTable takehomes={takehomes} onRevoke={revokeTakehome} />
+            <TakehomeTable
+              takehomes={takehomes}
+              challenges={challenges}
+              onRevoke={revokeTakehome}
+            />
           </div>
         )}
 
@@ -1771,6 +1775,7 @@ export default function Home() {
             ) : (
               <TakehomeTable
                 takehomes={takehomeHistory}
+                challenges={challenges}
                 onRevoke={async passcode => {
                   // History items can't be revoked again
                   console.log(

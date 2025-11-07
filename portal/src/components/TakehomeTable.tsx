@@ -16,12 +16,22 @@ interface Takehome {
   interviewId?: string
 }
 
+interface Challenge {
+  id: string
+  name: string
+}
+
 interface TakehomeTableProps {
   takehomes: Takehome[]
+  challenges: Challenge[]
   onRevoke: (passcode: string) => void
 }
 
-export function TakehomeTable({ takehomes, onRevoke }: TakehomeTableProps) {
+export function TakehomeTable({
+  takehomes,
+  challenges,
+  onRevoke,
+}: TakehomeTableProps) {
   const [copiedPasscode, setCopiedPasscode] = useState<string | null>(null)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
 
@@ -117,7 +127,8 @@ export function TakehomeTable({ takehomes, onRevoke }: TakehomeTableProps) {
                     {takehome.candidateName}
                   </td>
                   <td className="py-3 px-4 text-slate-700">
-                    {takehome.challenge}
+                    {challenges.find(c => c.id === takehome.challenge)?.name ||
+                      takehome.challenge}
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
