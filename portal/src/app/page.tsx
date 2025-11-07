@@ -30,16 +30,24 @@ function TakehomeForm({
     availabilityWindowDays: number
     durationMinutes: number
   }) => void
-  challenges: Array<{ id: string; name: string }>
+  challenges: Array<{
+    id: string
+    name: string
+    description: string
+    usageCount: number
+    ecsConfig: { cpuCores: number; memory: number; storage: number }
+    createdAt: string
+    lastUsedAt?: string
+  }>
   onSubmit: () => void
   onCancel: () => void
   creating: boolean
 }) {
   return (
-    <>
+    <div className="space-y-4">
       {/* Candidate Name */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-slate-700 mb-1">
+      <div>
+        <label className="block text-sm font-medium text-slate-900 mb-1">
           Candidate Name
         </label>
         <input
@@ -48,37 +56,81 @@ function TakehomeForm({
           onChange={e =>
             setFormData({ ...formData, candidateName: e.target.value })
           }
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-          placeholder="John Doe"
+          className="input-field"
+          placeholder="Enter candidate name"
           required
         />
       </div>
 
       {/* Challenge Selection */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-slate-700 mb-1">
-          Challenge
+      <div>
+        <label className="block text-sm font-medium text-slate-900 mb-2">
+          Interview Challenge
         </label>
-        <select
-          value={formData.challenge}
-          onChange={e =>
-            setFormData({ ...formData, challenge: e.target.value })
-          }
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-          required
-        >
-          <option value="">Select a challenge</option>
-          {challenges.map(c => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        <div className="space-y-3 max-h-64 overflow-y-auto">
+          {challenges.length === 0 ? (
+            <div className="text-slate-500 text-sm p-3 border border-slate-200 rounded-lg">
+              No challenges available. Create challenges first.
+            </div>
+          ) : (
+            challenges.map(challenge => (
+              <div key={challenge.id}>
+                <label className="flex items-start space-x-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="takehome-challenge"
+                    value={challenge.id}
+                    checked={formData.challenge === challenge.id}
+                    onChange={e =>
+                      setFormData({
+                        ...formData,
+                        challenge: e.target.value,
+                      })
+                    }
+                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-slate-900">
+                        {challenge.name}
+                      </h4>
+                      <div className="flex items-center space-x-2 text-xs text-slate-500">
+                        <span>Used {challenge.usageCount} times</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-600 mt-1">
+                      {challenge.description}
+                    </p>
+                    <div className="mt-2 text-xs text-slate-600">
+                      {challenge.ecsConfig.cpuCores} CPU{' '}
+                      {challenge.ecsConfig.cpuCores === 1 ? 'core' : 'cores'} /{' '}
+                      {challenge.ecsConfig.memory / 1024}GB RAM /{' '}
+                      {challenge.ecsConfig.storage}GB Storage
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                      <span>
+                        Created:{' '}
+                        {new Date(challenge.createdAt).toLocaleDateString()}
+                      </span>
+                      <span>
+                        {challenge.lastUsedAt
+                          ? `Last used: ${new Date(
+                              challenge.lastUsedAt
+                            ).toLocaleDateString()}`
+                          : 'Never used'}
+                      </span>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Custom Instructions */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-slate-700 mb-1">
+      <div>
+        <label className="block text-sm font-medium text-slate-900 mb-1">
           Custom Instructions
         </label>
         <textarea
@@ -86,15 +138,15 @@ function TakehomeForm({
           onChange={e =>
             setFormData({ ...formData, customInstructions: e.target.value })
           }
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+          className="input-field"
           rows={4}
           placeholder="Specific instructions for the candidate..."
         />
       </div>
 
       {/* Availability Window */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-slate-700 mb-1">
+      <div>
+        <label className="block text-sm font-medium text-slate-900 mb-1">
           Availability Window (days)
         </label>
         <input
@@ -106,18 +158,18 @@ function TakehomeForm({
               availabilityWindowDays: parseInt(e.target.value) || 7,
             })
           }
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+          className="input-field"
           min={1}
           max={30}
         />
-        <div className="text-xs text-slate-600 mt-1">
+        <p className="text-xs text-slate-600 mt-1">
           How many days the candidate has to start the interview
-        </div>
+        </p>
       </div>
 
       {/* Duration */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-slate-700 mb-1">
+      <div>
+        <label className="block text-sm font-medium text-slate-900 mb-1">
           Interview Duration
         </label>
         <select
@@ -128,7 +180,7 @@ function TakehomeForm({
               durationMinutes: parseInt(e.target.value),
             })
           }
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+          className="input-field"
         >
           <option value={30}>30 minutes</option>
           <option value={45}>45 minutes</option>
@@ -141,22 +193,21 @@ function TakehomeForm({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3">
-        <button
-          onClick={onCancel}
-          className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50"
-        >
-          Cancel
-        </button>
+      <div className="flex gap-3 mt-6">
         <button
           onClick={onSubmit}
-          disabled={creating || !formData.candidateName || !formData.challenge}
+          disabled={
+            creating || !formData.candidateName.trim() || !formData.challenge
+          }
           className="flex-1 btn-primary"
         >
           {creating ? 'Creating...' : 'Create Take-Home'}
         </button>
+        <button onClick={onCancel} className="flex-1 btn-outline">
+          Cancel
+        </button>
       </div>
-    </>
+    </div>
   )
 }
 
@@ -907,7 +958,7 @@ export default function Home() {
                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeTab === 'current'
                     ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                    : 'border-transparent text-slate-700 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
                 Current Interviews
@@ -922,7 +973,7 @@ export default function Home() {
                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeTab === 'history'
                     ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                    : 'border-transparent text-slate-700 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
                 Interview History
@@ -937,7 +988,7 @@ export default function Home() {
                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeTab === 'takehome'
                     ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                    : 'border-transparent text-slate-700 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
                 Take-Home Tests
@@ -952,7 +1003,7 @@ export default function Home() {
                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeTab === 'admin'
                     ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                    : 'border-transparent text-slate-700 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
                 Admin
