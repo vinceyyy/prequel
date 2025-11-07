@@ -231,6 +231,65 @@ export class TakehomeManager {
   }
 
   /**
+   * Gets all historical take-home tests (completed or revoked).
+   * Uses StatusIndex GSI for efficient querying.
+   */
+  async getHistoricalTakehomes(): Promise<TakehomeTest[]> {
+    const historicalStatuses: Array<'completed' | 'revoked'> = [
+      'completed',
+      'revoked',
+    ]
+
+    const results: TakehomeTest[] = []
+
+    for (const status of historicalStatuses) {
+      const command = new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'StatusIndex',
+        KeyConditionExpression: '#status = :status',
+        ExpressionAttributeNames: {
+          '#status': 'status',
+        },
+        ExpressionAttributeValues: marshall({
+          ':status': status,
+        }),
+        ScanIndexForward: false, // Most recent first
+      })
+
+      const response = await this.dynamoClient.send(command)
+      if (response.Items) {
+        results.push(
+          ...response.Items.map(item => {
+            const unmarshalled = unmarshall(item)
+            return {
+              ...unmarshalled,
+              validUntil:
+                typeof unmarshalled.validUntil === 'string'
+                  ? unmarshalled.validUntil
+                  : unmarshalled.validUntil.toISOString(),
+              createdAt:
+                typeof unmarshalled.createdAt === 'string'
+                  ? unmarshalled.createdAt
+                  : unmarshalled.createdAt.toISOString(),
+              activatedAt: unmarshalled.activatedAt
+                ? typeof unmarshalled.activatedAt === 'string'
+                  ? unmarshalled.activatedAt
+                  : unmarshalled.activatedAt.toISOString()
+                : undefined,
+            } as TakehomeTest
+          })
+        )
+      }
+    }
+
+    // Sort by createdAt descending (most recent first)
+    return results.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }
+
+  /**
    * Activates a take-home test (candidate clicked Start).
    */
   async activateTakehome(
