@@ -120,7 +120,7 @@ export function TakehomeTable({ takehomes, onRevoke }: TakehomeTableProps) {
                     {takehome.challenge}
                   </td>
                   <td className="py-3 px-4">
-                    <code className="bg-slate-100 px-2 py-1 rounded text-sm font-mono">
+                    <code className="bg-slate-100 px-2 py-1 rounded text-sm font-mono text-slate-900">
                       {takehome.passcode}
                     </code>
                   </td>
