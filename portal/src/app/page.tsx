@@ -110,7 +110,7 @@ function TakehomeForm({
           min={1}
           max={30}
         />
-        <div className="text-xs text-slate-500 mt-1">
+        <div className="text-xs text-slate-600 mt-1">
           How many days the candidate has to start the interview
         </div>
       </div>
@@ -979,7 +979,7 @@ export default function Home() {
                     className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors text-sm ${
                       interviewType === 'instant'
                         ? 'border-blue-600 bg-blue-50 text-blue-700 font-medium'
-                        : 'border-slate-300 hover:border-slate-400'
+                        : 'border-slate-300 hover:border-slate-400 text-slate-700'
                     }`}
                   >
                     Instant
@@ -989,7 +989,7 @@ export default function Home() {
                     className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors text-sm ${
                       interviewType === 'scheduled'
                         ? 'border-purple-600 bg-purple-50 text-purple-700 font-medium'
-                        : 'border-slate-300 hover:border-slate-400'
+                        : 'border-slate-300 hover:border-slate-400 text-slate-700'
                     }`}
                   >
                     Scheduled
@@ -999,7 +999,7 @@ export default function Home() {
                     className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors text-sm ${
                       interviewType === 'takehome'
                         ? 'border-green-600 bg-green-50 text-green-700 font-medium'
-                        : 'border-slate-300 hover:border-slate-400'
+                        : 'border-slate-300 hover:border-slate-400 text-slate-700'
                     }`}
                   >
                     Take-Home
@@ -1114,31 +1114,7 @@ export default function Home() {
 
                     {/* Scheduling Options */}
                     <div className="space-y-3">
-                      {interviewType === 'instant' && (
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="enableScheduling"
-                            checked={formData.enableScheduling}
-                            onChange={e =>
-                              setFormData({
-                                ...formData,
-                                enableScheduling: e.target.checked,
-                              })
-                            }
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <label
-                            htmlFor="enableScheduling"
-                            className="text-sm font-medium text-slate-900"
-                          >
-                            Schedule for later
-                          </label>
-                        </div>
-                      )}
-
-                      {(formData.enableScheduling ||
-                        interviewType === 'scheduled') && (
+                      {interviewType === 'scheduled' && (
                         <div>
                           <label className="block text-sm font-medium text-slate-900 mb-1">
                             Scheduled Start Time
@@ -1182,7 +1158,7 @@ export default function Home() {
                           <option value={180}>3 hours</option>
                           <option value={240}>4 hours</option>
                         </select>
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-slate-600 mt-1">
                           Required: Interview will auto-destroy after this
                           duration to prevent resource waste
                         </p>
@@ -1209,7 +1185,7 @@ export default function Home() {
                           Save candidate files to history
                         </label>
                       </div>
-                      <p className="text-xs text-slate-500 -mt-2">
+                      <p className="text-xs text-slate-600 -mt-2">
                         Recommended: Save candidate&apos;s work files before
                         destroying the interview
                       </p>
