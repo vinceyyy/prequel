@@ -187,6 +187,40 @@ export class InterviewManager {
   }
 
   /**
+   * Get an interview by its passcode (for take-home tests)
+   *
+   * @param passcode - The 8-character passcode
+   * @returns Interview record or null if not found
+   */
+  async getInterviewByPasscode(passcode: string): Promise<Interview | null> {
+    try {
+      const command = new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'PasscodeIndex',
+        KeyConditionExpression: 'passcode = :passcode',
+        ExpressionAttributeValues: marshall({
+          ':passcode': passcode,
+        }),
+        Limit: 1, // Passcodes are unique
+      })
+
+      const response = await this.dynamoClient.send(command)
+
+      if (!response.Items || response.Items.length === 0) {
+        return null
+      }
+
+      return this.dynamoItemToInterview(unmarshall(response.Items[0]))
+    } catch (error) {
+      logger.error('Error getting interview by passcode', {
+        passcode,
+        error,
+      })
+      throw error
+    }
+  }
+
+  /**
    * Updates interview status and metadata.
    */
   async updateInterviewStatus(
