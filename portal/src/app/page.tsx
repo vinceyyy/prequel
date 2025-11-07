@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
 import CleanupDashboard from '@/components/CleanupDashboard'
 import AuthStatus from '@/components/AuthStatus'
+import { TakehomeTable } from '@/components/TakehomeTable'
 import { useOperations } from '@/hooks/useOperations'
 import { useSSE, type OperationData } from '@/hooks/useSSE'
 
@@ -183,14 +184,28 @@ interface Interview {
   operationId?: string
 }
 
+interface Takehome {
+  passcode: string
+  candidateName: string
+  challenge: string
+  customInstructions: string
+  status: string
+  validUntil: string
+  createdAt: string
+  activatedAt?: string
+  durationMinutes: number
+  url: string
+  interviewId?: string
+}
+
 export default function Home() {
   const [interviews, setInterviews] = useState<Interview[]>([])
   const [historicalInterviews, setHistoricalInterviews] = useState<Interview[]>(
     []
   )
-  const [activeTab, setActiveTab] = useState<'current' | 'history' | 'admin'>(
-    'current'
-  )
+  const [activeTab, setActiveTab] = useState<
+    'current' | 'history' | 'takehome' | 'admin'
+  >('current')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [creatingInterviewId, setCreatingInterviewId] = useState<string | null>(
@@ -224,6 +239,7 @@ export default function Home() {
     availabilityWindowDays: 7,
     durationMinutes: 240,
   })
+  const [takehomes, setTakehomes] = useState<Takehome[]>([])
 
   // Use the operations hook for background operations
   const { destroyInterview } = useOperations()
@@ -327,6 +343,39 @@ export default function Home() {
     }
   }, []) // Empty dependency array - function is stable
 
+  const fetchTakehomes = async () => {
+    try {
+      const response = await fetch('/api/takehome')
+      if (response.ok) {
+        const data = await response.json()
+        setTakehomes(data.takehomes)
+      }
+    } catch (error) {
+      console.error('Failed to fetch take-home tests:', error)
+    }
+  }
+
+  const revokeTakehome = async (passcode: string) => {
+    try {
+      const response = await fetch(`/api/takehome/${passcode}/revoke`, {
+        method: 'POST',
+      })
+      if (response.ok) {
+        setNotification('Take-home test revoked')
+        setTimeout(() => setNotification(null), 5000)
+        fetchTakehomes()
+      } else {
+        const data = await response.json()
+        setNotification(`Failed to revoke: ${data.error}`)
+        setTimeout(() => setNotification(null), 5000)
+      }
+    } catch (error) {
+      console.error('Error revoking take-home test:', error)
+      setNotification('Error revoking take-home test')
+      setTimeout(() => setNotification(null), 5000)
+    }
+  }
+
   // Step 1: Load both current interviews and history on initial page load
   useEffect(() => {
     console.log(
@@ -348,6 +397,13 @@ export default function Home() {
 
     return () => clearInterval(interval)
   }, [loadHistoricalInterviews])
+
+  // Fetch takehomes when tab is active
+  useEffect(() => {
+    if (activeTab === 'takehome') {
+      fetchTakehomes()
+    }
+  }, [activeTab])
 
   // Listen for SSE events to update data immediately and refresh
   useEffect(() => {
@@ -873,6 +929,21 @@ export default function Home() {
                 {historicalInterviews.length > 0 && (
                   <span className="ml-2 bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded-full">
                     {historicalInterviews.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('takehome')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === 'takehome'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                Take-Home Tests
+                {takehomes.length > 0 && (
+                  <span className="ml-2 bg-green-100 text-green-600 text-xs px-2 py-1 rounded-full">
+                    {takehomes.length}
                   </span>
                 )}
               </button>
@@ -1613,6 +1684,13 @@ export default function Home() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* Take-Home Tests Tab */}
+        {activeTab === 'takehome' && (
+          <div className="card overflow-hidden">
+            <TakehomeTable takehomes={takehomes} onRevoke={revokeTakehome} />
           </div>
         )}
 
