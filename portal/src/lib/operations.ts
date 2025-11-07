@@ -10,6 +10,8 @@ import {
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
 import { operationsLogger } from './logger'
 import { config } from './config'
+import { interviewManager } from './interviews'
+import type { Interview } from './interviews'
 
 /**
  * Event emitted when an operation's state changes.
@@ -187,6 +189,55 @@ class OperationManager {
         })
       }
     })
+  }
+
+  /**
+   * Map operation status to interview status
+   */
+  private operationStatusToInterviewStatus(
+    operationStatus: Operation['status']
+  ): Interview['status'] {
+    const statusMap: Record<Operation['status'], Interview['status']> = {
+      pending: 'scheduled',
+      running: 'initializing',
+      completed: 'active',
+      failed: 'error',
+      cancelled: 'error',
+      scheduled: 'scheduled',
+    }
+    return statusMap[operationStatus]
+  }
+
+  /**
+   * Sync operation status to linked interview record
+   * This keeps the interview table updated for real-time UI display
+   */
+  private async syncInterviewStatus(operation: Operation): Promise<void> {
+    if (!operation.interviewId) {
+      return // No interview to sync
+    }
+
+    try {
+      const interviewStatus = this.operationStatusToInterviewStatus(
+        operation.status
+      )
+
+      await interviewManager.updateInterviewStatus(
+        operation.interviewId,
+        interviewStatus,
+        {
+          accessUrl: operation.result?.accessUrl,
+          password: operation.result?.password,
+        }
+      )
+    } catch (error) {
+      operationsLogger.error('Error syncing interview status', {
+        operationId: operation.id,
+        interviewId: operation.interviewId,
+        error,
+      })
+      // Don't throw - sync failure shouldn't break operation updates
+    }
   }
 
   /**
@@ -481,6 +532,9 @@ class OperationManager {
     // Fetch updated operation and emit event
     const operation = await this.getOperation(operationId)
     if (operation) {
+      // Sync status to interview
+      await this.syncInterviewStatus(operation)
+
       this.emit(operation)
     }
   }
@@ -691,6 +745,9 @@ class OperationManager {
     // Fetch updated operation and emit event
     const operation = await this.getOperation(operationId)
     if (operation) {
+      // Sync status to interview
+      await this.syncInterviewStatus(operation)
+
       this.emit(operation)
     }
   }
@@ -731,6 +788,23 @@ class OperationManager {
         ),
       })
     )
+
+    // Set interview to "configuring" when infrastructure is ready
+    if (operation.interviewId) {
+      try {
+        await interviewManager.updateInterviewStatus(
+          operation.interviewId,
+          'configuring',
+          { accessUrl, password }
+        )
+      } catch (error) {
+        operationsLogger.error('Error setting interview to configuring', {
+          operationId: operation.id,
+          interviewId: operation.interviewId,
+          error,
+        })
+      }
+    }
 
     // Fetch updated operation and emit event
     const updatedOperation = await this.getOperation(operationId)
