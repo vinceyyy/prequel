@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { takehomeManager, TakehomeTest } from '@/lib/takehome'
+import { interviewManager } from '@/lib/interviews'
 import { config } from '@/lib/config'
 
 /**
@@ -30,13 +31,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create take-home test
-    const takehome = await takehomeManager.createTakehome({
+    // Generate unique interview ID with takehome prefix
+    const timestamp = Date.now()
+    const random = Math.random().toString(36).substring(2, 7)
+    const interviewId = `takehome-${timestamp}-${random}`
+
+    // Generate unique 8-character passcode
+    const passcode = Math.random().toString(36).substring(2, 10).toUpperCase()
+
+    // Calculate valid until date
+    const validUntil = new Date(
+      Date.now() + availabilityWindowDays * 24 * 60 * 60 * 1000
+    )
+
+    // Create interview record in unified interviews table
+    const interview = await interviewManager.createInterview({
+      id: interviewId,
+      type: 'take-home',
       candidateName,
       challenge,
+      status: 'active', // Invitation is active (not yet started by candidate)
+      passcode,
+      validUntil,
       customInstructions: customInstructions || '',
-      availabilityWindowDays,
       durationMinutes,
+      // autoDestroyAt will be set when candidate activates the test
     })
 
     // Generate URL
@@ -44,16 +63,13 @@ export async function POST(request: NextRequest) {
     const baseUrl = domainName
       ? `https://${domainName}`
       : 'http://localhost:3000'
-    const url = `${baseUrl}/take-home/${takehome.passcode}`
+    const url = `${baseUrl}/take-home/${interview.passcode}`
 
     return NextResponse.json({
       success: true,
-      passcode: takehome.passcode,
+      passcode: interview.passcode,
       url,
-      validUntil:
-        typeof takehome.validUntil === 'string'
-          ? takehome.validUntil
-          : takehome.validUntil.toISOString(),
+      validUntil: interview.validUntil?.toISOString(),
     })
   } catch (error) {
     console.error('Error creating take-home test:', error)
