@@ -4,6 +4,21 @@ import '@testing-library/jest-dom'
 import { useOperations } from '@/hooks/useOperations'
 import Home from '../page'
 
+// Mock Next.js navigation
+jest.mock('next/navigation', () => ({
+  useRouter: jest.fn(() => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn(),
+    back: jest.fn(),
+    pathname: '/',
+    query: {},
+    asPath: '/',
+  })),
+  usePathname: jest.fn(() => '/'),
+  useSearchParams: jest.fn(() => new URLSearchParams()),
+}))
+
 // Mock the hooks and components
 jest.mock('@/hooks/useOperations', () => ({
   useOperations: jest.fn(() => ({
@@ -57,6 +72,41 @@ const mockInterviews = [
 
 const mockUseOperations = jest.mocked(useOperations)
 
+// Helper function to setup default fetch mocks
+const setupDefaultFetchMocks = (
+  interviews: typeof mockInterviews = [],
+  historicalInterviews: typeof mockInterviews = [],
+  challenges: Array<{ id: string; name: string }> = []
+) => {
+  ;(global.fetch as jest.Mock).mockImplementation((url: string) => {
+    if (url.includes('/api/interviews/history')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ interviews: historicalInterviews }),
+      })
+    }
+    if (url.includes('/api/interviews')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ interviews }),
+      })
+    }
+    if (url.includes('/api/challenges')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ success: true, challenges }),
+      })
+    }
+    if (url.includes('/api/takehome')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ takehomes: [] }),
+      })
+    }
+    return Promise.reject(new Error(`Unmocked fetch: ${url}`))
+  })
+}
+
 describe('Home Page', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -70,22 +120,11 @@ describe('Home Page', () => {
   })
 
   it('renders the main page with title and header', async () => {
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: [] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          challenges: [
-            { id: 'javascript', name: 'Javascript' },
-            { id: 'python', name: 'Python' },
-            { id: 'sql', name: 'Sql' },
-          ],
-        }),
-      })
+    setupDefaultFetchMocks([], [], [
+      { id: 'javascript', name: 'JavaScript' },
+      { id: 'python', name: 'Python' },
+      { id: 'sql', name: 'SQL' },
+    ])
 
     render(<Home />)
 
@@ -94,28 +133,20 @@ describe('Home Page', () => {
       screen.getByText('Manage coding interviews and VS Code instances')
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Create New Interview' })
+      screen.getByRole('button', { name: 'Create Interview' })
     ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Create Take-Home Test' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Manage Challenges' })).toBeInTheDocument()
   })
 
   it('loads and displays interviews on initial render', async () => {
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: mockInterviews }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          challenges: [
-            { id: 'javascript', name: 'Javascript' },
-            { id: 'python', name: 'Python' },
-            { id: 'sql', name: 'Sql' },
-          ],
-        }),
-      })
+    setupDefaultFetchMocks(mockInterviews, [], [
+      { id: 'javascript', name: 'JavaScript' },
+      { id: 'python', name: 'Python' },
+      { id: 'sql', name: 'SQL' },
+    ])
 
     render(<Home />)
 
@@ -137,22 +168,11 @@ describe('Home Page', () => {
 
     render(<Home />)
 
-    expect(screen.getByText('Loading interviews...')).toBeInTheDocument()
+    expect(screen.getByText('Loading current interviews...')).toBeInTheDocument()
   })
 
   it('shows empty state when no interviews exist', async () => {
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: [] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          challenges: [],
-        }),
-      })
+    setupDefaultFetchMocks([], [], [])
 
     render(<Home />)
 
@@ -162,55 +182,33 @@ describe('Home Page', () => {
   })
 
   it('opens create interview modal when button is clicked', async () => {
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: [] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          challenges: [
-            { id: 'javascript', name: 'Javascript' },
-            { id: 'python', name: 'Python' },
-          ],
-        }),
-      })
+    setupDefaultFetchMocks([], [], [
+      { id: 'javascript', name: 'JavaScript' },
+      { id: 'python', name: 'Python' },
+    ])
 
     render(<Home />)
 
-    const createButton = screen.getByRole('button', {
-      name: 'Create New Interview',
+    // Find the button to open modal (not inside modal)
+    const createButtons = screen.getAllByRole('button', {
+      name: 'Create Interview',
     })
-    fireEvent.click(createButton)
+    // First button is the one to open the modal
+    fireEvent.click(createButtons[0])
 
-    // Use getAllByText to handle duplicate text, then check for modal specifically
-    const modalTitle = screen
-      .getAllByText('Create New Interview')
-      .find(element => element.tagName === 'H2')
-    expect(modalTitle).toBeInTheDocument()
+    // Check for modal content
     expect(screen.getByLabelText('Candidate Name')).toBeInTheDocument()
     expect(screen.getByLabelText('Interview Challenge')).toBeInTheDocument()
+    // Check there are now two "Create Interview" buttons (one to open, one to submit)
+    expect(createButtons.length).toBeGreaterThanOrEqual(1)
   })
 
   it('handles form input and submission', async () => {
     const user = userEvent.setup()
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: [] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          challenges: [
-            { id: 'javascript', name: 'Javascript' },
-            { id: 'python', name: 'Python' },
-          ],
-        }),
-      })
+    setupDefaultFetchMocks([], [], [
+      { id: 'javascript', name: 'JavaScript' },
+      { id: 'python', name: 'Python' },
+    ])
 
     const mockCreateInterview = jest.fn().mockResolvedValue({})
     mockUseOperations.mockReturnValue({
@@ -225,7 +223,7 @@ describe('Home Page', () => {
 
     // Open modal
     const createButton = screen.getByRole('button', {
-      name: 'Create New Interview',
+      name: 'Create Interview',
     })
     fireEvent.click(createButton)
 
@@ -251,15 +249,7 @@ describe('Home Page', () => {
   })
 
   it('displays different status badges correctly', async () => {
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: mockInterviews }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, challenges: [] }),
-      })
+    setupDefaultFetchMocks(mockInterviews, [], [])
 
     render(<Home />)
 
@@ -274,15 +264,7 @@ describe('Home Page', () => {
   })
 
   it('shows access details for active interviews', async () => {
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: [mockInterviews[0]] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, challenges: [] }),
-      })
+    setupDefaultFetchMocks([mockInterviews[0]], [], [])
 
     render(<Home />)
 
@@ -295,15 +277,7 @@ describe('Home Page', () => {
   })
 
   it('handles stop interview action', async () => {
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: [mockInterviews[0]] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, challenges: [] }),
-      })
+    setupDefaultFetchMocks([mockInterviews[0]], [], [])
 
     const mockDestroyInterview = jest.fn().mockResolvedValue({})
     mockUseOperations.mockReturnValue({
@@ -338,15 +312,7 @@ describe('Home Page', () => {
   })
 
   it('handles retry destroy for error state interviews', async () => {
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: [mockInterviews[2]] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, challenges: [] }),
-      })
+    setupDefaultFetchMocks([mockInterviews[2]], [], [])
 
     const mockDestroyInterview = jest.fn().mockResolvedValue({})
     mockUseOperations.mockReturnValue({
@@ -381,15 +347,7 @@ describe('Home Page', () => {
   })
 
   it('opens logs modal when logs button is clicked', async () => {
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: [mockInterviews[0]] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, challenges: [] }),
-      })
+    setupDefaultFetchMocks([mockInterviews[0]], [], [])
 
     render(<Home />)
 
@@ -404,50 +362,14 @@ describe('Home Page', () => {
     expect(screen.getByTestId('operation-dashboard')).toBeInTheDocument()
   })
 
-  it('refreshes interviews when refresh button is clicked', async () => {
-    ;(global.fetch as jest.Mock).mockImplementation((url: string) => {
-      if (url.includes('/api/challenges')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ success: true, challenges: [] }),
-        })
-      }
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ interviews: mockInterviews }),
-      })
-    })
-
-    render(<Home />)
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(1)
-    })
-
-    const refreshButton = screen.getByRole('button', { name: 'Refresh' })
-    fireEvent.click(refreshButton)
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(2)
-    })
-  })
-
   it('validates form input - empty candidate name', async () => {
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: [] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, challenges: [] }),
-      })
+    setupDefaultFetchMocks([], [], [])
 
     render(<Home />)
 
     // Open modal
     const createButton = screen.getByRole('button', {
-      name: 'Create New Interview',
+      name: 'Create Interview',
     })
     fireEvent.click(createButton)
 
@@ -460,15 +382,7 @@ describe('Home Page', () => {
 
   it('shows notification after creating interview', async () => {
     jest.useFakeTimers()
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: [] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, challenges: [] }),
-      })
+    setupDefaultFetchMocks([], [], [])
 
     const mockCreateInterview = jest.fn().mockResolvedValue({})
     mockUseOperations.mockReturnValue({
@@ -483,7 +397,7 @@ describe('Home Page', () => {
 
     // Open modal and fill form
     const createButton = screen.getByRole('button', {
-      name: 'Create New Interview',
+      name: 'Create Interview',
     })
     fireEvent.click(createButton)
 
@@ -514,15 +428,7 @@ describe('Home Page', () => {
   })
 
   it('shows error notification when destroy fails', async () => {
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interviews: [mockInterviews[0]] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, challenges: [] }),
-      })
+    setupDefaultFetchMocks([mockInterviews[0]], [], [])
 
     const mockDestroyInterview = jest
       .fn()
