@@ -967,7 +967,7 @@ export default function Home() {
             </button>
             <button
               onClick={() => setShowCreateTakehomeForm(true)}
-              className="btn-secondary"
+              className="btn-primary"
             >
               Create Take-Home Test
             </button>
