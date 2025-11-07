@@ -14,10 +14,10 @@ export interface TakehomeTest {
   challenge: string
   customInstructions: string
   status: 'active' | 'activated' | 'completed' | 'revoked'
-  validUntil: Date
+  validUntil: Date | string // Date for API consumers, string in DynamoDB
   durationMinutes: number
-  createdAt: Date
-  activatedAt?: Date
+  createdAt: Date | string // Date for API consumers, string in DynamoDB
+  activatedAt?: Date | string // Date for API consumers, string in DynamoDB
   interviewId?: string
   createdBy?: string
   ttl?: number
@@ -28,10 +28,7 @@ export class TakehomeManager {
   private tableName: string
 
   constructor() {
-    this.dynamoClient = new DynamoDBClient({
-      region: config.aws.region,
-      credentials: config.aws.getCredentials(),
-    })
+    this.dynamoClient = new DynamoDBClient(config.aws.getCredentials())
     this.tableName = config.database.takehomeTable
   }
 
@@ -57,38 +54,90 @@ export class TakehomeManager {
     availabilityWindowDays: number
     durationMinutes: number
   }): Promise<TakehomeTest> {
-    const passcode = this.generatePasscode()
-    const now = new Date()
-    const validUntil = new Date(
-      now.getTime() + params.availabilityWindowDays * 24 * 60 * 60 * 1000
-    )
-
-    // TTL for DynamoDB (30 days after validUntil for history)
-    const ttl = Math.floor(
-      (validUntil.getTime() + 30 * 24 * 60 * 60 * 1000) / 1000
-    )
-
-    const takehome: TakehomeTest = {
-      passcode,
-      candidateName: params.candidateName,
-      challenge: params.challenge,
-      customInstructions: params.customInstructions,
-      status: 'active',
-      validUntil,
-      durationMinutes: params.durationMinutes,
-      createdAt: now,
-      ttl,
+    // Input validation
+    if (!params.candidateName || params.candidateName.trim() === '') {
+      throw new Error('Candidate name cannot be empty')
+    }
+    if (!params.challenge || params.challenge.trim() === '') {
+      throw new Error('Challenge cannot be empty')
+    }
+    if (
+      params.availabilityWindowDays < 1 ||
+      params.availabilityWindowDays > 30
+    ) {
+      throw new Error('Availability window must be between 1 and 30 days')
+    }
+    const validDurations = [30, 45, 60, 90, 120, 180, 240]
+    if (!validDurations.includes(params.durationMinutes)) {
+      throw new Error(
+        `Duration must be one of ${validDurations.join(', ')} minutes`
+      )
     }
 
-    await this.dynamoClient.send(
-      new PutItemCommand({
-        TableName: this.tableName,
-        Item: marshall(takehome, { removeUndefinedValues: true }),
-        ConditionExpression: 'attribute_not_exists(passcode)',
-      })
-    )
+    // Retry up to 3 times for passcode collision
+    const maxRetries = 3
+    let lastError: Error | null = null
 
-    return takehome
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const passcode = this.generatePasscode()
+      const now = new Date()
+      const validUntil = new Date(
+        now.getTime() + params.availabilityWindowDays * 24 * 60 * 60 * 1000
+      )
+
+      // TTL for DynamoDB (30 days after validUntil for history)
+      const ttl = Math.floor(
+        (validUntil.getTime() + 30 * 24 * 60 * 60 * 1000) / 1000
+      )
+
+      const takehome: TakehomeTest = {
+        passcode,
+        candidateName: params.candidateName,
+        challenge: params.challenge,
+        customInstructions: params.customInstructions,
+        status: 'active',
+        validUntil: validUntil.toISOString(), // Store as ISO string
+        durationMinutes: params.durationMinutes,
+        createdAt: now.toISOString(), // Store as ISO string
+        ttl,
+      }
+
+      try {
+        await this.dynamoClient.send(
+          new PutItemCommand({
+            TableName: this.tableName,
+            Item: marshall(takehome, { removeUndefinedValues: true }),
+            ConditionExpression: 'attribute_not_exists(passcode)',
+          })
+        )
+
+        // Success - return the takehome with Date objects for the caller
+        return {
+          ...takehome,
+          createdAt: now,
+          validUntil: validUntil,
+        }
+      } catch (error: unknown) {
+        // Check if it's a passcode collision
+        if (
+          error &&
+          typeof error === 'object' &&
+          'name' in error &&
+          error.name === 'ConditionalCheckFailedException'
+        ) {
+          lastError = new Error(`Passcode collision on attempt ${attempt + 1}`)
+          // Continue to next retry
+          continue
+        }
+        // Other errors should be thrown immediately
+        throw error
+      }
+    }
+
+    // All retries failed
+    throw new Error(
+      `Failed to create takehome after ${maxRetries} attempts due to passcode collisions: ${lastError?.message}`
+    )
   }
 
   /**
