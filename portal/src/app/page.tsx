@@ -414,10 +414,30 @@ export default function Home() {
       const response = await fetch('/api/takehome')
       if (response.ok) {
         const data = await response.json()
-        setTakehomes(data.takehomes)
+        const allTakehomes = data.takehomes || []
+
+        // Separate active and historical take-home tests
+        const active = allTakehomes.filter(
+          (t: TakehomeData) => t.status === 'active'
+        )
+        const history = allTakehomes.filter(
+          (t: TakehomeData) =>
+            t.status === 'completed' ||
+            t.status === 'revoked' ||
+            (t.status === 'activated' && t.interviewId) // Check if associated interview is complete
+        )
+
+        setTakehomes(active)
+        setTakehomeHistory(history)
+      } else {
+        console.error('Failed to fetch take-home tests')
+        setTakehomes([])
+        setTakehomeHistory([])
       }
     } catch (error) {
-      console.error('Failed to fetch take-home tests:', error)
+      console.error('Error fetching take-home tests:', error)
+      setTakehomes([])
+      setTakehomeHistory([])
     }
   }
 
@@ -565,6 +585,7 @@ export default function Home() {
         // Use setTimeout to allow immediate UI update first
         setTimeout(() => {
           loadInterviews()
+          fetchTakehomes() // Also refresh take-home tests
         }, 100)
       }
     }
