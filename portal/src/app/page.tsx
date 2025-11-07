@@ -7,6 +7,158 @@ import AuthStatus from '@/components/AuthStatus'
 import { useOperations } from '@/hooks/useOperations'
 import { useSSE, type OperationData } from '@/hooks/useSSE'
 
+function TakehomeForm({
+  formData,
+  setFormData,
+  challenges,
+  onSubmit,
+  onCancel,
+  creating,
+}: {
+  formData: {
+    candidateName: string
+    challenge: string
+    customInstructions: string
+    availabilityWindowDays: number
+    durationMinutes: number
+  }
+  setFormData: (data: {
+    candidateName: string
+    challenge: string
+    customInstructions: string
+    availabilityWindowDays: number
+    durationMinutes: number
+  }) => void
+  challenges: Array<{ id: string; name: string }>
+  onSubmit: () => void
+  onCancel: () => void
+  creating: boolean
+}) {
+  return (
+    <>
+      {/* Candidate Name */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          Candidate Name
+        </label>
+        <input
+          type="text"
+          value={formData.candidateName}
+          onChange={e =>
+            setFormData({ ...formData, candidateName: e.target.value })
+          }
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+          placeholder="John Doe"
+          required
+        />
+      </div>
+
+      {/* Challenge Selection */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          Challenge
+        </label>
+        <select
+          value={formData.challenge}
+          onChange={e =>
+            setFormData({ ...formData, challenge: e.target.value })
+          }
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+          required
+        >
+          <option value="">Select a challenge</option>
+          {challenges.map(c => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Custom Instructions */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          Custom Instructions
+        </label>
+        <textarea
+          value={formData.customInstructions}
+          onChange={e =>
+            setFormData({ ...formData, customInstructions: e.target.value })
+          }
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+          rows={4}
+          placeholder="Specific instructions for the candidate..."
+        />
+      </div>
+
+      {/* Availability Window */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          Availability Window (days)
+        </label>
+        <input
+          type="number"
+          value={formData.availabilityWindowDays}
+          onChange={e =>
+            setFormData({
+              ...formData,
+              availabilityWindowDays: parseInt(e.target.value) || 7,
+            })
+          }
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+          min={1}
+          max={30}
+        />
+        <div className="text-xs text-slate-500 mt-1">
+          How many days the candidate has to start the interview
+        </div>
+      </div>
+
+      {/* Duration */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          Interview Duration
+        </label>
+        <select
+          value={formData.durationMinutes}
+          onChange={e =>
+            setFormData({
+              ...formData,
+              durationMinutes: parseInt(e.target.value),
+            })
+          }
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+        >
+          <option value={30}>30 minutes</option>
+          <option value={45}>45 minutes</option>
+          <option value={60}>1 hour</option>
+          <option value={90}>1.5 hours</option>
+          <option value={120}>2 hours</option>
+          <option value={180}>3 hours</option>
+          <option value={240}>4 hours</option>
+        </select>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <button
+          onClick={onCancel}
+          className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onSubmit}
+          disabled={creating || !formData.candidateName || !formData.challenge}
+          className="flex-1 btn-primary"
+        >
+          {creating ? 'Creating...' : 'Create Take-Home'}
+        </button>
+      </div>
+    </>
+  )
+}
+
 interface Interview {
   id: string
   candidateName: string
@@ -59,6 +211,18 @@ export default function Home() {
     autoDestroyMinutes: 60,
     enableScheduling: false,
     saveFiles: true, // Default to true as requested
+  })
+
+  // Take-home test state
+  const [interviewType, setInterviewType] = useState<
+    'instant' | 'scheduled' | 'takehome'
+  >('instant')
+  const [takehomeFormData, setTakehomeFormData] = useState({
+    candidateName: '',
+    challenge: '',
+    customInstructions: '',
+    availabilityWindowDays: 7,
+    durationMinutes: 240,
   })
 
   // Use the operations hook for background operations
@@ -320,8 +484,11 @@ export default function Home() {
         saveFiles: formData.saveFiles,
       }
 
-      // Add scheduling if enabled
-      if (formData.enableScheduling && formData.scheduledAt) {
+      // Add scheduling if enabled or if interview type is scheduled
+      if (
+        (formData.enableScheduling || interviewType === 'scheduled') &&
+        formData.scheduledAt
+      ) {
         // Convert datetime-local to ISO string to preserve user's timezone
         const localDate = new Date(formData.scheduledAt)
         requestBody.scheduledAt = localDate.toISOString()
@@ -347,7 +514,7 @@ export default function Home() {
       const data = await response.json()
 
       // If scheduled, add interview to state immediately with credentials
-      if (formData.enableScheduling) {
+      if (formData.enableScheduling || interviewType === 'scheduled') {
         const scheduledInterview: Interview = {
           id: data.interviewId,
           candidateName: data.candidateName,
@@ -376,12 +543,14 @@ export default function Home() {
         enableScheduling: false,
         saveFiles: true,
       })
+      setInterviewType('instant')
       setShowCreateForm(false)
 
       // Show notification
-      const message = formData.enableScheduling
-        ? `Interview scheduled for ${formData.candidateName.trim()}`
-        : `Interview creation started for ${formData.candidateName.trim()}`
+      const message =
+        formData.enableScheduling || interviewType === 'scheduled'
+          ? `Interview scheduled for ${formData.candidateName.trim()}`
+          : `Interview creation started for ${formData.candidateName.trim()}`
       setNotification(message)
       setTimeout(() => setNotification(null), 5000) // Clear after 5 seconds
     } catch (error) {
@@ -391,6 +560,44 @@ export default function Home() {
           error instanceof Error ? error.message : 'Unknown error'
         }`
       )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const createTakehome = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/takehome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(takehomeFormData),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setNotification(
+          `Take-home test created! Passcode: ${data.passcode}\nURL: ${data.url}`
+        )
+        setShowCreateForm(false)
+        // Reset form
+        setTakehomeFormData({
+          candidateName: '',
+          challenge: challenges.length > 0 ? challenges[0].id : '',
+          customInstructions: '',
+          availabilityWindowDays: 7,
+          durationMinutes: 240,
+        })
+        setInterviewType('instant')
+      } else {
+        setNotification(`Failed to create take-home test: ${data.error}`)
+      }
+      setTimeout(() => setNotification(null), 7000)
+    } catch (error) {
+      console.error('Error creating take-home:', error)
+      setNotification('Error creating take-home test')
+      setTimeout(() => setNotification(null), 5000)
     } finally {
       setLoading(false)
     }
@@ -685,223 +892,291 @@ export default function Home() {
 
         {showCreateForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="card p-4 sm:p-6 w-full max-w-md fade-in">
+            <div className="card p-4 sm:p-6 w-full max-w-md fade-in max-h-[90vh] overflow-y-auto">
               <h2 className="text-xl font-semibold mb-4 text-slate-900">
                 Create New Interview
               </h2>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Candidate Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.candidateName}
-                    onChange={e =>
-                      setFormData({
-                        ...formData,
-                        candidateName: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                    placeholder="Enter candidate name"
-                  />
+              {/* Interview Type Selection */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Interview Type
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setInterviewType('instant')}
+                    className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors text-sm ${
+                      interviewType === 'instant'
+                        ? 'border-blue-600 bg-blue-50 text-blue-700 font-medium'
+                        : 'border-slate-300 hover:border-slate-400'
+                    }`}
+                  >
+                    Instant
+                  </button>
+                  <button
+                    onClick={() => setInterviewType('scheduled')}
+                    className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors text-sm ${
+                      interviewType === 'scheduled'
+                        ? 'border-purple-600 bg-purple-50 text-purple-700 font-medium'
+                        : 'border-slate-300 hover:border-slate-400'
+                    }`}
+                  >
+                    Scheduled
+                  </button>
+                  <button
+                    onClick={() => setInterviewType('takehome')}
+                    className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors text-sm ${
+                      interviewType === 'takehome'
+                        ? 'border-green-600 bg-green-50 text-green-700 font-medium'
+                        : 'border-slate-300 hover:border-slate-400'
+                    }`}
+                  >
+                    Take-Home
+                  </button>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-2">
-                    Interview Challenge
-                  </label>
-                  <div className="space-y-3 max-h-64 overflow-y-auto">
-                    {challenges.length === 0 ? (
-                      <div className="text-slate-500 text-sm p-3 border border-slate-200 rounded-lg">
-                        No challenges available. Create challenges first.
-                      </div>
-                    ) : (
-                      challenges.map(challenge => (
-                        <div key={challenge.id}>
-                          <label className="flex items-start space-x-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="challenge"
-                              value={challenge.id}
-                              checked={formData.challenge === challenge.id}
-                              onChange={e =>
-                                setFormData({
-                                  ...formData,
-                                  challenge: e.target.value,
-                                })
-                              }
-                              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-medium text-slate-900">
-                                  {challenge.name}
-                                </h4>
-                                <div className="flex items-center space-x-2 text-xs text-slate-500">
-                                  <span>Used {challenge.usageCount} times</span>
-                                </div>
-                              </div>
-                              <p className="text-sm text-slate-600 mt-1">
-                                {challenge.description}
-                              </p>
-                              <div className="mt-2 text-xs text-slate-600">
-                                {challenge.ecsConfig.cpuCores} CPU{' '}
-                                {challenge.ecsConfig.cpuCores === 1
-                                  ? 'core'
-                                  : 'cores'}{' '}
-                                / {challenge.ecsConfig.memory / 1024}GB RAM /{' '}
-                                {challenge.ecsConfig.storage}GB Storage
-                              </div>
-                              <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                                <span>
-                                  Created:{' '}
-                                  {new Date(
-                                    challenge.createdAt
-                                  ).toLocaleDateString()}
-                                </span>
-                                <span>
-                                  {challenge.lastUsedAt
-                                    ? `Last used: ${new Date(
-                                        challenge.lastUsedAt
-                                      ).toLocaleDateString()}`
-                                    : 'Never used'}
-                                </span>
-                              </div>
-                            </div>
-                          </label>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Scheduling Options */}
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="enableScheduling"
-                      checked={formData.enableScheduling}
-                      onChange={e =>
-                        setFormData({
-                          ...formData,
-                          enableScheduling: e.target.checked,
-                        })
-                      }
-                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <label
-                      htmlFor="enableScheduling"
-                      className="text-sm font-medium text-slate-900"
-                    >
-                      Schedule for later
-                    </label>
-                  </div>
-
-                  {formData.enableScheduling && (
+              {/* Conditional Forms */}
+              {interviewType === 'takehome' ? (
+                <TakehomeForm
+                  formData={takehomeFormData}
+                  setFormData={setTakehomeFormData}
+                  challenges={challenges}
+                  onSubmit={createTakehome}
+                  onCancel={() => {
+                    setShowCreateForm(false)
+                    setInterviewType('instant')
+                  }}
+                  creating={loading}
+                />
+              ) : (
+                <>
+                  <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-900 mb-1">
-                        Scheduled Start Time
+                        Candidate Name
                       </label>
                       <input
-                        type="datetime-local"
-                        value={formData.scheduledAt}
+                        type="text"
+                        value={formData.candidateName}
                         onChange={e =>
                           setFormData({
                             ...formData,
-                            scheduledAt: e.target.value,
+                            candidateName: e.target.value,
                           })
                         }
-                        min={new Date().toISOString().slice(0, 16)}
                         className="input-field"
+                        placeholder="Enter candidate name"
                       />
                     </div>
-                  )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-900 mb-1">
-                      Interview Duration <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.autoDestroyMinutes}
-                      onChange={e =>
-                        setFormData({
-                          ...formData,
-                          autoDestroyMinutes: parseInt(e.target.value),
-                        })
-                      }
-                      className="input-field"
-                      required
-                    >
-                      <option value={30}>30 minutes</option>
-                      <option value={45}>45 minutes</option>
-                      <option value={60}>1 hour</option>
-                      <option value={90}>1.5 hours</option>
-                      <option value={120}>2 hours</option>
-                      <option value={180}>3 hours</option>
-                      <option value={240}>4 hours</option>
-                    </select>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Required: Interview will auto-destroy after this duration
-                      to prevent resource waste
-                    </p>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-900 mb-2">
+                        Interview Challenge
+                      </label>
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {challenges.length === 0 ? (
+                          <div className="text-slate-500 text-sm p-3 border border-slate-200 rounded-lg">
+                            No challenges available. Create challenges first.
+                          </div>
+                        ) : (
+                          challenges.map(challenge => (
+                            <div key={challenge.id}>
+                              <label className="flex items-start space-x-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="challenge"
+                                  value={challenge.id}
+                                  checked={formData.challenge === challenge.id}
+                                  onChange={e =>
+                                    setFormData({
+                                      ...formData,
+                                      challenge: e.target.value,
+                                    })
+                                  }
+                                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-medium text-slate-900">
+                                      {challenge.name}
+                                    </h4>
+                                    <div className="flex items-center space-x-2 text-xs text-slate-500">
+                                      <span>
+                                        Used {challenge.usageCount} times
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-slate-600 mt-1">
+                                    {challenge.description}
+                                  </p>
+                                  <div className="mt-2 text-xs text-slate-600">
+                                    {challenge.ecsConfig.cpuCores} CPU{' '}
+                                    {challenge.ecsConfig.cpuCores === 1
+                                      ? 'core'
+                                      : 'cores'}{' '}
+                                    / {challenge.ecsConfig.memory / 1024}GB RAM
+                                    / {challenge.ecsConfig.storage}GB Storage
+                                  </div>
+                                  <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                                    <span>
+                                      Created:{' '}
+                                      {new Date(
+                                        challenge.createdAt
+                                      ).toLocaleDateString()}
+                                    </span>
+                                    <span>
+                                      {challenge.lastUsedAt
+                                        ? `Last used: ${new Date(
+                                            challenge.lastUsedAt
+                                          ).toLocaleDateString()}`
+                                        : 'Never used'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </label>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Scheduling Options */}
+                    <div className="space-y-3">
+                      {interviewType === 'instant' && (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="enableScheduling"
+                            checked={formData.enableScheduling}
+                            onChange={e =>
+                              setFormData({
+                                ...formData,
+                                enableScheduling: e.target.checked,
+                              })
+                            }
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <label
+                            htmlFor="enableScheduling"
+                            className="text-sm font-medium text-slate-900"
+                          >
+                            Schedule for later
+                          </label>
+                        </div>
+                      )}
+
+                      {(formData.enableScheduling ||
+                        interviewType === 'scheduled') && (
+                        <div>
+                          <label className="block text-sm font-medium text-slate-900 mb-1">
+                            Scheduled Start Time
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={formData.scheduledAt}
+                            onChange={e =>
+                              setFormData({
+                                ...formData,
+                                scheduledAt: e.target.value,
+                              })
+                            }
+                            min={new Date().toISOString().slice(0, 16)}
+                            className="input-field"
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-900 mb-1">
+                          Interview Duration{' '}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={formData.autoDestroyMinutes}
+                          onChange={e =>
+                            setFormData({
+                              ...formData,
+                              autoDestroyMinutes: parseInt(e.target.value),
+                            })
+                          }
+                          className="input-field"
+                          required
+                        >
+                          <option value={30}>30 minutes</option>
+                          <option value={45}>45 minutes</option>
+                          <option value={60}>1 hour</option>
+                          <option value={90}>1.5 hours</option>
+                          <option value={120}>2 hours</option>
+                          <option value={180}>3 hours</option>
+                          <option value={240}>4 hours</option>
+                        </select>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Required: Interview will auto-destroy after this
+                          duration to prevent resource waste
+                        </p>
+                      </div>
+
+                      {/* File Saving Options */}
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="saveFiles"
+                          checked={formData.saveFiles}
+                          onChange={e =>
+                            setFormData({
+                              ...formData,
+                              saveFiles: e.target.checked,
+                            })
+                          }
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label
+                          htmlFor="saveFiles"
+                          className="text-sm font-medium text-slate-900"
+                        >
+                          Save candidate files to history
+                        </label>
+                      </div>
+                      <p className="text-xs text-slate-500 -mt-2">
+                        Recommended: Save candidate&apos;s work files before
+                        destroying the interview
+                      </p>
+                    </div>
                   </div>
 
-                  {/* File Saving Options */}
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="saveFiles"
-                      checked={formData.saveFiles}
-                      onChange={e =>
-                        setFormData({
-                          ...formData,
-                          saveFiles: e.target.checked,
-                        })
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={handleCreateInterview}
+                      disabled={
+                        !formData.candidateName.trim() ||
+                        !formData.challenge ||
+                        loading ||
+                        ((formData.enableScheduling ||
+                          interviewType === 'scheduled') &&
+                          !formData.scheduledAt)
                       }
-                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <label
-                      htmlFor="saveFiles"
-                      className="text-sm font-medium text-slate-900"
+                      className="flex-1 btn-primary"
                     >
-                      Save candidate files to history
-                    </label>
+                      {loading
+                        ? 'Creating...'
+                        : formData.enableScheduling ||
+                            interviewType === 'scheduled'
+                          ? 'Schedule Interview'
+                          : 'Create Interview'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCreateForm(false)
+                        setInterviewType('instant')
+                      }}
+                      className="flex-1 btn-outline"
+                    >
+                      Cancel
+                    </button>
                   </div>
-                  <p className="text-xs text-slate-500 -mt-2">
-                    Recommended: Save candidate&apos;s work files before
-                    destroying the interview
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={handleCreateInterview}
-                  disabled={
-                    !formData.candidateName.trim() ||
-                    !formData.challenge ||
-                    loading ||
-                    (formData.enableScheduling && !formData.scheduledAt)
-                  }
-                  className="flex-1 btn-primary"
-                >
-                  {loading
-                    ? 'Creating...'
-                    : formData.enableScheduling
-                      ? 'Schedule Interview'
-                      : 'Create Interview'}
-                </button>
-                <button
-                  onClick={() => setShowCreateForm(false)}
-                  className="flex-1 btn-outline"
-                >
-                  Cancel
-                </button>
-              </div>
+                </>
+              )}
             </div>
           </div>
         )}
