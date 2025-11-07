@@ -140,7 +140,7 @@ function TakehomeForm({
           }
           className="input-field"
           rows={4}
-          placeholder="Specific instructions for the candidate..."
+          placeholder="Additional instructions for the candidate..."
         />
       </div>
 
