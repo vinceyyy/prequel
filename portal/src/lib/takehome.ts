@@ -198,6 +198,39 @@ export class TakehomeManager {
   }
 
   /**
+   * Gets all activated take-home tests (interviews currently running).
+   */
+  async getActivatedTakehomes(): Promise<TakehomeTest[]> {
+    const result = await this.dynamoClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'StatusIndex',
+        KeyConditionExpression: '#status = :status',
+        ExpressionAttributeNames: {
+          '#status': 'status',
+        },
+        ExpressionAttributeValues: marshall({
+          ':status': 'activated',
+        }),
+      })
+    )
+
+    if (!result.Items) {
+      return []
+    }
+
+    return result.Items.map(item => {
+      const data = unmarshall(item)
+      return {
+        ...data,
+        createdAt: new Date(data.createdAt),
+        validUntil: new Date(data.validUntil),
+        activatedAt: data.activatedAt ? new Date(data.activatedAt) : undefined,
+      } as TakehomeTest
+    })
+  }
+
+  /**
    * Activates a take-home test (candidate clicked Start).
    */
   async activateTakehome(

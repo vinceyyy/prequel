@@ -223,7 +223,8 @@ export async function POST(
           // Check if this is a take-home interview and mark complete
           if (interviewId.startsWith('takehome-')) {
             try {
-              const takehomes = await takehomeManager.getActiveTakehomes()
+              // Query for 'activated' status since running interviews have status='activated', not 'active'
+              const takehomes = await takehomeManager.getActivatedTakehomes()
               const takehome = takehomes.find(
                 t => t.interviewId === interviewId
               )
