@@ -376,10 +376,22 @@ The checkbox indicates features that are currently implemented.
     7. [X] User-friendly error messages for download failures
 7. [X] **Admin resource cleanup**
     1. [X] Comprehensive cleanup system for dangling AWS resources
-    2. [X] Multi-interface access: Web UI (Admin tab), REST API, CLI script  
+    2. [X] Multi-interface access: Web UI (Admin tab), REST API, CLI script
     3. [X] Safety features: dry-run preview, concurrency control, skip active interviews
     4. [X] Automatic detection of terraform workspaces without DynamoDB records
     5. [X] Graceful error handling for S3, DynamoDB, and terraform operations
+8. [X] **Take-Home Test Management**
+   1. [X] Create take-home test with configurable availability window (default 7 days)
+   2. [X] Generate unique 8-character passcode and shareable URL
+   3. [X] Add custom instructions for candidates
+   4. [X] Candidate accesses via `/take-home/{passcode}` route
+   5. [X] Candidate sees platform + custom instructions before starting
+   6. [X] One-click activation with rate limiting (3 attempts per IP per hour)
+   7. [X] Automatic instance provisioning with configurable duration (default 4 hours)
+   8. [X] Auto-destroy after duration with file saving
+   9. [X] Manager can revoke take-home (destroys running instance if activated)
+   10. [X] Take-home tests table showing status, passcode, URL, and actions
+   11. [X] Completed take-homes moved to history automatically
 
 ## Instance Status
 
