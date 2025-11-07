@@ -154,6 +154,13 @@ export function TakehomeTable({ takehomes, onRevoke }: TakehomeTableProps) {
                           Revoke
                         </button>
                       )}
+                      {takehome.status !== 'active' && (
+                        <span className="text-slate-500 text-sm">
+                          {takehome.status === 'completed' && 'Completed'}
+                          {takehome.status === 'revoked' && 'Revoked'}
+                          {takehome.status === 'activated' && 'In Progress'}
+                        </span>
+                      )}
                       <button
                         onClick={() =>
                           setExpandedRow(isExpanded ? null : takehome.passcode)
