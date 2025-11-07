@@ -898,6 +898,8 @@ class OperationManager {
     // Fetch updated operation and emit event
     const updatedOperation = await this.getOperation(operationId)
     if (updatedOperation) {
+      // Sync status to interview
+      await this.syncInterviewStatus(updatedOperation)
       this.emit(updatedOperation)
     }
 
