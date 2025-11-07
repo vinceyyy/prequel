@@ -304,8 +304,7 @@ export default function Home() {
     durationMinutes: 240,
   })
   const [takehomes, setTakehomes] = useState<Takehome[]>([])
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [takehomeHistory, setTakehomeHistory] = useState<TakehomeData[]>([])
+  const [takehomeHistory, setTakehomeHistory] = useState<Takehome[]>([])
 
   // Use the operations hook for background operations
   const { destroyInterview } = useOperations()
@@ -420,12 +419,17 @@ export default function Home() {
         const active = allTakehomes.filter(
           (t: TakehomeData) => t.status === 'active'
         )
-        const history = allTakehomes.filter(
-          (t: TakehomeData) =>
-            t.status === 'completed' ||
-            t.status === 'revoked' ||
-            (t.status === 'activated' && t.interviewId) // Check if associated interview is complete
-        )
+        const history = allTakehomes
+          .filter(
+            (t: TakehomeData) =>
+              t.status === 'completed' ||
+              t.status === 'revoked' ||
+              (t.status === 'activated' && t.interviewId) // Check if associated interview is complete
+          )
+          .map((t: TakehomeData) => ({
+            ...t,
+            url: t.url || '', // Ensure url is always a string
+          }))
 
         setTakehomes(active)
         setTakehomeHistory(history)
@@ -486,7 +490,7 @@ export default function Home() {
 
   // Fetch takehomes when tab is active
   useEffect(() => {
-    if (activeTab === 'takehome') {
+    if (activeTab === 'takehome' || activeTab === 'takehomeHistory') {
       fetchTakehomes()
     }
   }, [activeTab])
@@ -1752,6 +1756,32 @@ export default function Home() {
         {activeTab === 'takehome' && (
           <div className="card overflow-hidden">
             <TakehomeTable takehomes={takehomes} onRevoke={revokeTakehome} />
+          </div>
+        )}
+
+        {/* Take-Home Test History Tab */}
+        {activeTab === 'takehomeHistory' && (
+          <div className="card overflow-hidden">
+            {takehomeHistory.length === 0 ? (
+              <div className="p-6 sm:p-8 text-center text-slate-500">
+                <p className="text-lg">No take-home test history yet</p>
+                <p className="text-sm mt-2">
+                  Completed, expired, or revoked take-home tests will appear
+                  here
+                </p>
+              </div>
+            ) : (
+              <TakehomeTable
+                takehomes={takehomeHistory}
+                onRevoke={async passcode => {
+                  // History items can't be revoked again
+                  console.log(
+                    'Cannot revoke historical take-home test:',
+                    passcode
+                  )
+                }}
+              />
+            )}
           </div>
         )}
 
