@@ -32,6 +32,7 @@ export interface Interview {
   candidateName: string
   challenge: string
   status: InterviewStatus
+  type: 'regular' | 'take-home' // Differentiates interview types
 
   // Access details (available when status is 'active')
   accessUrl?: string
@@ -39,8 +40,15 @@ export interface Interview {
 
   // Scheduling information
   createdAt: Date
-  scheduledAt?: Date
+  scheduledAt?: Date // Only for regular interviews
   autoDestroyAt?: Date
+
+  // Take-home specific fields
+  passcode?: string // 8-char code for candidate access
+  validUntil?: Date // Invitation expiry
+  customInstructions?: string // Additional instructions
+  durationMinutes?: number // Test duration
+  activatedAt?: Date // When candidate clicked "Start Test"
 
   // Completion information (for history)
   completedAt?: Date
@@ -66,6 +74,7 @@ interface InterviewDynamoItem {
   candidateName: string
   challenge: string
   status: InterviewStatus
+  type: 'regular' | 'take-home'
   accessUrl?: string
   password?: string
 
@@ -73,6 +82,14 @@ interface InterviewDynamoItem {
   createdAt: number
   scheduledAt?: number
   autoDestroyAt?: number
+
+  // Take-home specific
+  passcode?: string
+  validUntil?: number
+  customInstructions?: string
+  durationMinutes?: number
+  activatedAt?: number
+
   completedAt?: number
   destroyedAt?: number
 
@@ -105,6 +122,7 @@ export class InterviewManager {
   ): Promise<Interview> {
     const now = new Date()
     const fullInterview: Interview = {
+      type: 'regular', // Default to regular if not specified
       ...interview,
       createdAt: now,
     }
@@ -412,6 +430,12 @@ export class InterviewManager {
       autoDestroyAt: interview.autoDestroyAt
         ? Math.floor(interview.autoDestroyAt.getTime() / 1000)
         : undefined,
+      validUntil: interview.validUntil
+        ? Math.floor(interview.validUntil.getTime() / 1000)
+        : undefined,
+      activatedAt: interview.activatedAt
+        ? Math.floor(interview.activatedAt.getTime() / 1000)
+        : undefined,
       completedAt: interview.completedAt
         ? Math.floor(interview.completedAt.getTime() / 1000)
         : undefined,
@@ -436,6 +460,12 @@ export class InterviewManager {
         : undefined,
       autoDestroyAt: dynamoItem.autoDestroyAt
         ? new Date(dynamoItem.autoDestroyAt * 1000)
+        : undefined,
+      validUntil: dynamoItem.validUntil
+        ? new Date(dynamoItem.validUntil * 1000)
+        : undefined,
+      activatedAt: dynamoItem.activatedAt
+        ? new Date(dynamoItem.activatedAt * 1000)
         : undefined,
       completedAt: dynamoItem.completedAt
         ? new Date(dynamoItem.completedAt * 1000)
