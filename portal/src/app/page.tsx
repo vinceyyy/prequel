@@ -934,7 +934,13 @@ export default function Home() {
               onClick={() => setShowCreateForm(true)}
               className="btn-primary"
             >
-              Create New Interview
+              Create Interview
+            </button>
+            <button
+              onClick={() => setShowCreateTakehomeForm(true)}
+              className="btn-secondary"
+            >
+              Create Take-Home Test
             </button>
             <a href="/challenges" className="btn-secondary">
               Manage Challenges
