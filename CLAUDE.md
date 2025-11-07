@@ -354,12 +354,21 @@ The checkbox indicates features that are currently implemented.
    6. [X] Challenge deletion and resource management
    7. [X] Resource configuration display (CPU cores, RAM in GB, storage)
 3. [X] **Create interview instances**
-    1. [X] Manually create an instance immediately
-    2. [X] Select from available challenges with CPU/memory/storage display
-    3. [X] Schedule instance creation for future execution
+    1. [X] Manually create an instance immediately via "Create Interview" button
+    2. [X] Schedule instance creation for future execution via "Schedule for later" checkbox
+    3. [X] Select from available challenges with CPU/memory/storage display
     4. [X] **Mandatory**: Choose interview duration (30min-4hrs) with automatic destruction
     5. [X] Real-time status updates via SSE (no manual refresh needed)
     6. [X] **Pre-provisioning**: Scheduled interviews automatically start 5 minutes early to be ready at scheduled time
+
+3b. [X] **Create take-home tests** (Separate workflow)
+    1. [X] Create take-home test invitation via "Create Take-Home Test" button
+    2. [X] Select challenge and set availability window (1-30 days)
+    3. [X] Configure interview duration (1-8 hours)
+    4. [X] Add custom instructions for candidate
+    5. [X] Generate unique passcode and shareable URL
+    6. [X] Track active invitations in "Take-Home Tests" tab
+    7. [X] View completed/expired tests in "Take-Home Test History" tab
 4. [X] Wait for instance to become `Active`
    - [X] Challenge files are automatically copied from S3 during configuring stage
    - [X] Live status updates show progression through states
