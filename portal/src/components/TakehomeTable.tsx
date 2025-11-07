@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 
 interface Takehome {
   passcode: string
@@ -25,10 +25,15 @@ export function TakehomeTable({ takehomes, onRevoke }: TakehomeTableProps) {
   const [copiedPasscode, setCopiedPasscode] = useState<string | null>(null)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
 
-  const copyToClipboard = (text: string, passcode: string) => {
-    navigator.clipboard.writeText(text)
-    setCopiedPasscode(passcode)
-    setTimeout(() => setCopiedPasscode(null), 2000)
+  const copyToClipboard = async (text: string, passcode: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedPasscode(passcode)
+      setTimeout(() => setCopiedPasscode(null), 2000)
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+      // Optionally show error feedback to user
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -106,11 +111,8 @@ export function TakehomeTable({ takehomes, onRevoke }: TakehomeTableProps) {
             const isExpanded = expandedRow === takehome.passcode
 
             return (
-              <>
-                <tr
-                  key={takehome.passcode}
-                  className="border-b border-slate-200 hover:bg-slate-50"
-                >
+              <React.Fragment key={takehome.passcode}>
+                <tr className="border-b border-slate-200 hover:bg-slate-50">
                   <td className="py-3 px-4 font-medium text-slate-800">
                     {takehome.candidateName}
                   </td>
@@ -219,7 +221,7 @@ export function TakehomeTable({ takehomes, onRevoke }: TakehomeTableProps) {
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             )
           })}
         </tbody>
