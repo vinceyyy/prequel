@@ -8,7 +8,6 @@ import { TakehomeTable } from '@/components/TakehomeTable'
 import { useOperations } from '@/hooks/useOperations'
 import { useSSE, type OperationData } from '@/hooks/useSSE'
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function TakehomeForm({
   formData,
   setFormData,
@@ -260,7 +259,6 @@ export default function Home() {
     'current' | 'history' | 'takehome' | 'admin'
   >('current')
   const [showCreateForm, setShowCreateForm] = useState(false)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showCreateTakehomeForm, setShowCreateTakehomeForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [creatingInterviewId, setCreatingInterviewId] = useState<string | null>(
@@ -668,7 +666,6 @@ export default function Home() {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const createTakehome = async () => {
     setLoading(true)
     try {
@@ -1241,6 +1238,25 @@ export default function Home() {
                   </button>
                 </div>
               </>
+            </div>
+          </div>
+        )}
+
+        {showCreateTakehomeForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="card p-4 sm:p-6 w-full max-w-md fade-in max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-semibold mb-4 text-slate-900">
+                Create Take-Home Test
+              </h2>
+
+              <TakehomeForm
+                formData={takehomeFormData}
+                setFormData={setTakehomeFormData}
+                challenges={challenges}
+                onSubmit={createTakehome}
+                onCancel={() => setShowCreateTakehomeForm(false)}
+                creating={loading}
+              />
             </div>
           </div>
         )}
