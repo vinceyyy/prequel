@@ -250,13 +250,27 @@ interface Takehome {
   interviewId?: string
 }
 
+interface TakehomeData {
+  passcode: string
+  candidateName: string
+  challenge: string
+  customInstructions: string
+  status: 'active' | 'activated' | 'completed' | 'revoked'
+  validUntil: string
+  durationMinutes: number
+  createdAt: string
+  activatedAt?: string
+  interviewId?: string
+  url?: string
+}
+
 export default function Home() {
   const [interviews, setInterviews] = useState<Interview[]>([])
   const [historicalInterviews, setHistoricalInterviews] = useState<Interview[]>(
     []
   )
   const [activeTab, setActiveTab] = useState<
-    'current' | 'history' | 'takehome' | 'admin'
+    'current' | 'history' | 'takehome' | 'takehomeHistory' | 'admin'
   >('current')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showCreateTakehomeForm, setShowCreateTakehomeForm] = useState(false)
@@ -290,6 +304,8 @@ export default function Home() {
     durationMinutes: 240,
   })
   const [takehomes, setTakehomes] = useState<Takehome[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [takehomeHistory, setTakehomeHistory] = useState<TakehomeData[]>([])
 
   // Use the operations hook for background operations
   const { destroyInterview } = useOperations()
@@ -994,6 +1010,21 @@ export default function Home() {
                 {takehomes.length > 0 && (
                   <span className="ml-2 bg-green-100 text-green-600 text-xs px-2 py-1 rounded-full">
                     {takehomes.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('takehomeHistory')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === 'takehomeHistory'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-700 hover:text-slate-900 hover:border-slate-300'
+                }`}
+              >
+                Take-Home History
+                {takehomeHistory.length > 0 && (
+                  <span className="ml-2 bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded-full">
+                    {takehomeHistory.length}
                   </span>
                 )}
               </button>
