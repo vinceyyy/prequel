@@ -1,5 +1,6 @@
 import { operationManager } from './operations'
 import { interviewManager } from './interviews'
+import { takehomeManager } from './takehome'
 import { schedulerLogger } from './logger'
 
 /**
@@ -220,6 +221,9 @@ export class SchedulerService {
 
       // Process DynamoDB interviews auto-destroy (new approach)
       await this.processInterviewsAutoDestroy()
+
+      // Process expired take-home tests
+      await this.processExpiredTakehomes()
     } catch (error) {
       // Handle DynamoDB throttling gracefully
       if (error instanceof Error && error.name === 'ThrottlingException') {
@@ -395,6 +399,37 @@ export class SchedulerService {
       }
     } catch (error) {
       schedulerLogger.error('Error in processInterviewsAutoDestroy', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }
+
+  /**
+   * Processes expired take-home tests (validUntil has passed).
+   * Marks expired take-home tests as revoked.
+   */
+  private async processExpiredTakehomes() {
+    try {
+      // Check for expired take-home tests (validUntil has passed)
+      const activeTakehomes = await takehomeManager.getActiveTakehomes()
+      const now = new Date()
+
+      for (const takehome of activeTakehomes) {
+        const validUntil = new Date(takehome.validUntil)
+        if (now > validUntil) {
+          schedulerLogger.info(
+            `Marking expired take-home test as revoked: ${takehome.passcode}`,
+            {
+              passcode: takehome.passcode,
+              candidateName: takehome.candidateName,
+              validUntil: takehome.validUntil,
+            }
+          )
+          await takehomeManager.revokeTakehome(takehome.passcode)
+        }
+      }
+    } catch (error) {
+      schedulerLogger.error('Error in processExpiredTakehomes', {
         error: error instanceof Error ? error.message : 'Unknown error',
       })
     }
