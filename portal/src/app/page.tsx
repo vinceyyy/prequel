@@ -259,6 +259,8 @@ export default function Home() {
     'current' | 'history' | 'takehome' | 'admin'
   >('current')
   const [showCreateForm, setShowCreateForm] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [showCreateTakehomeForm, setShowCreateTakehomeForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [creatingInterviewId, setCreatingInterviewId] = useState<string | null>(
     null
