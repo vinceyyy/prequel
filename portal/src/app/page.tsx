@@ -410,32 +410,30 @@ export default function Home() {
 
   const fetchTakehomes = async () => {
     try {
-      const response = await fetch('/api/takehome')
-      if (response.ok) {
-        const data = await response.json()
-        const allTakehomes = data.takehomes || []
+      // Fetch active take-home tests
+      const activeResponse = await fetch('/api/takehome?status=active')
+      if (activeResponse.ok) {
+        const activeData = await activeResponse.json()
+        setTakehomes(activeData.takehomes || [])
+      } else {
+        console.error('Failed to fetch active take-home tests')
+        setTakehomes([])
+      }
 
-        // Separate active and historical take-home tests
-        const active = allTakehomes.filter(
-          (t: TakehomeData) => t.status === 'active'
-        )
-        const history = allTakehomes
-          .filter(
-            (t: TakehomeData) =>
-              t.status === 'completed' ||
-              t.status === 'revoked' ||
-              (t.status === 'activated' && t.interviewId) // Check if associated interview is complete
-          )
-          .map((t: TakehomeData) => ({
+      // Fetch historical take-home tests
+      const historyResponse = await fetch('/api/takehome?status=history')
+      if (historyResponse.ok) {
+        const historyData = await historyResponse.json()
+        // Ensure history items have a url field (even if empty)
+        const historyWithUrls = (historyData.takehomes || []).map(
+          (t: TakehomeData) => ({
             ...t,
             url: t.url || '', // Ensure url is always a string
-          }))
-
-        setTakehomes(active)
-        setTakehomeHistory(history)
+          })
+        )
+        setTakehomeHistory(historyWithUrls)
       } else {
-        console.error('Failed to fetch take-home tests')
-        setTakehomes([])
+        console.error('Failed to fetch take-home test history')
         setTakehomeHistory([])
       }
     } catch (error) {
