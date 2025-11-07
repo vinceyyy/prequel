@@ -16,6 +16,7 @@ import { config } from './config'
  */
 export type InterviewStatus =
   | 'scheduled' // Waiting for scheduled start time
+  | 'activated' // Take-home test activated, provisioning starting
   | 'initializing' // Terraform provisioning AWS resources
   | 'configuring' // Infrastructure ready, ECS container booting
   | 'active' // Fully ready for candidate access
@@ -234,6 +235,7 @@ export class InterviewManager {
         | 'completedAt'
         | 'destroyedAt'
         | 'historyS3Key'
+        | 'activatedAt'
       >
     > = {}
   ): Promise<void> {
