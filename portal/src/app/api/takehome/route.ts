@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { takehomeManager } from '@/lib/takehome'
+import { takehomeManager, TakehomeTest } from '@/lib/takehome'
 import { config } from '@/lib/config'
 
 /**
@@ -68,49 +68,71 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Lists all active take-home tests.
+ * Lists take-home tests with optional status filtering.
  *
- * @returns JSON response with active take-home tests
+ * @param request - NextRequest with optional status query parameter
+ * @returns JSON response with take-home tests
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const takehomes = await takehomeManager.getActiveTakehomes()
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status') // 'active', 'history', or null (all)
 
+    let takehomes: TakehomeTest[] = []
+
+    if (status === 'history') {
+      // Get historical (completed/revoked) take-home tests
+      takehomes = await takehomeManager.getHistoricalTakehomes()
+    } else if (status === 'active') {
+      // Get only active take-home tests
+      takehomes = await takehomeManager.getActiveTakehomes()
+    } else {
+      // Get all take-home tests (active + historical)
+      const [active, historical] = await Promise.all([
+        takehomeManager.getActiveTakehomes(),
+        takehomeManager.getHistoricalTakehomes(),
+      ])
+      takehomes = [...active, ...historical]
+    }
+
+    // Generate URLs for active tests
     const domainName = config.project.domainName
     const baseUrl = domainName
       ? `https://${domainName}`
       : 'http://localhost:3000'
 
-    const takehomesWithUrls = takehomes.map(t => ({
-      passcode: t.passcode,
-      candidateName: t.candidateName,
-      challenge: t.challenge,
-      customInstructions: t.customInstructions,
-      status: t.status,
+    const takehomesWithUrls = takehomes.map(takehome => ({
+      ...takehome,
       validUntil:
-        typeof t.validUntil === 'string'
-          ? t.validUntil
-          : t.validUntil.toISOString(),
+        typeof takehome.validUntil === 'string'
+          ? takehome.validUntil
+          : takehome.validUntil.toISOString(),
       createdAt:
-        typeof t.createdAt === 'string'
-          ? t.createdAt
-          : t.createdAt.toISOString(),
-      activatedAt: t.activatedAt
-        ? typeof t.activatedAt === 'string'
-          ? t.activatedAt
-          : t.activatedAt.toISOString()
+        typeof takehome.createdAt === 'string'
+          ? takehome.createdAt
+          : takehome.createdAt.toISOString(),
+      activatedAt: takehome.activatedAt
+        ? typeof takehome.activatedAt === 'string'
+          ? takehome.activatedAt
+          : takehome.activatedAt.toISOString()
         : undefined,
-      durationMinutes: t.durationMinutes,
-      url: `${baseUrl}/take-home/${t.passcode}`,
-      interviewId: t.interviewId,
+      url:
+        takehome.status === 'active'
+          ? `${baseUrl}/take-home/${takehome.passcode}`
+          : undefined,
     }))
 
     return NextResponse.json({ takehomes: takehomesWithUrls })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error listing take-home tests:', error)
     return NextResponse.json(
       {
-        error: 'Failed to list take-home tests',
+        success: false,
+        error: 'Failed to fetch take-home tests',
+        details:
+          process.env.NODE_ENV === 'development' && error instanceof Error
+            ? error.message
+            : undefined,
       },
       { status: 500 }
     )
