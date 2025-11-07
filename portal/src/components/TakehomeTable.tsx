@@ -91,7 +91,7 @@ export function TakehomeTable({ takehomes, onRevoke }: TakehomeTableProps) {
               Challenge
             </th>
             <th className="text-left py-3 px-4 font-semibold text-slate-700">
-              Passcode
+              URL
             </th>
             <th className="text-left py-3 px-4 font-semibold text-slate-700">
               Status
@@ -120,9 +120,25 @@ export function TakehomeTable({ takehomes, onRevoke }: TakehomeTableProps) {
                     {takehome.challenge}
                   </td>
                   <td className="py-3 px-4">
-                    <code className="bg-slate-100 px-2 py-1 rounded text-sm font-mono text-slate-900">
-                      {takehome.passcode}
-                    </code>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={takehome.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 text-sm break-all underline"
+                      >
+                        {takehome.url}
+                      </a>
+                      <button
+                        onClick={() =>
+                          copyToClipboard(takehome.url, takehome.passcode)
+                        }
+                        className="text-sm px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded flex-shrink-0"
+                        title="Copy URL"
+                      >
+                        {copiedPasscode === takehome.passcode ? '✓' : '📋'}
+                      </button>
+                    </div>
                   </td>
                   <td className="py-3 px-4">
                     {getStatusBadge(takehome.status)}
@@ -136,16 +152,6 @@ export function TakehomeTable({ takehomes, onRevoke }: TakehomeTableProps) {
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex gap-2">
-                      <button
-                        onClick={() =>
-                          copyToClipboard(takehome.url, takehome.passcode)
-                        }
-                        className="text-sm px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded"
-                      >
-                        {copiedPasscode === takehome.passcode
-                          ? 'Copied'
-                          : 'Copy URL'}
-                      </button>
                       {takehome.status === 'active' && (
                         <button
                           onClick={() => onRevoke(takehome.passcode)}
@@ -178,10 +184,12 @@ export function TakehomeTable({ takehomes, onRevoke }: TakehomeTableProps) {
                       <div className="space-y-3">
                         <div>
                           <div className="text-sm font-semibold text-slate-700 mb-1">
-                            URL:
+                            Passcode:
                           </div>
-                          <div className="text-sm text-blue-600 font-mono break-all">
-                            {takehome.url}
+                          <div className="text-sm text-slate-900">
+                            <code className="bg-slate-100 px-2 py-1 rounded font-mono">
+                              {takehome.passcode}
+                            </code>
                           </div>
                         </div>
                         {takehome.customInstructions && (

@@ -120,11 +120,15 @@ describe('Home Page', () => {
   })
 
   it('renders the main page with title and header', async () => {
-    setupDefaultFetchMocks([], [], [
-      { id: 'javascript', name: 'JavaScript' },
-      { id: 'python', name: 'Python' },
-      { id: 'sql', name: 'SQL' },
-    ])
+    setupDefaultFetchMocks(
+      [],
+      [],
+      [
+        { id: 'javascript', name: 'JavaScript' },
+        { id: 'python', name: 'Python' },
+        { id: 'sql', name: 'SQL' },
+      ]
+    )
 
     render(<Home />)
 
@@ -138,15 +142,21 @@ describe('Home Page', () => {
     expect(
       screen.getByRole('button', { name: 'Create Take-Home Test' })
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Manage Challenges' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Manage Challenges' })
+    ).toBeInTheDocument()
   })
 
   it('loads and displays interviews on initial render', async () => {
-    setupDefaultFetchMocks(mockInterviews, [], [
-      { id: 'javascript', name: 'JavaScript' },
-      { id: 'python', name: 'Python' },
-      { id: 'sql', name: 'SQL' },
-    ])
+    setupDefaultFetchMocks(
+      mockInterviews,
+      [],
+      [
+        { id: 'javascript', name: 'JavaScript' },
+        { id: 'python', name: 'Python' },
+        { id: 'sql', name: 'SQL' },
+      ]
+    )
 
     render(<Home />)
 
@@ -168,7 +178,9 @@ describe('Home Page', () => {
 
     render(<Home />)
 
-    expect(screen.getByText('Loading current interviews...')).toBeInTheDocument()
+    expect(
+      screen.getByText('Loading current interviews...')
+    ).toBeInTheDocument()
   })
 
   it('shows empty state when no interviews exist', async () => {
@@ -182,10 +194,14 @@ describe('Home Page', () => {
   })
 
   it('opens create interview modal when button is clicked', async () => {
-    setupDefaultFetchMocks([], [], [
-      { id: 'javascript', name: 'JavaScript' },
-      { id: 'python', name: 'Python' },
-    ])
+    setupDefaultFetchMocks(
+      [],
+      [],
+      [
+        { id: 'javascript', name: 'JavaScript' },
+        { id: 'python', name: 'Python' },
+      ]
+    )
 
     render(<Home />)
 
@@ -205,10 +221,14 @@ describe('Home Page', () => {
 
   it('handles form input and submission', async () => {
     const user = userEvent.setup()
-    setupDefaultFetchMocks([], [], [
-      { id: 'javascript', name: 'JavaScript' },
-      { id: 'python', name: 'Python' },
-    ])
+    setupDefaultFetchMocks(
+      [],
+      [],
+      [
+        { id: 'javascript', name: 'JavaScript' },
+        { id: 'python', name: 'Python' },
+      ]
+    )
 
     const mockCreateInterview = jest.fn().mockResolvedValue({})
     mockUseOperations.mockReturnValue({
