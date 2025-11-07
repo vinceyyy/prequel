@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { takehomeManager } from '@/lib/takehome'
+import { interviewManager } from '@/lib/interviews'
 
 /**
  * Gets a take-home test by passcode.
+ *
+ * DEPRECATED: Use /api/interviews/by-passcode/[passcode] instead.
+ * This endpoint is maintained for backward compatibility.
  *
  * @param request - NextRequest object
  * @param params - Route parameters with passcode
@@ -15,9 +18,9 @@ export async function GET(
   try {
     const { passcode } = await params
 
-    const takehome = await takehomeManager.getTakehome(passcode)
+    const interview = await interviewManager.getInterviewByPasscode(passcode)
 
-    if (!takehome) {
+    if (!interview || interview.type !== 'take-home') {
       return NextResponse.json(
         { error: 'Take-home test not found' },
         { status: 404 }
@@ -25,16 +28,16 @@ export async function GET(
     }
 
     return NextResponse.json({
-      passcode: takehome.passcode,
-      candidateName: takehome.candidateName,
-      challenge: takehome.challenge,
-      customInstructions: takehome.customInstructions,
-      status: takehome.status,
+      passcode: interview.passcode,
+      candidateName: interview.candidateName,
+      challenge: interview.challenge,
+      customInstructions: interview.customInstructions,
+      status: interview.status,
       validUntil:
-        typeof takehome.validUntil === 'string'
-          ? takehome.validUntil
-          : takehome.validUntil.toISOString(),
-      durationMinutes: takehome.durationMinutes,
+        typeof interview.validUntil === 'string'
+          ? interview.validUntil
+          : interview.validUntil?.toISOString(),
+      durationMinutes: interview.durationMinutes,
     })
   } catch (error) {
     console.error('Error getting take-home test:', error)

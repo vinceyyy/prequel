@@ -29,7 +29,11 @@ export class TakehomeManager {
 
   constructor() {
     this.dynamoClient = new DynamoDBClient(config.aws.getCredentials())
-    this.tableName = config.database.takehomeTable
+    // DEPRECATED: Use interviews table instead (takehomeTable removed)
+    // This class is maintained for backward compatibility only
+    this.tableName =
+      process.env.TAKEHOME_TABLE ||
+      `${config.project.prefix}-${config.project.environment}-takehome`
   }
 
   /**
