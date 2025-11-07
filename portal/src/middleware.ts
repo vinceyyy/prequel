@@ -11,7 +11,10 @@ export function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/api/auth') ||
     // ALB health check endpoints
-    request.nextUrl.pathname.startsWith('/api/health')
+    request.nextUrl.pathname.startsWith('/api/health') ||
+    // Take-home test routes (candidates should access without auth)
+    request.nextUrl.pathname.startsWith('/take-home') ||
+    request.nextUrl.pathname.startsWith('/api/takehome')
   ) {
     return NextResponse.next()
   }
