@@ -122,8 +122,8 @@ export class InterviewManager {
   ): Promise<Interview> {
     const now = new Date()
     const fullInterview: Interview = {
-      type: 'regular', // Default to regular if not specified
       ...interview,
+      type: interview.type ?? 'regular', // Default to regular if not provided
       createdAt: now,
     }
 
@@ -507,6 +507,7 @@ export class InterviewManager {
         candidateName: instance.candidateName,
         challenge: instance.challenge,
         status: 'initializing',
+        type: 'regular', // Regular interviews (not take-home)
         scheduledAt,
         autoDestroyAt,
         saveFiles,
