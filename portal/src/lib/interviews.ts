@@ -5,6 +5,7 @@ import {
   UpdateItemCommand,
   QueryCommand,
   DeleteItemCommand,
+  ScanCommand,
 } from '@aws-sdk/client-dynamodb'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
 import { logger } from './logger'
@@ -195,23 +196,54 @@ export class InterviewManager {
    */
   async getInterviewByPasscode(passcode: string): Promise<Interview | null> {
     try {
-      const command = new QueryCommand({
-        TableName: this.tableName,
-        IndexName: 'PasscodeIndex',
-        KeyConditionExpression: 'passcode = :passcode',
-        ExpressionAttributeValues: marshall({
-          ':passcode': passcode,
-        }),
-        Limit: 1, // Passcodes are unique
-      })
+      // Try using the PasscodeIndex GSI first
+      try {
+        const command = new QueryCommand({
+          TableName: this.tableName,
+          IndexName: 'PasscodeIndex',
+          KeyConditionExpression: 'passcode = :passcode',
+          ExpressionAttributeValues: marshall({
+            ':passcode': passcode,
+          }),
+          Limit: 1, // Passcodes are unique
+        })
 
-      const response = await this.dynamoClient.send(command)
+        const response = await this.dynamoClient.send(command)
 
-      if (!response.Items || response.Items.length === 0) {
-        return null
+        if (!response.Items || response.Items.length === 0) {
+          return null
+        }
+
+        return this.dynamoItemToInterview(unmarshall(response.Items[0]))
+      } catch (indexError: unknown) {
+        // If PasscodeIndex doesn't exist yet (before terraform apply),
+        // fall back to scanning the table
+        const error = indexError as { name?: string }
+        if (error.name === 'ResourceNotFoundException') {
+          logger.warn(
+            'PasscodeIndex not found, falling back to table scan. Run terraform apply to create the index.',
+            { passcode }
+          )
+
+          const scanCommand = new ScanCommand({
+            TableName: this.tableName,
+            FilterExpression: 'passcode = :passcode',
+            ExpressionAttributeValues: marshall({
+              ':passcode': passcode,
+            }),
+            Limit: 1,
+          })
+
+          const scanResponse = await this.dynamoClient.send(scanCommand)
+
+          if (!scanResponse.Items || scanResponse.Items.length === 0) {
+            return null
+          }
+
+          return this.dynamoItemToInterview(unmarshall(scanResponse.Items[0]))
+        }
+        throw indexError
       }
-
-      return this.dynamoItemToInterview(unmarshall(response.Items[0]))
     } catch (error) {
       logger.error('Error getting interview by passcode', {
         passcode,
