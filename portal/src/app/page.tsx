@@ -258,20 +258,6 @@ interface Takehome {
   autoDestroyAt?: string
 }
 
-interface TakehomeData {
-  passcode: string
-  candidateName: string
-  challenge: string
-  customInstructions: string
-  status: 'active' | 'activated' | 'completed' | 'revoked'
-  validUntil: string
-  durationMinutes: number
-  createdAt: string
-  activatedAt?: string
-  interviewId?: string
-  url?: string
-}
-
 export default function Home() {
   const [interviews, setInterviews] = useState<Interview[]>([])
   const [historicalInterviews, setHistoricalInterviews] = useState<Interview[]>(
@@ -389,8 +375,35 @@ export default function Home() {
           )
 
           setInterviews(regularInterviews)
+
+          // Separate active and historical take-homes
+          const activeTakehomes = takehomeInterviews.filter(
+            (i: Interview) => i.status !== 'destroyed' && i.status !== 'error'
+          )
+          const historicalTakehomes = takehomeInterviews.filter(
+            (i: Interview) => i.status === 'destroyed' || i.status === 'error'
+          )
+
           setTakehomes(
-            takehomeInterviews.map((i: Interview) => ({
+            activeTakehomes.map((i: Interview) => ({
+              passcode: i.passcode || '',
+              candidateName: i.candidateName,
+              challenge: i.challenge,
+              status: i.status,
+              validUntil: i.validUntil || '',
+              customInstructions: i.customInstructions || '',
+              durationMinutes: i.durationMinutes || 240,
+              url: `${window.location.origin}/take-home/${i.passcode}`,
+              interviewId: i.id,
+              accessUrl: i.accessUrl,
+              password: i.password,
+              autoDestroyAt: i.autoDestroyAt,
+              createdAt: i.createdAt,
+            }))
+          )
+
+          setTakehomeHistory(
+            historicalTakehomes.map((i: Interview) => ({
               passcode: i.passcode || '',
               candidateName: i.candidateName,
               challenge: i.challenge,
@@ -447,41 +460,6 @@ export default function Home() {
     }
   }, []) // Empty dependency array - function is stable
 
-  const fetchTakehomes = async () => {
-    try {
-      // Fetch active take-home tests
-      const activeResponse = await fetch('/api/takehome?status=active')
-      if (activeResponse.ok) {
-        const activeData = await activeResponse.json()
-        setTakehomes(activeData.takehomes || [])
-      } else {
-        console.error('Failed to fetch active take-home tests')
-        setTakehomes([])
-      }
-
-      // Fetch historical take-home tests
-      const historyResponse = await fetch('/api/takehome?status=history')
-      if (historyResponse.ok) {
-        const historyData = await historyResponse.json()
-        // Ensure history items have a url field (even if empty)
-        const historyWithUrls = (historyData.takehomes || []).map(
-          (t: TakehomeData) => ({
-            ...t,
-            url: t.url || '', // Ensure url is always a string
-          })
-        )
-        setTakehomeHistory(historyWithUrls)
-      } else {
-        console.error('Failed to fetch take-home test history')
-        setTakehomeHistory([])
-      }
-    } catch (error) {
-      console.error('Error fetching take-home tests:', error)
-      setTakehomes([])
-      setTakehomeHistory([])
-    }
-  }
-
   const revokeTakehome = async (passcode: string) => {
     try {
       const response = await fetch(`/api/takehome/${passcode}/revoke`, {
@@ -490,7 +468,7 @@ export default function Home() {
       if (response.ok) {
         setNotification('Take-home test revoked')
         setTimeout(() => setNotification(null), 5000)
-        fetchTakehomes()
+        loadInterviews()
       } else {
         const data = await response.json()
         setNotification(`Failed to revoke: ${data.error}`)
@@ -525,11 +503,10 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [loadHistoricalInterviews])
 
-  // Fetch takehomes when tab is active
+  // Fetch interviews/takehomes when tab changes
   useEffect(() => {
-    if (activeTab === 'takehome' || activeTab === 'takehomeHistory') {
-      fetchTakehomes()
-    }
+    // loadInterviews already loads both regular and take-home interviews
+    // No need for separate fetch
   }, [activeTab])
 
   // Listen for SSE events to update data immediately and refresh
@@ -625,8 +602,7 @@ export default function Home() {
         console.log('Refreshing interviews from API due to SSE event')
         // Use setTimeout to allow immediate UI update first
         setTimeout(() => {
-          loadInterviews()
-          fetchTakehomes() // Also refresh take-home tests
+          loadInterviews() // Loads both regular and take-home interviews
         }, 100)
       }
     }
