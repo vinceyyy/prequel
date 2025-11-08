@@ -50,7 +50,10 @@ export async function GET() {
     }))
 
     // Get interviews from active operations (for real-time status during creation)
-    const operationInterviews = getOperationInterviews(operations)
+    const operationInterviews = getOperationInterviews(
+      operations,
+      activeInterviews
+    )
 
     // Merge interviews with preference for DynamoDB data over operations
     const allInterviews = [...dynamoInterviews, ...operationInterviews]
@@ -106,15 +109,24 @@ function getOperationInterviews(
       infrastructureReady?: boolean
     }
     createdAt: Date
+  }>,
+  dbInterviews: Array<{
+    id: string
+    type?: 'regular' | 'take-home'
   }>
 ) {
+  // Create a map of interview IDs to their types from DynamoDB
+  const interviewTypeMap = new Map(
+    dbInterviews.map(i => [i.id, i.type || 'regular'])
+  )
+
   return operations
     .filter(op => op.type === 'create')
     .map(op => ({
       id: op.interviewId,
       candidateName: op.candidateName || 'Unknown',
       challenge: op.challenge || 'unknown',
-      type: 'regular' as const, // Operations are always for regular interviews
+      type: interviewTypeMap.get(op.interviewId) || 'regular', // Look up type from DynamoDB
       status:
         op.status === 'scheduled'
           ? 'scheduled'
