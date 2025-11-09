@@ -36,8 +36,8 @@ export async function POST(request: NextRequest) {
     const random = Math.random().toString(36).substring(2, 7)
     const interviewId = `takehome-${timestamp}-${random}`
 
-    // Generate unique 8-character passcode
-    const passcode = Math.random().toString(36).substring(2, 10).toUpperCase()
+    // Generate unique 8-character passcode using takehomeManager
+    const passcode = takehomeManager.generatePasscode()
 
     // Calculate valid until date
     const validUntil = new Date(
@@ -45,6 +45,15 @@ export async function POST(request: NextRequest) {
     )
 
     // Create interview record in unified interviews table
+    console.log('[DEBUG] Creating take-home interview:', {
+      interviewId,
+      passcode,
+      candidateName,
+      challenge,
+      validUntil: validUntil.toISOString(),
+      durationMinutes,
+    })
+
     const interview = await interviewManager.createInterview({
       id: interviewId,
       type: 'take-home',
@@ -56,6 +65,13 @@ export async function POST(request: NextRequest) {
       customInstructions: customInstructions || '',
       durationMinutes,
       // autoDestroyAt will be set when candidate activates the test
+    })
+
+    console.log('[DEBUG] Take-home interview created successfully:', {
+      id: interview.id,
+      passcode: interview.passcode,
+      type: interview.type,
+      status: interview.status,
     })
 
     // Generate URL
@@ -92,23 +108,83 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status') // 'active', 'history', or null (all)
+    const statusFilter = searchParams.get('status') // 'active', 'history', or null (all)
 
     let takehomes: TakehomeTest[] = []
 
-    if (status === 'history') {
-      // Get historical (completed/revoked) take-home tests
-      takehomes = await takehomeManager.getHistoricalTakehomes()
-    } else if (status === 'active') {
-      // Get only active take-home tests
-      takehomes = await takehomeManager.getActiveTakehomes()
+    if (statusFilter === 'history') {
+      // Get historical (destroyed/completed) take-home tests from unified interviews table
+      const historicalInterviews =
+        await interviewManager.getHistoricalInterviews()
+      takehomes = historicalInterviews
+        .filter(interview => interview.type === 'take-home')
+        .map(interview => ({
+          id: interview.id,
+          passcode: interview.passcode!,
+          candidateName: interview.candidateName,
+          challenge: interview.challenge,
+          status: interview.status,
+          validUntil: interview.validUntil!,
+          durationMinutes: interview.durationMinutes,
+          customInstructions: interview.customInstructions,
+          createdAt: interview.createdAt,
+          activatedAt: interview.activatedAt,
+        }))
+    } else if (statusFilter === 'active') {
+      // Get active take-home tests (including error status) from unified interviews table
+      const activeInterviews = await interviewManager.getActiveInterviews()
+      takehomes = activeInterviews
+        .filter(interview => interview.type === 'take-home')
+        .map(interview => ({
+          id: interview.id,
+          passcode: interview.passcode!,
+          candidateName: interview.candidateName,
+          challenge: interview.challenge,
+          status: interview.status,
+          validUntil: interview.validUntil!,
+          durationMinutes: interview.durationMinutes,
+          customInstructions: interview.customInstructions,
+          createdAt: interview.createdAt,
+          activatedAt: interview.activatedAt,
+        }))
     } else {
       // Get all take-home tests (active + historical)
-      const [active, historical] = await Promise.all([
-        takehomeManager.getActiveTakehomes(),
-        takehomeManager.getHistoricalTakehomes(),
+      const [activeInterviews, historicalInterviews] = await Promise.all([
+        interviewManager.getActiveInterviews(),
+        interviewManager.getHistoricalInterviews(),
       ])
-      takehomes = [...active, ...historical]
+
+      const activeTakehomes = activeInterviews
+        .filter(interview => interview.type === 'take-home')
+        .map(interview => ({
+          id: interview.id,
+          passcode: interview.passcode!,
+          candidateName: interview.candidateName,
+          challenge: interview.challenge,
+          status: interview.status,
+          validUntil: interview.validUntil!,
+          durationMinutes: interview.durationMinutes,
+          customInstructions: interview.customInstructions,
+          createdAt: interview.createdAt,
+          activatedAt: interview.activatedAt,
+        }))
+
+      const historicalTakehomes = historicalInterviews
+        .filter(interview => interview.type === 'take-home')
+        .map(interview => ({
+          id: interview.id,
+          passcode: interview.passcode!,
+          candidateName: interview.candidateName,
+          challenge: interview.challenge,
+          status: interview.status,
+          validUntil: interview.validUntil!,
+          durationMinutes: interview.durationMinutes,
+          customInstructions: interview.customInstructions,
+          createdAt: interview.createdAt,
+          activatedAt: interview.activatedAt,
+        }))
+
+      takehomes = [...activeTakehomes, ...historicalTakehomes]
     }
 
     // Generate URLs for active tests

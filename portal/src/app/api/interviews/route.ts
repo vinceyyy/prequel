@@ -65,6 +65,17 @@ export async function GET() {
     console.log(
       `[DEBUG] Retrieved ${activeInterviews.length} interviews from DynamoDB, ${operationInterviews.length} from operations`
     )
+    console.log('[DEBUG] Merged interviews breakdown:', {
+      total: mergedInterviews.length,
+      regular: mergedInterviews.filter(i => i.type === 'regular' || !i.type)
+        .length,
+      takeHome: mergedInterviews.filter(i => i.type === 'take-home').length,
+      sample: mergedInterviews.slice(0, 3).map(i => ({
+        id: i.id,
+        type: i.type,
+        status: i.status,
+      })),
+    })
 
     return NextResponse.json({ interviews: mergedInterviews })
   } catch (error: unknown) {

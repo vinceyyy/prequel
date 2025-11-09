@@ -149,7 +149,7 @@ export default function TakeHomePage({
 
   const validUntil = new Date(interview.validUntil)
   const isExpired = new Date() > validUntil
-  const isNotStarted = interview.status === 'active'
+  const isNotStarted = interview.status === 'active' && !interview.accessUrl
   const isProvisioning =
     interview.status === 'activated' ||
     interview.status === 'initializing' ||
@@ -157,6 +157,7 @@ export default function TakeHomePage({
   const isReady = interview.status === 'active' && interview.accessUrl
   const isCompleted =
     interview.status === 'destroyed' || interview.status === 'completed'
+  const hasError = interview.status === 'error'
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -344,6 +345,31 @@ export default function TakeHomePage({
               <p className="text-slate-600">
                 Your workspace has been shut down and your work has been saved.
               </p>
+            </div>
+          )}
+
+          {/* Provisioning Error */}
+          {hasError && (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">❌</div>
+              <h2 className="text-2xl font-semibold text-red-700 mb-4">
+                Provisioning Failed
+              </h2>
+              <p className="text-slate-600 mb-6">
+                There was an error setting up your workspace. Please contact the
+                interviewer for assistance.
+              </p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-left">
+                <p className="text-sm text-red-800 font-semibold mb-2">
+                  What happened?
+                </p>
+                <p className="text-sm text-red-700">
+                  The system encountered an error while provisioning your coding
+                  environment. This is typically a temporary infrastructure
+                  issue. The interviewer has been notified and will reach out to
+                  you shortly.
+                </p>
+              </div>
             </div>
           )}
 

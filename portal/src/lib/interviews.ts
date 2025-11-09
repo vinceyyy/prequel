@@ -150,6 +150,7 @@ export class InterviewManager {
         interviewId: interview.id,
         candidateName: interview.candidateName,
         status: interview.status,
+        type: fullInterview.type,
       })
 
       return fullInterview
@@ -268,6 +269,9 @@ export class InterviewManager {
         | 'destroyedAt'
         | 'historyS3Key'
         | 'activatedAt'
+        | 'scheduledAt'
+        | 'autoDestroyAt'
+        | 'saveFiles'
       >
     > = {}
   ): Promise<void> {
@@ -277,10 +281,11 @@ export class InterviewManager {
     const expressionAttributeNames: Record<string, string> = {
       '#status': 'status',
     }
-    const expressionAttributeValues: Record<string, string | number> = {
-      ':status': status,
-      ':updatedAt': Math.floor(now.getTime() / 1000),
-    }
+    const expressionAttributeValues: Record<string, string | number | boolean> =
+      {
+        ':status': status,
+        ':updatedAt': Math.floor(now.getTime() / 1000),
+      }
 
     // Add completion timestamp for terminal states
     if (status === 'destroyed' || status === 'error') {
@@ -346,10 +351,12 @@ export class InterviewManager {
   async getActiveInterviews(): Promise<Interview[]> {
     const activeStatuses: InterviewStatus[] = [
       'scheduled',
+      'activated', // Take-home test activated, provisioning starting
       'initializing',
       'configuring',
       'active',
       'destroying',
+      'error', // Failed interviews should remain visible for troubleshooting
     ]
     const interviews: Interview[] = []
 
@@ -569,17 +576,36 @@ export class InterviewManager {
     fullOutput?: string
   }> {
     try {
-      // Create DynamoDB record first
-      await this.createInterview({
-        id: instance.id,
-        candidateName: instance.candidateName,
-        challenge: instance.challenge,
-        status: 'initializing',
-        type: 'regular', // Regular interviews (not take-home)
-        scheduledAt,
-        autoDestroyAt,
-        saveFiles,
-      })
+      // Check if interview already exists (e.g., take-home test that was activated)
+      const existingInterview = await this.getInterview(instance.id)
+
+      if (existingInterview) {
+        // Update existing interview to initializing status
+        // Include password for take-home tests (password is generated during activation)
+        await this.updateInterviewStatus(instance.id, 'initializing', {
+          password: instance.password,
+          scheduledAt,
+          autoDestroyAt,
+          saveFiles,
+        })
+        logger.info('Updated existing interview to initializing', {
+          interviewId: instance.id,
+          type: existingInterview.type,
+        })
+      } else {
+        // Create new DynamoDB record for regular interviews
+        await this.createInterview({
+          id: instance.id,
+          candidateName: instance.candidateName,
+          challenge: instance.challenge,
+          password: instance.password,
+          status: 'initializing',
+          type: 'regular', // Regular interviews (not take-home)
+          scheduledAt,
+          autoDestroyAt,
+          saveFiles,
+        })
+      }
 
       if (onData) {
         onData('Created interview record in DynamoDB\n')

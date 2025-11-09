@@ -1,6 +1,5 @@
 import { operationManager } from './operations'
 import { interviewManager } from './interviews'
-import { takehomeManager } from './takehome'
 import { schedulerLogger } from './logger'
 
 /**
@@ -406,26 +405,42 @@ export class SchedulerService {
 
   /**
    * Processes expired take-home tests (validUntil has passed).
-   * Marks expired take-home tests as revoked.
+   * Marks expired take-home tests as destroyed.
    */
   private async processExpiredTakehomes() {
     try {
-      // Check for expired take-home tests (validUntil has passed)
-      const activeTakehomes = await takehomeManager.getActiveTakehomes()
+      // Get all active interviews (includes take-home tests)
+      const activeInterviews = await interviewManager.getActiveInterviews()
       const now = new Date()
 
-      for (const takehome of activeTakehomes) {
-        const validUntil = new Date(takehome.validUntil)
+      // Filter to only take-home tests that are still invitations (not yet activated)
+      const activeTakehomeInvitations = activeInterviews.filter(
+        interview =>
+          interview.type === 'take-home' &&
+          interview.status === 'active' && // Still an invitation (not started)
+          interview.validUntil !== undefined
+      )
+
+      for (const interview of activeTakehomeInvitations) {
+        const validUntil = interview.validUntil!
         if (now > validUntil) {
           schedulerLogger.info(
-            `Marking expired take-home test as revoked: ${takehome.passcode}`,
+            `Marking expired take-home invitation as destroyed: ${interview.passcode}`,
             {
-              passcode: takehome.passcode,
-              candidateName: takehome.candidateName,
-              validUntil: takehome.validUntil,
+              interviewId: interview.id,
+              passcode: interview.passcode,
+              candidateName: interview.candidateName,
+              validUntil: interview.validUntil?.toISOString(),
             }
           )
-          await takehomeManager.revokeTakehome(takehome.passcode)
+          // Mark as destroyed (it was never activated, so no infrastructure to clean up)
+          await interviewManager.updateInterviewStatus(
+            interview.id,
+            'destroyed',
+            {
+              destroyedAt: new Date(),
+            }
+          )
         }
       }
     } catch (error) {

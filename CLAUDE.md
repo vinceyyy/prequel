@@ -161,21 +161,49 @@ The infrastructure now includes automated portal Docker image building and pushi
 
 1. **Project Configuration:**
    ```bash
+   cd portal
    # Copy environment template
    cp .env.example .env.local
-   # Edit .env.local with your AWS configuration:
-   # AWS_PROFILE=your-aws-profile
-   # AWS_REGION=your-aws-region
-   # LOG_LEVEL=debug  # Set to debug for verbose scheduler logging
-   # PROJECT_PREFIX=your-project-prefix  # Must match deployed infrastructure
-   # ENVIRONMENT=dev  # Must match infra/terraform.tfvars
-   # DOMAIN_NAME=your-domain.com
-   # Table names will be auto-generated: {PROJECT_PREFIX}-{ENVIRONMENT}-{table}
+
+   # Edit .env.local with your configuration
+   # CRITICAL: All values must match infra/terraform.tfvars
+
+   # AWS Configuration (local development uses SSO profiles)
+   AWS_PROFILE=your-aws-profile
+   AWS_REGION=us-east-1
+
+   # Project Configuration (must match terraform.tfvars)
+   PROJECT_PREFIX=your-project-prefix  # Must match project_prefix in terraform.tfvars
+   ENVIRONMENT=dev                      # Must match environment in terraform.tfvars
+   DOMAIN_NAME=your-domain.com         # Must match domain_name in terraform.tfvars
+
+   # OpenAI Configuration (LOCAL DEVELOPMENT ONLY - see note below)
+   OPENAI_PROJECT_ID=proj_YourProjectId  # Copy from openai_project_id in terraform.tfvars
+
+   # Optional: Logging
+   LOG_LEVEL=debug  # Set to debug for verbose scheduler logging
    ```
 
 **⚠️ Critical: Configuration Consistency**
 
 The portal now uses a **centralized configuration system** (`portal/src/lib/config.ts`) that automatically generates AWS resource names based on your environment variables. Your `.env.local` settings must match your deployed infrastructure:
+
+**⚠️ Important: OpenAI Configuration Context**
+
+The `OPENAI_PROJECT_ID` has different sources depending on deployment context:
+
+- **Local Development** (`npm run dev`):
+  - ✅ **Required** in `portal/.env.local`
+  - Copy value from `infra/terraform.tfvars` → `openai_project_id`
+  - Portal uses this to generate terraform tfvars for interview instances
+  - **Symptom if missing**: Terraform errors like "No project found with ID 'service_accounts'"
+
+- **ECS Deployment** (production):
+  - ❌ **Not required** in environment variables
+  - Automatically available via terraform remote state outputs
+  - Portal reads from infra terraform state
+
+If you see OpenAI provisioning errors during local development, verify `OPENAI_PROJECT_ID` is set in `portal/.env.local` and matches `infra/terraform.tfvars`.
 
 - **DynamoDB Tables**: `{PROJECT_PREFIX}-{ENVIRONMENT}-interviews` and `{PROJECT_PREFIX}-{ENVIRONMENT}-operations`
 - **S3 Buckets**: `{PROJECT_PREFIX}-{ENVIRONMENT}-challenge`, `{PROJECT_PREFIX}-{ENVIRONMENT}-instance`, `{PROJECT_PREFIX}-{ENVIRONMENT}-history`
@@ -229,13 +257,31 @@ Before running `terraform init`, you must:
    terraform init -backend-config=backend.config
    ```
 
+**⚠️ Important: Two Separate `.env.local` Files**
+
+The project uses **two different `.env.local` files** for different purposes:
+
+1. **Root `.env.local`** (`/prequel/.env.local`)
+   - Used by build/deployment shell scripts
+   - Required variables: `AWS_REGION`, `AWS_PROFILE`, `PROJECT_PREFIX`, `ENVIRONMENT`, `TERRAFORM_STATE_BUCKET`
+   - Not used by the portal application
+   - Create by copying values from `portal/.env.local`
+
+2. **Portal `.env.local`** (`/prequel/portal/.env.local`)
+   - Used by Next.js portal application (`npm run dev`)
+   - Required variables: See "Project Configuration" section above
+   - **Must include `OPENAI_PROJECT_ID`** for local development
+   - Create from `portal/.env.example`
+
 **Build Scripts:**
 
-All build scripts automatically load environment variables from `.env.local`:
+All build scripts automatically load environment variables from **root** `.env.local`:
 
 - `instance/build-and-push.sh` - Build and push instance Docker image
 - `portal/build-push-deploy.sh` - Build, push and deploy portal
 - `challenge/sync-to-s3.sh` - Sync challenges to S3
+
+**Why two files?** Build scripts run from various directories and need a consistent location (project root) to find environment variables. The portal application follows Next.js conventions of using `portal/.env.local`.
 
 **Centralized Configuration System:**
 

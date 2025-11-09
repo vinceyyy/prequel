@@ -18,7 +18,10 @@ export async function GET(
   try {
     const { passcode } = await params
 
+    console.log('[DEBUG] Looking up interview by passcode:', passcode)
+
     if (!passcode || passcode.length !== 8) {
+      console.log('[DEBUG] Invalid passcode format:', passcode)
       return NextResponse.json(
         { error: 'Invalid passcode format' },
         { status: 400 }
@@ -26,6 +29,14 @@ export async function GET(
     }
 
     const interview = await interviewManager.getInterviewByPasscode(passcode)
+
+    console.log('[DEBUG] Interview lookup result:', {
+      found: !!interview,
+      id: interview?.id,
+      type: interview?.type,
+      status: interview?.status,
+      passcode: interview?.passcode,
+    })
 
     if (!interview) {
       return NextResponse.json(

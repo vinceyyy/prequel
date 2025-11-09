@@ -448,7 +448,16 @@ export default function Home() {
           'interviews'
         )
 
-        setHistoricalInterviews(data.interviews || [])
+        // Filter out take-home tests (they have their own history tab)
+        const regularHistoricalInterviews = (data.interviews || []).filter(
+          (i: Interview) => i.type !== 'take-home'
+        )
+
+        console.log(
+          `[DEBUG] Filtered historical: ${regularHistoricalInterviews.length} regular (excluded ${(data.interviews || []).length - regularHistoricalInterviews.length} take-home)`
+        )
+
+        setHistoricalInterviews(regularHistoricalInterviews)
       } else {
         console.error('Failed to load historical interviews')
       }

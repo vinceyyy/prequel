@@ -218,6 +218,18 @@ class OperationManager {
     }
 
     try {
+      // Check if interview exists before syncing status
+      // This prevents UpdateItem from creating a partial interview record
+      const existingInterview = await interviewManager.getInterview(
+        operation.interviewId
+      )
+
+      if (!existingInterview) {
+        // Interview doesn't exist yet - skip sync
+        // It will be created properly by createInterviewWithInfrastructure
+        return
+      }
+
       const interviewStatus = this.operationStatusToInterviewStatus(
         operation.status
       )
