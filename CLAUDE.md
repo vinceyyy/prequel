@@ -46,7 +46,11 @@ Prequel is a coding interview platform that provisions on-demand VS Code instanc
 
 ## Architecture
 
-- **`infra/`** - Shared AWS infrastructure (VPC, ECS, ALB, DynamoDB) via Terraform
+- **`infra/`** - AWS infrastructure via Terraform
+  - **`infra/environments/shared/`** - Shared networking resources (VPC, subnets, security groups)
+  - **`infra/environments/dev/`** - Development environment (DynamoDB, S3, ECS, ALB, DNS)
+  - **`infra/environments/prod/`** - Production environment (DynamoDB, S3, ECS, ALB, DNS)
+  - **`infra/modules/`** - Reusable Terraform modules (networking, storage, compute, dns)
 - **`portal/`** - NextJS web interface with real-time SSE updates for managing interviews
 - **`instance/`** - Per-interview Terraform templates for ECS instances
 - **`challenge/`** - Interview coding challenges and environments stored in S3
@@ -139,7 +143,7 @@ Without the plugin, file extraction will be skipped and interviews will still de
 **Infrastructure:**
 
 ```bash
-cd infra
+cd infra/environments/{environment}  # shared, dev, or prod
 terraform init -backend-config=backend.config  # Initialize with backend config
 terraform plan   # Plan infrastructure changes
 terraform apply  # Deploy infrastructure (includes automated portal image building)
@@ -154,6 +158,148 @@ The infrastructure now includes automated portal Docker image building and pushi
 - **Cross-platform builds** - Uses Docker Buildx for AMD64 (ECS compatibility)
 - **Automatic triggering** - Runs during Terraform apply via `null_resource` provisioner
 - **Environment integration** - Passes all necessary environment variables from Terraform
+
+## Production Deployment
+
+The infrastructure supports multiple environments with shared networking resources for cost efficiency and simplified management.
+
+**Multi-Environment Architecture:**
+
+The project uses a three-tier environment structure:
+
+1. **Shared Infrastructure** (`infra/environments/shared`)
+   - VPC, subnets, internet gateway, NAT gateway
+   - Security groups for ECS tasks and ALB
+   - Shared across all environments (dev, prod, staging)
+   - Deployed once, referenced by environment-specific configurations
+
+2. **Development Environment** (`infra/environments/dev`)
+   - DynamoDB tables, S3 buckets, ECS cluster, ALB
+   - Domain: `interview-dev.blend360.app` (or your dev domain)
+   - Used for testing and development
+   - Isolated from production data
+
+3. **Production Environment** (`infra/environments/prod`)
+   - DynamoDB tables, S3 buckets, ECS cluster, ALB
+   - Domain: `interview.blend360.app` (or your prod domain)
+   - Production-ready configuration
+   - Isolated from development data
+
+**Environment Separation:**
+
+Each environment has completely isolated:
+- DynamoDB tables (`{PREFIX}-{ENV}-interviews`, `{PREFIX}-{ENV}-operations`, `{PREFIX}-{ENV}-challenges`)
+- S3 buckets (`{PREFIX}-{ENV}-challenge`, `{PREFIX}-{ENV}-instance`, `{PREFIX}-{ENV}-history`)
+- ECS clusters and services (`{PREFIX}-{ENV}`)
+- ALB and target groups
+- Route53 hosted zones and DNS records
+
+**Deploying to Production:**
+
+1. **Prerequisites:**
+   - AWS SSO configured and logged in
+   - S3 bucket for Terraform state created
+   - Domain DNS delegated to Route53
+   - OpenAI credentials (optional, for AI features)
+
+2. **Deploy Shared Infrastructure (one-time):**
+   ```bash
+   cd infra/environments/shared
+   terraform init -backend-config=backend.config
+   terraform plan
+   terraform apply
+   ```
+
+3. **Deploy Production Environment:**
+   ```bash
+   cd ../prod
+   terraform init -backend-config=backend.config
+   terraform plan
+   terraform apply
+   ```
+
+4. **Wait for Certificate Validation:**
+   - ACM certificate validation can take 5-30 minutes
+   - DNS records are automatically created for validation
+   - Monitor: `terraform output certificate_arn`
+
+5. **Build and Push Portal Image:**
+   ```bash
+   cd ../../../portal
+
+   # Get ECR repository URL
+   export ECR_REPO_URL=$(cd ../infra/environments/prod && terraform output -raw ecr_repository_url)
+
+   # Authenticate to ECR
+   aws ecr get-login-password --region us-east-1 --profile your-profile | \
+     docker login --username AWS --password-stdin $ECR_REPO_URL
+
+   # Build and push
+   docker build --platform linux/amd64 -t $ECR_REPO_URL:latest .
+   docker push $ECR_REPO_URL:latest
+   ```
+
+6. **Verify Deployment:**
+   - Check ECS service is running: `aws ecs describe-services ...`
+   - Test HTTPS access: `curl -I https://your-domain.com`
+   - Login to portal and verify functionality
+
+**Bug Fixes in Production Deployment:**
+
+During the production deployment, two critical bugs were identified and fixed:
+
+1. **ALB Target Group Naming Conflict** (`infra/modules/compute/main.tf`)
+   - Issue: Target group name limited to 32 characters, but was exceeding limit
+   - Fix: Changed from `{prefix}-portal` to `{prefix}-{env}-portal` with proper truncation
+   - Ensures unique names across environments while respecting AWS limits
+
+2. **HTTPS Listener Condition Priority** (`infra/modules/compute/main.tf`)
+   - Issue: HTTPS listener was not properly configured with host-based routing
+   - Fix: Added explicit listener rule with host header condition and priority
+   - Ensures traffic is correctly routed to portal target group
+
+**Production URLs:**
+
+- Development: `https://interview-dev.blend360.app` (or your configured dev domain)
+- Production: `https://interview.blend360.app` (or your configured prod domain)
+
+**Configuration Files:**
+
+Each environment requires two configuration files:
+
+1. **`terraform.tfvars`** - Environment-specific values
+   ```hcl
+   project_prefix  = "your-project"
+   environment     = "prod"
+   aws_region      = "us-east-1"
+   domain_name     = "interview.example.com"
+   enable_auth     = true
+   auth_passcode   = "secure-passcode"
+   openai_admin_key = "sk-admin-xxx"  # optional
+   openai_project_id = "proj_xxx"     # optional
+   ```
+
+2. **`backend.config`** - Terraform state backend
+   ```hcl
+   bucket = "your-terraform-state-bucket"
+   key    = "environments/prod/terraform.tfstate"
+   region = "us-east-1"
+   ```
+
+**Local Development Against Production:**
+
+To test against production resources locally (use with caution):
+
+```bash
+# .env.local
+AWS_REGION=us-east-1
+AWS_PROFILE=your-aws-profile
+PROJECT_PREFIX=your-project-prefix
+ENVIRONMENT=prod  # Change to prod
+DOMAIN_NAME=interview.example.com
+```
+
+Warning: Be extremely careful when running local development against production - you're working with real production data and resources.
 
 ## Local Development
 
