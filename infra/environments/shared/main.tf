@@ -1,3 +1,4 @@
+# infra/environments/shared/main.tf
 terraform {
   required_version = ">= 1.0"
   required_providers {
@@ -7,7 +8,6 @@ terraform {
     }
   }
   backend "s3" {
-    # Note: Backend bucket must be manually created before terraform apply
     bucket       = ""
     key          = ""
     region       = ""
@@ -19,15 +19,20 @@ provider "aws" {
   region = var.aws_region
 }
 
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
 locals {
-  name = "${var.project_prefix}-${var.environment}"
+  name_prefix = "${var.project_prefix}-shared"
   tags = {
-    Environment = var.environment
+    Environment = "shared"
     Project     = var.project_prefix
     ManagedBy   = "terraform"
   }
+}
+
+module "networking" {
+  source = "../../modules/networking"
+
+  vpc_cidr                = var.vpc_cidr
+  availability_zone_count = 3
+  name_prefix             = local.name_prefix
+  tags                    = local.tags
 }

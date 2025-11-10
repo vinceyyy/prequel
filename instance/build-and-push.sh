@@ -2,6 +2,9 @@
 
 # Build and push code-server Docker image with SOCI-compatible compression
 #
+# Usage: ./build-and-push.sh [environment]
+#   environment: dev, prod, or staging (optional, defaults to ENVIRONMENT from .env.local)
+#
 # This script builds the code-server image using zstd-variant of eStargz compression,
 # which is compatible with AWS SOCI (Seekable OCI) indexing for faster container startup.
 #
@@ -21,10 +24,15 @@ fi
 
 export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
 
+# Allow environment override from command line
+TARGET_ENV=${1:-$ENVIRONMENT}
+
 # Configuration - use environment variables
 AWS_REGION=${AWS_REGION}
 AWS_PROFILE=${AWS_PROFILE}
-REPOSITORY_NAME="${PROJECT_PREFIX}-${ENVIRONMENT}-code-server"
+REPOSITORY_NAME="${PROJECT_PREFIX}-${TARGET_ENV}-code-server"
+
+echo "Building for environment: $TARGET_ENV"
 
 # Get account ID using current AWS configuration
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)

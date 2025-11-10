@@ -573,6 +573,28 @@ npm run dev
 - `.env.local` - Local development configuration (auto-created)
 - Production uses ECS task role authentication (no env vars needed)
 
+### Optional: OpenAI Integration
+
+Enable AI assistance features by configuring OpenAI:
+
+```bash
+OPENAI_ADMIN_KEY=sk-admin-xxxxx
+OPENAI_PROJECT_ID=proj_xxxxx
+```
+
+**How It Works:**
+
+- Service accounts are created automatically during interview creation
+- Credentials are stored in DynamoDB interview records
+- Service accounts are deleted automatically during interview destruction
+- If not configured, interviews work normally without AI features
+
+**Implementation Details:**
+
+- `src/lib/openai.ts` - Service account management module
+- `src/app/api/interviews/create/route.ts` - Creates service accounts
+- `src/app/api/interviews/[id]/destroy/route.ts` - Deletes service accounts
+
 ### AWS Requirements
 
 **Core Infrastructure**:

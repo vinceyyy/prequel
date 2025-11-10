@@ -1,6 +1,11 @@
 #!/bin/bash
 
 # Sync instance Terraform templates to S3
+#
+# Usage: ./sync-to-s3.sh [environment] [OPTIONS]
+#   environment: dev, prod, or staging (optional, defaults to ENVIRONMENT from .env.local)
+#   OPTIONS: --dry-run, --help
+#
 # This allows updating IaC without redeploying the NextJS app
 
 set -e
@@ -14,8 +19,15 @@ fi
 
 export $(cat ../../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
 
+# Allow environment override from command line (first argument)
+TARGET_ENV="${ENVIRONMENT:-dev}"
+if [[ $# -gt 0 && "$1" != "-"* ]]; then
+	TARGET_ENV="$1"
+	shift
+fi
+
 AWS_PROFILE=${AWS_PROFILE}
-S3_BUCKET="${PROJECT_PREFIX}-${ENVIRONMENT:-dev}-instance"
+S3_BUCKET="${PROJECT_PREFIX}-${TARGET_ENV}-instance"
 S3_PATH="s3://${S3_BUCKET}/terraform/"
 LOCAL_PATH="."
 

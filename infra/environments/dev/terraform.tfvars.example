@@ -1,0 +1,19 @@
+# infra/environments/dev/terraform.tfvars.example
+# Copy to terraform.tfvars and fill in actual values
+
+aws_region             = "us-east-1"
+environment            = "dev"
+project_prefix         = "your-project-prefix"
+terraform_state_bucket = "your-terraform-state-bucket"
+domain_name            = "interview-dev.your-domain.com"
+
+# Authentication
+enable_auth   = true
+auth_passcode = "CHANGE-THIS-TO-SECURE-PASSCODE"
+
+# OpenAI Service Configuration
+openai_admin_key  = "sk-admin-YOUR-KEY-HERE"
+openai_project_id = "proj_YOUR-PROJECT-ID"
+
+# Logging
+log_level = "debug"

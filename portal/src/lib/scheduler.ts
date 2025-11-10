@@ -1,6 +1,8 @@
 import { operationManager } from './operations'
 import { interviewManager } from './interviews'
 import { schedulerLogger } from './logger'
+import { config } from './config'
+import { openaiService } from './openai'
 
 /**
  * Background scheduler service for processing scheduled operations and auto-destroy timeouts.
@@ -418,11 +420,55 @@ export class SchedulerService {
       interviewId: operation.interviewId,
     })
 
+    // Create OpenAI service account if configured
+    let serviceAccountId: string | undefined
+    let openaiApiKey: string | undefined
+
+    if (config.services.openaiProjectId && config.services.openaiAdminKey) {
+      await operationManager.addOperationLog(
+        operation.id,
+        '🤖 Creating OpenAI service account...'
+      )
+
+      const serviceAccountResult = await openaiService.createServiceAccount(
+        config.services.openaiProjectId,
+        `interview-${operation.interviewId}`
+      )
+
+      if (serviceAccountResult.success) {
+        serviceAccountId = serviceAccountResult.serviceAccountId
+        openaiApiKey = serviceAccountResult.apiKey
+        await operationManager.addOperationLog(
+          operation.id,
+          `✅ OpenAI service account created: ${serviceAccountId}`
+        )
+      } else {
+        await operationManager.addOperationLog(
+          operation.id,
+          `❌ OpenAI service account creation failed: ${serviceAccountResult.error}`
+        )
+        await operationManager.setOperationResult(operation.id, {
+          success: false,
+          error: `Failed to create OpenAI service account: ${serviceAccountResult.error}`,
+        })
+
+        this.emit({
+          type: 'scheduled_create_completed',
+          operationId: operation.id,
+          interviewId: operation.interviewId,
+          success: false,
+          error: `Failed to create OpenAI service account: ${serviceAccountResult.error}`,
+        })
+        return // Exit early - don't proceed with interview creation
+      }
+    }
+
     const instance = {
       id: operation.interviewId,
       candidateName: operation.candidateName,
       challenge: operation.challenge,
       password: Math.random().toString(36).substring(2, 12),
+      openaiApiKey,
     }
 
     try {
@@ -453,7 +499,8 @@ export class SchedulerService {
         },
         operationDetails?.scheduledAt,
         operationDetails?.autoDestroyAt,
-        operationDetails?.saveFiles
+        operationDetails?.saveFiles,
+        serviceAccountId
       )
 
       if (result.success) {
@@ -546,6 +593,47 @@ export class SchedulerService {
     })
 
     try {
+      // Fetch interview record to get OpenAI service account ID
+      let interview = null
+      try {
+        interview = await interviewManager.getInterview(operation.interviewId)
+      } catch (error) {
+        schedulerLogger.debug(
+          'Could not fetch interview record for OpenAI cleanup',
+          {
+            interviewId: operation.interviewId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          }
+        )
+      }
+
+      // Delete OpenAI service account first (before destroying infrastructure)
+      if (interview?.openaiServiceAccountId) {
+        await operationManager.addOperationLog(
+          operation.id,
+          '🤖 Deleting OpenAI service account...'
+        )
+
+        const deleteResult = await openaiService.deleteServiceAccount(
+          config.services.openaiProjectId,
+          interview?.openaiServiceAccountId
+        )
+
+        if (deleteResult.success) {
+          await operationManager.addOperationLog(
+            operation.id,
+            `✅ OpenAI service account deleted: ${interview?.openaiServiceAccountId}`
+          )
+        } else {
+          await operationManager.addOperationLog(
+            operation.id,
+            `⚠️ OpenAI service account deletion failed: ${deleteResult.error}`
+          )
+          // Don't fail the entire destruction - continue with infrastructure cleanup
+        }
+      }
+
+      // Now destroy the infrastructure
       const result = await interviewManager.destroyInterviewWithInfrastructure(
         operation.interviewId,
         (data: string) => {
@@ -564,6 +652,11 @@ export class SchedulerService {
       )
 
       if (result.success) {
+        await operationManager.addOperationLog(
+          operation.id,
+          '✅ Infrastructure destroyed successfully'
+        )
+
         await operationManager.addOperationLog(
           operation.id,
           '✅ Scheduled interview destroyed successfully!'

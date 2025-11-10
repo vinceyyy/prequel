@@ -1,16 +1,17 @@
 #!/bin/bash
 
 # Sync challenge files to S3 bucket
-# Usage: ./sync-to-s3.sh
+#
+# Usage: ./sync-to-s3.sh [environment]
+#   environment: dev, prod, or staging (optional, defaults to ENVIRONMENT from .env.local)
 #
 # This script should be run from the challenge/ directory and will upload
 # all subdirectories as challenges to S3, excluding this script itself.
 #
 # Use environment variables for AWS configuration:
 # - AWS_PROFILE: AWS profile to use (optional)
-# - AWS_REGION: AWS region (default: us-east-1n)
+# - AWS_REGION: AWS region (default: us-east-1)
 # - PROJECT_PREFIX: Project prefix for bucket naming (default: prequel)
-# - ENVIRONMENT: Environment for bucket naming (default: dev)
 
 set -e
 
@@ -23,8 +24,13 @@ fi
 
 export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
 
-BUCKET_NAME="${PROJECT_PREFIX}-${ENVIRONMENT:-dev}-challenge"
+# Allow environment override from command line
+TARGET_ENV=${1:-${ENVIRONMENT:-dev}}
+
+BUCKET_NAME="${PROJECT_PREFIX}-${TARGET_ENV}-challenge"
 REGION=${AWS_REGION:-"us-east-1"}
+
+echo "Syncing challenges for environment: $TARGET_ENV"
 
 echo "Syncing challenges to S3 bucket: ${BUCKET_NAME}"
 echo "AWS Profile: ${AWS_PROFILE:-default}"

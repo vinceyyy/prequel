@@ -1,4 +1,0 @@
-bucket       = "your-company-interview-platform"
-key          = "common"
-region       = "us-east-1"
-use_lockfile = true

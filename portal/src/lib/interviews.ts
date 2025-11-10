@@ -37,6 +37,10 @@ export interface Interview {
   accessUrl?: string
   password?: string
 
+  // OpenAI service account details
+  openaiServiceAccountId?: string
+  openaiApiKey?: string
+
   // Scheduling information
   createdAt: Date
   scheduledAt?: Date
@@ -68,6 +72,10 @@ interface InterviewDynamoItem {
   status: InterviewStatus
   accessUrl?: string
   password?: string
+
+  // OpenAI service account details
+  openaiServiceAccountId?: string
+  openaiApiKey?: string
 
   // Timestamps stored as Unix seconds in DynamoDB
   createdAt: number
@@ -456,12 +464,14 @@ export class InterviewManager {
       candidateName: string
       challenge: string
       password: string
+      openaiApiKey: string | undefined
     },
     onData?: (data: string) => void,
     onInfrastructureReady?: (accessUrl: string) => void,
     scheduledAt?: Date,
     autoDestroyAt?: Date,
-    saveFiles?: boolean
+    saveFiles?: boolean,
+    openaiServiceAccountId?: string
   ): Promise<{
     success: boolean
     error?: string
@@ -480,6 +490,8 @@ export class InterviewManager {
         scheduledAt,
         autoDestroyAt,
         saveFiles,
+        openaiServiceAccountId,
+        openaiApiKey: instance.openaiApiKey,
       })
 
       if (onData) {

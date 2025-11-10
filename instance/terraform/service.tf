@@ -1,11 +1,3 @@
-resource "aws_ssm_parameter" "interview_password" {
-  name  = "/${data.terraform_remote_state.common.outputs.project_prefix}/interviews/${local.interview_id}/password"
-  type  = "SecureString"
-  value = var.password
-
-  tags = local.tags
-}
-
 # Random integer for ALB listener rule priority
 # Each interview needs a unique priority (100-50000)
 resource "random_integer" "priority" {
@@ -146,18 +138,16 @@ resource "aws_ecs_task_definition" "interview" {
           value = local.interview_id
         },
         {
-          name  = "OPENAI_API_KEY"
-          value = openai_project_service_account.account.api_key
-        },
-        {
           name  = "WELCOME_TEXT"
           value = var.welcome_text
         },
-      ]
-      secrets = [
         {
-          name      = "PASSWORD"
-          valueFrom = aws_ssm_parameter.interview_password.arn
+          name  = "OPENAI_API_KEY"
+          value = var.openai_api_key
+        },
+        {
+          name  = "PASSWORD"
+          value = var.password
         }
       ]
       logConfiguration = {

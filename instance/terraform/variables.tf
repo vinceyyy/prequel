@@ -25,18 +25,6 @@ variable "password" {
   sensitive   = true
 }
 
-variable "openai_project_id" {
-  description = "The OpenAI project to provision service account in"
-  type        = string
-  sensitive   = false
-}
-
-variable "openai_service_account_name" {
-  description = "The OpenAI service account name"
-  type        = string
-  sensitive   = false
-}
-
 variable "image_tag" {
   description = "Docker image tag for the code-server container"
   type        = string
@@ -47,4 +35,10 @@ variable "welcome_text" {
   description = "Welcome text for code-server"
   type        = string
   default     = "Welcome!"
+}
+
+variable "openai_api_key" {
+  description = "The temporary OPENAI API KEY for the candidate to use"
+  type        = string
+  sensitive   = true
 }

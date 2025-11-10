@@ -3,6 +3,7 @@ import { interviewManager } from '@/lib/interviews'
 import { operationManager } from '@/lib/operations'
 import { challengeService } from '@/lib/challenges'
 import { config } from '@/lib/config'
+import { openaiService } from '@/lib/openai'
 import { v4 as uuidv4 } from 'uuid'
 
 /**
@@ -155,15 +156,10 @@ export async function POST(request: NextRequest) {
       console.warn('Failed to track challenge usage:', error)
       await operationManager.addOperationLog(
         operationId,
-        `⚠️ Could not track challenge usage: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `⚠️ Could not track challenge usage: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
       )
-    }
-
-    const instance = {
-      id: interviewId,
-      candidateName,
-      challenge,
-      password,
     }
 
     // If scheduled for later, don't start immediately
@@ -222,6 +218,50 @@ export async function POST(request: NextRequest) {
           `Challenge: ${challenge}`
         )
 
+        // Create OpenAI service account if configured
+        let serviceAccountId: string | undefined
+        let openaiApiKey: string | undefined
+
+        if (config.services.openaiProjectId && config.services.openaiAdminKey) {
+          await operationManager.addOperationLog(
+            operationId,
+            '🤖 Creating OpenAI service account...'
+          )
+
+          const serviceAccountResult = await openaiService.createServiceAccount(
+            config.services.openaiProjectId,
+            `interview-${interviewId}`
+          )
+
+          if (serviceAccountResult.success) {
+            serviceAccountId = serviceAccountResult.serviceAccountId
+            openaiApiKey = serviceAccountResult.apiKey
+            await operationManager.addOperationLog(
+              operationId,
+              `✅ OpenAI service account created: ${serviceAccountId}`
+            )
+          } else {
+            await operationManager.addOperationLog(
+              operationId,
+              `❌ OpenAI service account creation failed: ${serviceAccountResult.error}`
+            )
+            await operationManager.setOperationResult(operationId, {
+              success: false,
+              error: `Failed to create OpenAI service account: ${serviceAccountResult.error}`,
+            })
+            return // Exit early - don't proceed with interview creation
+          }
+        }
+
+        // the information that will be passed into the instance
+        const instance = {
+          id: interviewId,
+          candidateName,
+          challenge,
+          password,
+          openaiApiKey,
+        }
+
         const result = await interviewManager.createInterviewWithInfrastructure(
           instance,
           (data: string) => {
@@ -255,7 +295,8 @@ export async function POST(request: NextRequest) {
           },
           scheduledDate,
           autoDestroyDate,
-          saveFiles
+          saveFiles,
+          serviceAccountId
         )
 
         if (result.success) {

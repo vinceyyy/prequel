@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+# Gitleaks pre-commit hook
+# Prevents commits containing secrets (API keys, credentials, etc.)
+#
+# This hook is called by "git commit" and will run gitleaks to scan
+# staged files for secrets before allowing the commit.
+#
+# Installation:
+#   cp scripts/pre-commit.template .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+
+echo "🔍 Running gitleaks to check for secrets..."
+
+# Check if gitleaks is installed
+if ! command -v gitleaks &> /dev/null; then
+    echo "❌ ERROR: gitleaks is not installed"
+    echo ""
+    echo "Please install gitleaks:"
+    echo "  brew install gitleaks"
+    echo ""
+    echo "Or skip this check (not recommended):"
+    echo "  git commit --no-verify"
+    exit 1
+fi
+
+# Run gitleaks on staged files
+gitleaks protect --staged --verbose --redact --config .gitleaks.toml
+
+# Capture exit code
+GITLEAKS_EXIT_CODE=$?
+
+if [ $GITLEAKS_EXIT_CODE -eq 0 ]; then
+    echo "✅ No secrets detected - proceeding with commit"
+    exit 0
+else
+    echo ""
+    echo "❌ COMMIT REJECTED: Secrets detected in staged files"
+    echo ""
+    echo "Gitleaks found potential secrets in your commit."
+    echo "Please review the findings above and:"
+    echo ""
+    echo "1. Remove the secrets from your files"
+    echo "2. Use environment variables or .example files instead"
+    echo "3. Add legitimate patterns to .gitleaks.toml allowlist if needed"
+    echo ""
+    echo "If you're absolutely sure this is a false positive:"
+    echo "  git commit --no-verify"
+    echo ""
+    echo "⚠️  WARNING: Using --no-verify should be rare and carefully considered"
+    exit 1
+fi
