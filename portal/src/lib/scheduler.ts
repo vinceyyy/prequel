@@ -593,6 +593,20 @@ export class SchedulerService {
     })
 
     try {
+      // Fetch interview record to get OpenAI service account ID
+      let interview = null
+      try {
+        interview = await interviewManager.getInterview(operation.interviewId)
+      } catch (error) {
+        schedulerLogger.debug(
+          'Could not fetch interview record for OpenAI cleanup',
+          {
+            interviewId: operation.interviewId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          }
+        )
+      }
+
       const result = await interviewManager.destroyInterviewWithInfrastructure(
         operation.interviewId,
         (data: string) => {
@@ -611,6 +625,37 @@ export class SchedulerService {
       )
 
       if (result.success) {
+        await operationManager.addOperationLog(
+          operation.id,
+          '✅ Infrastructure destroyed successfully'
+        )
+
+        // Delete OpenAI service account if it exists
+        if (interview?.openaiServiceAccountId) {
+          await operationManager.addOperationLog(
+            operation.id,
+            '🤖 Deleting OpenAI service account...'
+          )
+
+          const deleteResult = await openaiService.deleteServiceAccount(
+            config.services.openaiProjectId,
+            interview.openaiServiceAccountId
+          )
+
+          if (deleteResult.success) {
+            await operationManager.addOperationLog(
+              operation.id,
+              `✅ OpenAI service account deleted: ${interview.openaiServiceAccountId}`
+            )
+          } else {
+            await operationManager.addOperationLog(
+              operation.id,
+              `⚠️ OpenAI service account deletion failed: ${deleteResult.error}`
+            )
+            // Don't fail the entire destruction - service account can be cleaned up manually
+          }
+        }
+
         await operationManager.addOperationLog(
           operation.id,
           '✅ Scheduled interview destroyed successfully!'
