@@ -14,7 +14,7 @@ resource "aws_lb" "main" {
 
 # Default target group for portal
 resource "aws_lb_target_group" "portal" {
-  name        = "${var.name_prefix}-portal-tg"
+  name_prefix = "${var.environment}-portal-"
   port        = 3000
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
