@@ -175,13 +175,13 @@ The project uses a three-tier environment structure:
 
 2. **Development Environment** (`infra/environments/dev`)
    - DynamoDB tables, S3 buckets, ECS cluster, ALB
-   - Domain: `interview-dev.blend360.app` (or your dev domain)
+   - Domain: `interview-dev.example.com` (or your dev domain)
    - Used for testing and development
    - Isolated from production data
 
 3. **Production Environment** (`infra/environments/prod`)
    - DynamoDB tables, S3 buckets, ECS cluster, ALB
-   - Domain: `interview.blend360.app` (or your prod domain)
+   - Domain: `interview.example.com` (or your prod domain)
    - Production-ready configuration
    - Isolated from development data
 
@@ -260,8 +260,8 @@ During the production deployment, two critical bugs were identified and fixed:
 
 **Production URLs:**
 
-- Development: `https://interview-dev.blend360.app` (or your configured dev domain)
-- Production: `https://interview.blend360.app` (or your configured prod domain)
+- Development: `https://interview-dev.example.com` (or your configured dev domain)
+- Production: `https://interview.example.com` (or your configured prod domain)
 
 **Configuration Files:**
 
