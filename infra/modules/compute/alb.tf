@@ -14,7 +14,7 @@ resource "aws_lb" "main" {
 
 # Default target group for portal
 resource "aws_lb_target_group" "portal" {
-  name_prefix = "${var.environment}-portal-"
+  name_prefix = "${var.environment}-"
   port        = 3000
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
@@ -53,7 +53,7 @@ resource "aws_lb_listener" "http" {
 
 # HTTPS listener (requires certificate)
 resource "aws_lb_listener" "https" {
-  count             = var.certificate_arn != "" ? 1 : 0
+  count             = var.domain_name != "" ? 1 : 0
   load_balancer_arn = aws_lb.main.arn
   port              = 443
   protocol          = "HTTPS"
