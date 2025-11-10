@@ -116,4 +116,99 @@ describe('OpenAI Service', () => {
       expect(result.error).toBeDefined()
     })
   })
+
+  describe('Error handling', () => {
+    it('should handle network errors gracefully', async () => {
+      // Mock network error
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'))
+
+      const result = await openaiService.createServiceAccount(
+        'proj_test',
+        'test'
+      )
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Network error')
+    })
+
+    it('should handle 401 unauthorized errors', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: async () => 'Unauthorized',
+      })
+
+      const result = await openaiService.createServiceAccount(
+        'proj_test',
+        'test'
+      )
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('401')
+    })
+
+    it('should handle 429 rate limiting errors', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        text: async () => 'Rate limit exceeded',
+      })
+
+      const result = await openaiService.createServiceAccount(
+        'proj_test',
+        'test'
+      )
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('429')
+    })
+
+    it('should handle network errors during deletion', async () => {
+      // Mock network error for deletion
+      global.fetch = jest
+        .fn()
+        .mockRejectedValue(new Error('Connection timeout'))
+
+      const result = await openaiService.deleteServiceAccount(
+        'proj_test',
+        'svc_123'
+      )
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Connection timeout')
+    })
+
+    it('should handle 404 not found errors during deletion', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        text: async () => 'Service account not found',
+      })
+
+      const result = await openaiService.deleteServiceAccount(
+        'proj_test',
+        'svc_invalid'
+      )
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('404')
+    })
+
+    it('should handle malformed JSON responses', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => {
+          throw new Error('Invalid JSON')
+        },
+      })
+
+      const result = await openaiService.createServiceAccount(
+        'proj_test',
+        'test'
+      )
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Invalid JSON')
+    })
+  })
 })
