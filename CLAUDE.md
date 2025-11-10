@@ -209,6 +209,29 @@ The portal automatically detects your deployment context and uses appropriate cr
    cd portal && npm run dev
    ```
 
+5. **OpenAI Integration (Optional):**
+
+   If you want to enable AI assistance features in interviews:
+
+   1. Get an OpenAI Admin API key from https://platform.openai.com/
+   2. Create a project and get the project ID
+   3. Add to `.env.local`:
+      ```bash
+      OPENAI_ADMIN_KEY=sk-admin-xxxxx
+      OPENAI_PROJECT_ID=proj_xxxxx
+      ```
+
+   **How It Works:**
+   - When interview is created, a service account is created via OpenAI API
+   - Service account credentials are stored in DynamoDB interview record
+   - When interview is destroyed, the service account is automatically deleted
+   - If OpenAI is not configured, interviews work normally without AI features
+
+   **Implementation:**
+   - `portal/src/lib/openai.ts` - OpenAI service account management
+   - `portal/src/app/api/interviews/create/route.ts` - Creates service accounts
+   - `portal/src/app/api/interviews/[id]/destroy/route.ts` - Deletes service accounts
+
 **⚠️ Important: Terraform Backend Configuration**
 
 Before running `terraform init`, you must:
