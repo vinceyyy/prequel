@@ -25,18 +25,6 @@ variable "password" {
   sensitive   = true
 }
 
-variable "openai_project_id" {
-  description = "The OpenAI project to provision service account in"
-  type        = string
-  sensitive   = false
-}
-
-variable "openai_service_account_name" {
-  description = "The OpenAI service account name"
-  type        = string
-  sensitive   = false
-}
-
 variable "image_tag" {
   description = "Docker image tag for the code-server container"
   type        = string
