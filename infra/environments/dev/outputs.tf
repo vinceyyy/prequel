@@ -9,6 +9,11 @@ output "ecs_cluster_name" {
   value       = module.compute.ecs_cluster_name
 }
 
+output "ecs_cluster_arn" {
+  description = "ECS cluster ARN"
+  value       = module.compute.ecs_cluster_arn
+}
+
 output "ecr_repository_url" {
   description = "Portal ECR repository URL"
   value       = module.compute.portal_ecr_repository_url
@@ -22,6 +27,11 @@ output "code_server_ecr_repository_url" {
 output "alb_dns_name" {
   description = "ALB DNS name"
   value       = module.compute.alb_dns_name
+}
+
+output "alb_zone_id" {
+  description = "ALB zone ID for Route53"
+  value       = module.compute.alb_zone_id
 }
 
 output "domain_name" {

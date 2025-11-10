@@ -1,6 +1,9 @@
 #!/bin/bash
 
 # Build and push Next.js portal to ECR
+#
+# Usage: ./build-push-deploy.sh [environment]
+#   environment: dev, prod, or staging (optional, defaults to ENVIRONMENT from .env.local)
 
 set -e
 
@@ -13,6 +16,9 @@ fi
 
 export $(cat ../.env.local | grep -v '^#' | sed 's/#.*//' | grep -v '^$' | xargs)
 
+# Allow environment override from command line
+TARGET_ENV=${1:-$ENVIRONMENT}
+
 # Make sure it passes linter
 echo "Linter check..."
 npm run format
@@ -22,10 +28,11 @@ echo "Linter passed. Start building..."
 # Configuration - use environment variables
 AWS_REGION=${AWS_REGION:-"your-aws-region"}
 PROJECT_PREFIX=${PROJECT_PREFIX:-"prequel"}
-ENVIRONMENT=${ENVIRONMENT:-"dev"}
+
+echo "Building for environment: $TARGET_ENV"
 
 # Get ECR repository URL from Terraform output
-ECR_URI=$(cd ../infra && terraform output -raw ecr_repository_url)
+ECR_URI=$(cd ../infra/environments/${TARGET_ENV} && terraform output -raw ecr_repository_url)
 
 echo "ECR Repository: $ECR_URI"
 echo "AWS Region: $AWS_REGION"
@@ -42,8 +49,8 @@ docker buildx build --platform=linux/amd64 -t "$ECR_URI:latest" --push .
 # Force ECS service deployment
 echo "Triggering ECS service deployment..."
 aws ecs update-service \
-	--cluster ${PROJECT_PREFIX}-${ENVIRONMENT} \
-	--service ${PROJECT_PREFIX}-${ENVIRONMENT}-portal \
+	--cluster ${PROJECT_PREFIX}-${TARGET_ENV} \
+	--service ${PROJECT_PREFIX}-${TARGET_ENV}-portal \
 	--force-new-deployment \
 	--region $AWS_REGION >/dev/null
 
@@ -54,8 +61,8 @@ if [ $? -eq 0 ]; then
 	# Wait for deployment to complete (with timeout)
 	echo "Waiting for deployment to complete..."
 	aws ecs wait services-stable \
-		--cluster ${PROJECT_PREFIX}-${ENVIRONMENT} \
-		--services ${PROJECT_PREFIX}-${ENVIRONMENT}-portal \
+		--cluster ${PROJECT_PREFIX}-${TARGET_ENV} \
+		--services ${PROJECT_PREFIX}-${TARGET_ENV}-portal \
 		--region $AWS_REGION \
 		--cli-read-timeout 600 \
 		--cli-connect-timeout 60
@@ -73,4 +80,4 @@ fi
 echo ""
 echo "🚀 Build, push, and deployment completed!"
 echo "Image: $ECR_URI:latest"
-echo "Service: ${PROJECT_PREFIX}-${ENVIRONMENT}-portal"
+echo "Service: ${PROJECT_PREFIX}-${TARGET_ENV}-portal"

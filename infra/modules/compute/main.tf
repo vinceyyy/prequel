@@ -129,7 +129,8 @@ resource "aws_ecs_task_definition" "portal" {
       { name = "AUTH_PASSCODE", value = var.auth_passcode },
       { name = "OPENAI_ADMIN_KEY", value = var.openai_admin_key },
       { name = "OPENAI_PROJECT_ID", value = var.openai_project_id },
-      { name = "LOG_LEVEL", value = var.log_level }
+      { name = "LOG_LEVEL", value = var.log_level },
+      { name = "TERRAFORM_STATE_BUCKET", value = var.terraform_state_bucket }
     ]
 
     logConfiguration = {
