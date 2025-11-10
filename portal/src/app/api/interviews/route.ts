@@ -35,15 +35,25 @@ export async function GET() {
       candidateName: interview.candidateName,
       challenge: interview.challenge,
       status: interview.status,
+      type: interview.type,
       accessUrl: interview.accessUrl,
       password: interview.password,
       createdAt: interview.createdAt.toISOString(),
       scheduledAt: interview.scheduledAt?.toISOString(),
       autoDestroyAt: interview.autoDestroyAt?.toISOString(),
+      // Take-home specific fields
+      passcode: interview.passcode,
+      validUntil: interview.validUntil?.toISOString(),
+      customInstructions: interview.customInstructions,
+      durationMinutes: interview.durationMinutes,
+      activatedAt: interview.activatedAt?.toISOString(),
     }))
 
     // Get interviews from active operations (for real-time status during creation)
-    const operationInterviews = getOperationInterviews(operations)
+    const operationInterviews = getOperationInterviews(
+      operations,
+      activeInterviews
+    )
 
     // Merge interviews with preference for DynamoDB data over operations
     const allInterviews = [...dynamoInterviews, ...operationInterviews]
@@ -55,6 +65,17 @@ export async function GET() {
     console.log(
       `[DEBUG] Retrieved ${activeInterviews.length} interviews from DynamoDB, ${operationInterviews.length} from operations`
     )
+    console.log('[DEBUG] Merged interviews breakdown:', {
+      total: mergedInterviews.length,
+      regular: mergedInterviews.filter(i => i.type === 'regular' || !i.type)
+        .length,
+      takeHome: mergedInterviews.filter(i => i.type === 'take-home').length,
+      sample: mergedInterviews.slice(0, 3).map(i => ({
+        id: i.id,
+        type: i.type,
+        status: i.status,
+      })),
+    })
 
     return NextResponse.json({ interviews: mergedInterviews })
   } catch (error: unknown) {
@@ -99,14 +120,24 @@ function getOperationInterviews(
       infrastructureReady?: boolean
     }
     createdAt: Date
+  }>,
+  dbInterviews: Array<{
+    id: string
+    type?: 'regular' | 'take-home'
   }>
 ) {
+  // Create a map of interview IDs to their types from DynamoDB
+  const interviewTypeMap = new Map(
+    dbInterviews.map(i => [i.id, i.type || 'regular'])
+  )
+
   return operations
     .filter(op => op.type === 'create')
     .map(op => ({
       id: op.interviewId,
       candidateName: op.candidateName || 'Unknown',
       challenge: op.challenge || 'unknown',
+      type: interviewTypeMap.get(op.interviewId) || 'regular', // Look up type from DynamoDB
       status:
         op.status === 'scheduled'
           ? 'scheduled'

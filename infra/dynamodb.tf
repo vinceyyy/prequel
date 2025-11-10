@@ -143,6 +143,18 @@ resource "aws_dynamodb_table" "interviews" {
     type = "S"
   }
 
+  # GSI attributes for take-home test passcode lookup
+  attribute {
+    name = "passcode"
+    type = "S"
+  }
+
+  # GSI attributes for querying by interview type
+  attribute {
+    name = "type"
+    type = "S"
+  }
+
   # Global Secondary Index: Query interviews by status and creation date
   # Usage: Separate active interviews from historical ones, sort by date
   global_secondary_index {
@@ -158,6 +170,23 @@ resource "aws_dynamodb_table" "interviews" {
     name            = "candidateName-createdAt-index"
     hash_key        = "candidateName"
     range_key       = "createdAt"
+    projection_type = "ALL"
+  }
+
+  # Global Secondary Index: Query take-home tests by passcode
+  # Usage: Fast lookup by passcode for candidate access
+  global_secondary_index {
+    name            = "PasscodeIndex"
+    hash_key        = "passcode"
+    projection_type = "ALL"
+  }
+
+  # Global Secondary Index: Query interviews by type and status
+  # Usage: Filter interviews by type (standard/take-home) and status
+  global_secondary_index {
+    name            = "TypeStatusIndex"
+    hash_key        = "type"
+    range_key       = "status"
     projection_type = "ALL"
   }
 

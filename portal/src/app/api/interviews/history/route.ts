@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
     // Convert to API format
     const formattedInterviews = historicalInterviews.map(interview => ({
       id: interview.id,
+      type: interview.type || 'regular', // Include type field for filtering
       candidateName: interview.candidateName,
       challenge: interview.challenge,
       status: interview.status,

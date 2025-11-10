@@ -5,7 +5,13 @@ global.Request =
   global.Request ||
   class Request {
     constructor(input, init) {
-      this.url = input
+      // Use Object.defineProperty to set read-only url property
+      Object.defineProperty(this, 'url', {
+        value: input,
+        writable: false,
+        enumerable: true,
+        configurable: true,
+      })
       this.method = init?.method || 'GET'
       this.headers = new Headers(init?.headers)
       this._body = init?.body
@@ -27,6 +33,16 @@ global.Response =
 
     async json() {
       return JSON.parse(this.body || '{}')
+    }
+
+    static json(data, init) {
+      return new Response(JSON.stringify(data), {
+        ...init,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(init?.headers || {}),
+        },
+      })
     }
   }
 

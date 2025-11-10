@@ -5,6 +5,7 @@ import {
   UpdateItemCommand,
   QueryCommand,
   DeleteItemCommand,
+  ScanCommand,
 } from '@aws-sdk/client-dynamodb'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
 import { logger } from './logger'
@@ -16,6 +17,7 @@ import { config } from './config'
  */
 export type InterviewStatus =
   | 'scheduled' // Waiting for scheduled start time
+  | 'activated' // Take-home test activated, provisioning starting
   | 'initializing' // Terraform provisioning AWS resources
   | 'configuring' // Infrastructure ready, ECS container booting
   | 'active' // Fully ready for candidate access
@@ -32,6 +34,7 @@ export interface Interview {
   candidateName: string
   challenge: string
   status: InterviewStatus
+  type: 'regular' | 'take-home' // Differentiates interview types
 
   // Access details (available when status is 'active')
   accessUrl?: string
@@ -39,8 +42,15 @@ export interface Interview {
 
   // Scheduling information
   createdAt: Date
-  scheduledAt?: Date
+  scheduledAt?: Date // Only for regular interviews
   autoDestroyAt?: Date
+
+  // Take-home specific fields
+  passcode?: string // 8-char code for candidate access
+  validUntil?: Date // Invitation expiry
+  customInstructions?: string // Additional instructions
+  durationMinutes?: number // Test duration
+  activatedAt?: Date // When candidate clicked "Start Test"
 
   // Completion information (for history)
   completedAt?: Date
@@ -66,6 +76,7 @@ interface InterviewDynamoItem {
   candidateName: string
   challenge: string
   status: InterviewStatus
+  type: 'regular' | 'take-home'
   accessUrl?: string
   password?: string
 
@@ -73,6 +84,14 @@ interface InterviewDynamoItem {
   createdAt: number
   scheduledAt?: number
   autoDestroyAt?: number
+
+  // Take-home specific
+  passcode?: string
+  validUntil?: number
+  customInstructions?: string
+  durationMinutes?: number
+  activatedAt?: number
+
   completedAt?: number
   destroyedAt?: number
 
@@ -106,6 +125,7 @@ export class InterviewManager {
     const now = new Date()
     const fullInterview: Interview = {
       ...interview,
+      type: interview.type ?? 'regular', // Default to regular if not provided
       createdAt: now,
     }
 
@@ -130,6 +150,7 @@ export class InterviewManager {
         interviewId: interview.id,
         candidateName: interview.candidateName,
         status: interview.status,
+        type: fullInterview.type,
       })
 
       return fullInterview
@@ -169,6 +190,71 @@ export class InterviewManager {
   }
 
   /**
+   * Get an interview by its passcode (for take-home tests)
+   *
+   * @param passcode - The 8-character passcode
+   * @returns Interview record or null if not found
+   */
+  async getInterviewByPasscode(passcode: string): Promise<Interview | null> {
+    try {
+      // Try using the PasscodeIndex GSI first
+      try {
+        const command = new QueryCommand({
+          TableName: this.tableName,
+          IndexName: 'PasscodeIndex',
+          KeyConditionExpression: 'passcode = :passcode',
+          ExpressionAttributeValues: marshall({
+            ':passcode': passcode,
+          }),
+          Limit: 1, // Passcodes are unique
+        })
+
+        const response = await this.dynamoClient.send(command)
+
+        if (!response.Items || response.Items.length === 0) {
+          return null
+        }
+
+        return this.dynamoItemToInterview(unmarshall(response.Items[0]))
+      } catch (indexError: unknown) {
+        // If PasscodeIndex doesn't exist yet (before terraform apply),
+        // fall back to scanning the table
+        const error = indexError as { name?: string }
+        if (error.name === 'ResourceNotFoundException') {
+          logger.warn(
+            'PasscodeIndex not found, falling back to table scan. Run terraform apply to create the index.',
+            { passcode }
+          )
+
+          const scanCommand = new ScanCommand({
+            TableName: this.tableName,
+            FilterExpression: 'passcode = :passcode',
+            ExpressionAttributeValues: marshall({
+              ':passcode': passcode,
+            }),
+            Limit: 1,
+          })
+
+          const scanResponse = await this.dynamoClient.send(scanCommand)
+
+          if (!scanResponse.Items || scanResponse.Items.length === 0) {
+            return null
+          }
+
+          return this.dynamoItemToInterview(unmarshall(scanResponse.Items[0]))
+        }
+        throw indexError
+      }
+    } catch (error) {
+      logger.error('Error getting interview by passcode', {
+        passcode,
+        error,
+      })
+      throw error
+    }
+  }
+
+  /**
    * Updates interview status and metadata.
    */
   async updateInterviewStatus(
@@ -182,6 +268,10 @@ export class InterviewManager {
         | 'completedAt'
         | 'destroyedAt'
         | 'historyS3Key'
+        | 'activatedAt'
+        | 'scheduledAt'
+        | 'autoDestroyAt'
+        | 'saveFiles'
       >
     > = {}
   ): Promise<void> {
@@ -191,10 +281,11 @@ export class InterviewManager {
     const expressionAttributeNames: Record<string, string> = {
       '#status': 'status',
     }
-    const expressionAttributeValues: Record<string, string | number> = {
-      ':status': status,
-      ':updatedAt': Math.floor(now.getTime() / 1000),
-    }
+    const expressionAttributeValues: Record<string, string | number | boolean> =
+      {
+        ':status': status,
+        ':updatedAt': Math.floor(now.getTime() / 1000),
+      }
 
     // Add completion timestamp for terminal states
     if (status === 'destroyed' || status === 'error') {
@@ -260,10 +351,12 @@ export class InterviewManager {
   async getActiveInterviews(): Promise<Interview[]> {
     const activeStatuses: InterviewStatus[] = [
       'scheduled',
+      'activated', // Take-home test activated, provisioning starting
       'initializing',
       'configuring',
       'active',
       'destroying',
+      'error', // Failed interviews should remain visible for troubleshooting
     ]
     const interviews: Interview[] = []
 
@@ -412,6 +505,12 @@ export class InterviewManager {
       autoDestroyAt: interview.autoDestroyAt
         ? Math.floor(interview.autoDestroyAt.getTime() / 1000)
         : undefined,
+      validUntil: interview.validUntil
+        ? Math.floor(interview.validUntil.getTime() / 1000)
+        : undefined,
+      activatedAt: interview.activatedAt
+        ? Math.floor(interview.activatedAt.getTime() / 1000)
+        : undefined,
       completedAt: interview.completedAt
         ? Math.floor(interview.completedAt.getTime() / 1000)
         : undefined,
@@ -436,6 +535,12 @@ export class InterviewManager {
         : undefined,
       autoDestroyAt: dynamoItem.autoDestroyAt
         ? new Date(dynamoItem.autoDestroyAt * 1000)
+        : undefined,
+      validUntil: dynamoItem.validUntil
+        ? new Date(dynamoItem.validUntil * 1000)
+        : undefined,
+      activatedAt: dynamoItem.activatedAt
+        ? new Date(dynamoItem.activatedAt * 1000)
         : undefined,
       completedAt: dynamoItem.completedAt
         ? new Date(dynamoItem.completedAt * 1000)
@@ -471,16 +576,36 @@ export class InterviewManager {
     fullOutput?: string
   }> {
     try {
-      // Create DynamoDB record first
-      await this.createInterview({
-        id: instance.id,
-        candidateName: instance.candidateName,
-        challenge: instance.challenge,
-        status: 'initializing',
-        scheduledAt,
-        autoDestroyAt,
-        saveFiles,
-      })
+      // Check if interview already exists (e.g., take-home test that was activated)
+      const existingInterview = await this.getInterview(instance.id)
+
+      if (existingInterview) {
+        // Update existing interview to initializing status
+        // Include password for take-home tests (password is generated during activation)
+        await this.updateInterviewStatus(instance.id, 'initializing', {
+          password: instance.password,
+          scheduledAt,
+          autoDestroyAt,
+          saveFiles,
+        })
+        logger.info('Updated existing interview to initializing', {
+          interviewId: instance.id,
+          type: existingInterview.type,
+        })
+      } else {
+        // Create new DynamoDB record for regular interviews
+        await this.createInterview({
+          id: instance.id,
+          candidateName: instance.candidateName,
+          challenge: instance.challenge,
+          password: instance.password,
+          status: 'initializing',
+          type: 'regular', // Regular interviews (not take-home)
+          scheduledAt,
+          autoDestroyAt,
+          saveFiles,
+        })
+      }
 
       if (onData) {
         onData('Created interview record in DynamoDB\n')

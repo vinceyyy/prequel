@@ -220,6 +220,9 @@ export class SchedulerService {
 
       // Process DynamoDB interviews auto-destroy (new approach)
       await this.processInterviewsAutoDestroy()
+
+      // Process expired take-home tests
+      await this.processExpiredTakehomes()
     } catch (error) {
       // Handle DynamoDB throttling gracefully
       if (error instanceof Error && error.name === 'ThrottlingException') {
@@ -395,6 +398,53 @@ export class SchedulerService {
       }
     } catch (error) {
       schedulerLogger.error('Error in processInterviewsAutoDestroy', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }
+
+  /**
+   * Processes expired take-home tests (validUntil has passed).
+   * Marks expired take-home tests as destroyed.
+   */
+  private async processExpiredTakehomes() {
+    try {
+      // Get all active interviews (includes take-home tests)
+      const activeInterviews = await interviewManager.getActiveInterviews()
+      const now = new Date()
+
+      // Filter to only take-home tests that are still invitations (not yet activated)
+      const activeTakehomeInvitations = activeInterviews.filter(
+        interview =>
+          interview.type === 'take-home' &&
+          interview.status === 'active' && // Still an invitation (not started)
+          interview.validUntil !== undefined
+      )
+
+      for (const interview of activeTakehomeInvitations) {
+        const validUntil = interview.validUntil!
+        if (now > validUntil) {
+          schedulerLogger.info(
+            `Marking expired take-home invitation as destroyed: ${interview.passcode}`,
+            {
+              interviewId: interview.id,
+              passcode: interview.passcode,
+              candidateName: interview.candidateName,
+              validUntil: interview.validUntil?.toISOString(),
+            }
+          )
+          // Mark as destroyed (it was never activated, so no infrastructure to clean up)
+          await interviewManager.updateInterviewStatus(
+            interview.id,
+            'destroyed',
+            {
+              destroyedAt: new Date(),
+            }
+          )
+        }
+      }
+    } catch (error) {
+      schedulerLogger.error('Error in processExpiredTakehomes', {
         error: error instanceof Error ? error.message : 'Unknown error',
       })
     }

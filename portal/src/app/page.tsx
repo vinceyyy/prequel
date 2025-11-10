@@ -4,8 +4,213 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
 import CleanupDashboard from '@/components/CleanupDashboard'
 import AuthStatus from '@/components/AuthStatus'
+import { TakehomeTable } from '@/components/TakehomeTable'
 import { useOperations } from '@/hooks/useOperations'
 import { useSSE, type OperationData } from '@/hooks/useSSE'
+
+function TakehomeForm({
+  formData,
+  setFormData,
+  challenges,
+  onSubmit,
+  onCancel,
+  creating,
+}: {
+  formData: {
+    candidateName: string
+    challenge: string
+    customInstructions: string
+    availabilityWindowDays: number
+    durationMinutes: number
+  }
+  setFormData: (data: {
+    candidateName: string
+    challenge: string
+    customInstructions: string
+    availabilityWindowDays: number
+    durationMinutes: number
+  }) => void
+  challenges: Array<{
+    id: string
+    name: string
+    description: string
+    usageCount: number
+    ecsConfig: { cpuCores: number; memory: number; storage: number }
+    createdAt: string
+    lastUsedAt?: string
+  }>
+  onSubmit: () => void
+  onCancel: () => void
+  creating: boolean
+}) {
+  return (
+    <div className="space-y-4">
+      {/* Candidate Name */}
+      <div>
+        <label className="block text-sm font-medium text-slate-900 mb-1">
+          Candidate Name
+        </label>
+        <input
+          type="text"
+          value={formData.candidateName}
+          onChange={e =>
+            setFormData({ ...formData, candidateName: e.target.value })
+          }
+          className="input-field"
+          placeholder="Enter candidate name"
+          required
+        />
+      </div>
+
+      {/* Challenge Selection */}
+      <div>
+        <label className="block text-sm font-medium text-slate-900 mb-2">
+          Interview Challenge
+        </label>
+        <div className="space-y-3 max-h-64 overflow-y-auto">
+          {challenges.length === 0 ? (
+            <div className="text-slate-500 text-sm p-3 border border-slate-200 rounded-lg">
+              No challenges available. Create challenges first.
+            </div>
+          ) : (
+            challenges.map(challenge => (
+              <div key={challenge.id}>
+                <label className="flex items-start space-x-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="takehome-challenge"
+                    value={challenge.id}
+                    checked={formData.challenge === challenge.id}
+                    onChange={e =>
+                      setFormData({
+                        ...formData,
+                        challenge: e.target.value,
+                      })
+                    }
+                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-slate-900">
+                        {challenge.name}
+                      </h4>
+                      <div className="flex items-center space-x-2 text-xs text-slate-500">
+                        <span>Used {challenge.usageCount} times</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-600 mt-1">
+                      {challenge.description}
+                    </p>
+                    <div className="mt-2 text-xs text-slate-600">
+                      {challenge.ecsConfig.cpuCores} CPU{' '}
+                      {challenge.ecsConfig.cpuCores === 1 ? 'core' : 'cores'} /{' '}
+                      {challenge.ecsConfig.memory / 1024}GB RAM /{' '}
+                      {challenge.ecsConfig.storage}GB Storage
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                      <span>
+                        Created:{' '}
+                        {new Date(challenge.createdAt).toLocaleDateString()}
+                      </span>
+                      <span>
+                        {challenge.lastUsedAt
+                          ? `Last used: ${new Date(
+                              challenge.lastUsedAt
+                            ).toLocaleDateString()}`
+                          : 'Never used'}
+                      </span>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Custom Instructions */}
+      <div>
+        <label className="block text-sm font-medium text-slate-900 mb-1">
+          Custom Instructions
+        </label>
+        <textarea
+          value={formData.customInstructions}
+          onChange={e =>
+            setFormData({ ...formData, customInstructions: e.target.value })
+          }
+          className="input-field"
+          rows={4}
+          placeholder="Additional instructions for the candidate..."
+        />
+      </div>
+
+      {/* Availability Window */}
+      <div>
+        <label className="block text-sm font-medium text-slate-900 mb-1">
+          Availability Window (days)
+        </label>
+        <input
+          type="number"
+          value={formData.availabilityWindowDays}
+          onChange={e =>
+            setFormData({
+              ...formData,
+              availabilityWindowDays: parseInt(e.target.value) || 7,
+            })
+          }
+          className="input-field"
+          min={1}
+          max={30}
+        />
+        <p className="text-xs text-slate-600 mt-1">
+          How many days the candidate has to start the interview
+        </p>
+      </div>
+
+      {/* Duration */}
+      <div>
+        <label className="block text-sm font-medium text-slate-900 mb-1">
+          Interview Duration
+        </label>
+        <select
+          value={formData.durationMinutes}
+          onChange={e =>
+            setFormData({
+              ...formData,
+              durationMinutes: parseInt(e.target.value),
+            })
+          }
+          className="input-field"
+        >
+          <option value={60}>1 hour</option>
+          <option value={120}>2 hours</option>
+          <option value={180}>3 hours</option>
+          <option value={240}>4 hours</option>
+          <option value={300}>5 hours</option>
+          <option value={360}>6 hours</option>
+          <option value={420}>7 hours</option>
+          <option value={480}>8 hours</option>
+        </select>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3 mt-6">
+        <button
+          onClick={onSubmit}
+          disabled={
+            creating || !formData.candidateName.trim() || !formData.challenge
+          }
+          className="flex-1 btn-primary"
+        >
+          {creating ? 'Creating...' : 'Create Take-Home'}
+        </button>
+        <button onClick={onCancel} className="flex-1 btn-outline">
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
 
 interface Interview {
   id: string
@@ -19,6 +224,7 @@ interface Interview {
     | 'destroyed'
     | 'error'
   challenge: string
+  type?: 'regular' | 'take-home' // Differentiates interview types
   saveFiles: boolean
   accessUrl?: string
   password?: string
@@ -29,6 +235,27 @@ interface Interview {
   destroyedAt?: string
   historyS3Key?: string
   operationId?: string
+  passcode?: string // For take-home tests
+  validUntil?: string // For take-home tests
+  customInstructions?: string // For take-home tests
+  durationMinutes?: number // For take-home tests
+}
+
+interface Takehome {
+  passcode: string
+  candidateName: string
+  challenge: string
+  customInstructions: string
+  status: string
+  validUntil: string
+  createdAt: string
+  activatedAt?: string
+  durationMinutes: number
+  url: string
+  interviewId?: string
+  accessUrl?: string
+  password?: string
+  autoDestroyAt?: string
 }
 
 export default function Home() {
@@ -36,10 +263,11 @@ export default function Home() {
   const [historicalInterviews, setHistoricalInterviews] = useState<Interview[]>(
     []
   )
-  const [activeTab, setActiveTab] = useState<'current' | 'history' | 'admin'>(
-    'current'
-  )
+  const [activeTab, setActiveTab] = useState<
+    'current' | 'history' | 'takehome' | 'takehomeHistory' | 'admin'
+  >('current')
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showCreateTakehomeForm, setShowCreateTakehomeForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [creatingInterviewId, setCreatingInterviewId] = useState<string | null>(
     null
@@ -60,6 +288,17 @@ export default function Home() {
     enableScheduling: false,
     saveFiles: true, // Default to true as requested
   })
+
+  // Take-home test state
+  const [takehomeFormData, setTakehomeFormData] = useState({
+    candidateName: '',
+    challenge: '',
+    customInstructions: '',
+    availabilityWindowDays: 7,
+    durationMinutes: 240,
+  })
+  const [takehomes, setTakehomes] = useState<Takehome[]>([])
+  const [takehomeHistory, setTakehomeHistory] = useState<Takehome[]>([])
 
   // Use the operations hook for background operations
   const { destroyInterview } = useOperations()
@@ -113,16 +352,74 @@ export default function Home() {
       if (response.ok) {
         const data = await response.json()
         console.log(
-          '[DEBUG] Loaded current interviews from API:',
+          '[DEBUG] Loaded interviews from unified API:',
           data.interviews?.map((i: Interview) => ({
             id: i.id,
             status: i.status,
             candidateName: i.candidateName,
+            type: i.type,
           }))
         )
 
-        const newInterviews = data.interviews || []
-        setInterviews(newInterviews)
+        if (data.interviews) {
+          // Separate by type
+          const regularInterviews = data.interviews.filter(
+            (i: Interview) => i.type !== 'take-home'
+          )
+          const takehomeInterviews = data.interviews.filter(
+            (i: Interview) => i.type === 'take-home'
+          )
+
+          console.log(
+            `[DEBUG] Filtered: ${regularInterviews.length} regular, ${takehomeInterviews.length} take-home`
+          )
+
+          setInterviews(regularInterviews)
+
+          // Separate active and historical take-homes
+          const activeTakehomes = takehomeInterviews.filter(
+            (i: Interview) => i.status !== 'destroyed' && i.status !== 'error'
+          )
+          const historicalTakehomes = takehomeInterviews.filter(
+            (i: Interview) => i.status === 'destroyed' || i.status === 'error'
+          )
+
+          setTakehomes(
+            activeTakehomes.map((i: Interview) => ({
+              passcode: i.passcode || '',
+              candidateName: i.candidateName,
+              challenge: i.challenge,
+              status: i.status,
+              validUntil: i.validUntil || '',
+              customInstructions: i.customInstructions || '',
+              durationMinutes: i.durationMinutes || 240,
+              url: `${window.location.origin}/take-home/${i.passcode}`,
+              interviewId: i.id,
+              accessUrl: i.accessUrl,
+              password: i.password,
+              autoDestroyAt: i.autoDestroyAt,
+              createdAt: i.createdAt,
+            }))
+          )
+
+          setTakehomeHistory(
+            historicalTakehomes.map((i: Interview) => ({
+              passcode: i.passcode || '',
+              candidateName: i.candidateName,
+              challenge: i.challenge,
+              status: i.status,
+              validUntil: i.validUntil || '',
+              customInstructions: i.customInstructions || '',
+              durationMinutes: i.durationMinutes || 240,
+              url: `${window.location.origin}/take-home/${i.passcode}`,
+              interviewId: i.id,
+              accessUrl: i.accessUrl,
+              password: i.password,
+              autoDestroyAt: i.autoDestroyAt,
+              createdAt: i.createdAt,
+            }))
+          )
+        }
       } else {
         console.error('Failed to load current interviews')
       }
@@ -151,7 +448,16 @@ export default function Home() {
           'interviews'
         )
 
-        setHistoricalInterviews(data.interviews || [])
+        // Filter out take-home tests (they have their own history tab)
+        const regularHistoricalInterviews = (data.interviews || []).filter(
+          (i: Interview) => i.type !== 'take-home'
+        )
+
+        console.log(
+          `[DEBUG] Filtered historical: ${regularHistoricalInterviews.length} regular (excluded ${(data.interviews || []).length - regularHistoricalInterviews.length} take-home)`
+        )
+
+        setHistoricalInterviews(regularHistoricalInterviews)
       } else {
         console.error('Failed to load historical interviews')
       }
@@ -162,6 +468,27 @@ export default function Home() {
       setHistoryLoading(false)
     }
   }, []) // Empty dependency array - function is stable
+
+  const revokeTakehome = async (passcode: string) => {
+    try {
+      const response = await fetch(`/api/takehome/${passcode}/revoke`, {
+        method: 'POST',
+      })
+      if (response.ok) {
+        setNotification('Take-home test revoked')
+        setTimeout(() => setNotification(null), 5000)
+        loadInterviews()
+      } else {
+        const data = await response.json()
+        setNotification(`Failed to revoke: ${data.error}`)
+        setTimeout(() => setNotification(null), 5000)
+      }
+    } catch (error) {
+      console.error('Error revoking take-home test:', error)
+      setNotification('Error revoking take-home test')
+      setTimeout(() => setNotification(null), 5000)
+    }
+  }
 
   // Step 1: Load both current interviews and history on initial page load
   useEffect(() => {
@@ -184,6 +511,12 @@ export default function Home() {
 
     return () => clearInterval(interval)
   }, [loadHistoricalInterviews])
+
+  // Fetch interviews/takehomes when tab changes
+  useEffect(() => {
+    // loadInterviews already loads both regular and take-home interviews
+    // No need for separate fetch
+  }, [activeTab])
 
   // Listen for SSE events to update data immediately and refresh
   useEffect(() => {
@@ -278,7 +611,7 @@ export default function Home() {
         console.log('Refreshing interviews from API due to SSE event')
         // Use setTimeout to allow immediate UI update first
         setTimeout(() => {
-          loadInterviews()
+          loadInterviews() // Loads both regular and take-home interviews
         }, 100)
       }
     }
@@ -391,6 +724,43 @@ export default function Home() {
           error instanceof Error ? error.message : 'Unknown error'
         }`
       )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const createTakehome = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/takehome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(takehomeFormData),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setNotification(
+          `Take-home test created! Passcode: ${data.passcode}\nURL: ${data.url}`
+        )
+        setShowCreateTakehomeForm(false)
+        // Reset form
+        setTakehomeFormData({
+          candidateName: '',
+          challenge: challenges.length > 0 ? challenges[0].id : '',
+          customInstructions: '',
+          availabilityWindowDays: 7,
+          durationMinutes: 240,
+        })
+      } else {
+        setNotification(`Failed to create take-home test: ${data.error}`)
+      }
+      setTimeout(() => setNotification(null), 7000)
+    } catch (error) {
+      console.error('Error creating take-home:', error)
+      setNotification('Error creating take-home test')
+      setTimeout(() => setNotification(null), 5000)
     } finally {
       setLoading(false)
     }
@@ -617,7 +987,13 @@ export default function Home() {
               onClick={() => setShowCreateForm(true)}
               className="btn-primary"
             >
-              Create New Interview
+              Create Interview
+            </button>
+            <button
+              onClick={() => setShowCreateTakehomeForm(true)}
+              className="btn-primary"
+            >
+              Create Take-Home Test
             </button>
             <a href="/challenges" className="btn-secondary">
               Manage Challenges
@@ -644,7 +1020,7 @@ export default function Home() {
                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeTab === 'current'
                     ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                    : 'border-transparent text-slate-700 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
                 Current Interviews
@@ -659,7 +1035,7 @@ export default function Home() {
                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeTab === 'history'
                     ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                    : 'border-transparent text-slate-700 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
                 Interview History
@@ -670,11 +1046,41 @@ export default function Home() {
                 )}
               </button>
               <button
+                onClick={() => setActiveTab('takehome')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === 'takehome'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-700 hover:text-slate-900 hover:border-slate-300'
+                }`}
+              >
+                Take-Home Tests
+                {takehomes.length > 0 && (
+                  <span className="ml-2 bg-green-100 text-green-600 text-xs px-2 py-1 rounded-full">
+                    {takehomes.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('takehomeHistory')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === 'takehomeHistory'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-700 hover:text-slate-900 hover:border-slate-300'
+                }`}
+              >
+                Take-Home History
+                {takehomeHistory.length > 0 && (
+                  <span className="ml-2 bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded-full">
+                    {takehomeHistory.length}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setActiveTab('admin')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeTab === 'admin'
                     ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                    : 'border-transparent text-slate-700 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
                 Admin
@@ -685,223 +1091,250 @@ export default function Home() {
 
         {showCreateForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="card p-4 sm:p-6 w-full max-w-md fade-in">
+            <div className="card p-4 sm:p-6 w-full max-w-md fade-in max-h-[90vh] overflow-y-auto">
               <h2 className="text-xl font-semibold mb-4 text-slate-900">
                 Create New Interview
               </h2>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Candidate Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.candidateName}
-                    onChange={e =>
-                      setFormData({
-                        ...formData,
-                        candidateName: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                    placeholder="Enter candidate name"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-2">
-                    Interview Challenge
-                  </label>
-                  <div className="space-y-3 max-h-64 overflow-y-auto">
-                    {challenges.length === 0 ? (
-                      <div className="text-slate-500 text-sm p-3 border border-slate-200 rounded-lg">
-                        No challenges available. Create challenges first.
-                      </div>
-                    ) : (
-                      challenges.map(challenge => (
-                        <div key={challenge.id}>
-                          <label className="flex items-start space-x-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="challenge"
-                              value={challenge.id}
-                              checked={formData.challenge === challenge.id}
-                              onChange={e =>
-                                setFormData({
-                                  ...formData,
-                                  challenge: e.target.value,
-                                })
-                              }
-                              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-medium text-slate-900">
-                                  {challenge.name}
-                                </h4>
-                                <div className="flex items-center space-x-2 text-xs text-slate-500">
-                                  <span>Used {challenge.usageCount} times</span>
-                                </div>
-                              </div>
-                              <p className="text-sm text-slate-600 mt-1">
-                                {challenge.description}
-                              </p>
-                              <div className="mt-2 text-xs text-slate-600">
-                                {challenge.ecsConfig.cpuCores} CPU{' '}
-                                {challenge.ecsConfig.cpuCores === 1
-                                  ? 'core'
-                                  : 'cores'}{' '}
-                                / {challenge.ecsConfig.memory / 1024}GB RAM /{' '}
-                                {challenge.ecsConfig.storage}GB Storage
-                              </div>
-                              <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                                <span>
-                                  Created:{' '}
-                                  {new Date(
-                                    challenge.createdAt
-                                  ).toLocaleDateString()}
-                                </span>
-                                <span>
-                                  {challenge.lastUsedAt
-                                    ? `Last used: ${new Date(
-                                        challenge.lastUsedAt
-                                      ).toLocaleDateString()}`
-                                    : 'Never used'}
-                                </span>
-                              </div>
-                            </div>
-                          </label>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Scheduling Options */}
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="enableScheduling"
-                      checked={formData.enableScheduling}
-                      onChange={e =>
-                        setFormData({
-                          ...formData,
-                          enableScheduling: e.target.checked,
-                        })
-                      }
-                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <label
-                      htmlFor="enableScheduling"
-                      className="text-sm font-medium text-slate-900"
-                    >
-                      Schedule for later
-                    </label>
-                  </div>
-
-                  {formData.enableScheduling && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-900 mb-1">
-                        Scheduled Start Time
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={formData.scheduledAt}
-                        onChange={e =>
-                          setFormData({
-                            ...formData,
-                            scheduledAt: e.target.value,
-                          })
-                        }
-                        min={new Date().toISOString().slice(0, 16)}
-                        className="input-field"
-                      />
-                    </div>
-                  )}
-
+              {/* Interview Form */}
+              <>
+                <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-900 mb-1">
-                      Interview Duration <span className="text-red-500">*</span>
+                      Candidate Name
                     </label>
-                    <select
-                      value={formData.autoDestroyMinutes}
+                    <input
+                      type="text"
+                      value={formData.candidateName}
                       onChange={e =>
                         setFormData({
                           ...formData,
-                          autoDestroyMinutes: parseInt(e.target.value),
+                          candidateName: e.target.value,
                         })
                       }
                       className="input-field"
-                      required
-                    >
-                      <option value={30}>30 minutes</option>
-                      <option value={45}>45 minutes</option>
-                      <option value={60}>1 hour</option>
-                      <option value={90}>1.5 hours</option>
-                      <option value={120}>2 hours</option>
-                      <option value={180}>3 hours</option>
-                      <option value={240}>4 hours</option>
-                    </select>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Required: Interview will auto-destroy after this duration
-                      to prevent resource waste
+                      placeholder="Enter candidate name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-900 mb-2">
+                      Interview Challenge
+                    </label>
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                      {challenges.length === 0 ? (
+                        <div className="text-slate-500 text-sm p-3 border border-slate-200 rounded-lg">
+                          No challenges available. Create challenges first.
+                        </div>
+                      ) : (
+                        challenges.map(challenge => (
+                          <div key={challenge.id}>
+                            <label className="flex items-start space-x-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="challenge"
+                                value={challenge.id}
+                                checked={formData.challenge === challenge.id}
+                                onChange={e =>
+                                  setFormData({
+                                    ...formData,
+                                    challenge: e.target.value,
+                                  })
+                                }
+                                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-sm font-medium text-slate-900">
+                                    {challenge.name}
+                                  </h4>
+                                  <div className="flex items-center space-x-2 text-xs text-slate-500">
+                                    <span>
+                                      Used {challenge.usageCount} times
+                                    </span>
+                                  </div>
+                                </div>
+                                <p className="text-sm text-slate-600 mt-1">
+                                  {challenge.description}
+                                </p>
+                                <div className="mt-2 text-xs text-slate-600">
+                                  {challenge.ecsConfig.cpuCores} CPU{' '}
+                                  {challenge.ecsConfig.cpuCores === 1
+                                    ? 'core'
+                                    : 'cores'}{' '}
+                                  / {challenge.ecsConfig.memory / 1024}GB RAM /{' '}
+                                  {challenge.ecsConfig.storage}GB Storage
+                                </div>
+                                <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                                  <span>
+                                    Created:{' '}
+                                    {new Date(
+                                      challenge.createdAt
+                                    ).toLocaleDateString()}
+                                  </span>
+                                  <span>
+                                    {challenge.lastUsedAt
+                                      ? `Last used: ${new Date(
+                                          challenge.lastUsedAt
+                                        ).toLocaleDateString()}`
+                                      : 'Never used'}
+                                  </span>
+                                </div>
+                              </div>
+                            </label>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Scheduling Options */}
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="enableScheduling"
+                        checked={formData.enableScheduling}
+                        onChange={e =>
+                          setFormData({
+                            ...formData,
+                            enableScheduling: e.target.checked,
+                          })
+                        }
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label
+                        htmlFor="enableScheduling"
+                        className="text-sm font-medium text-slate-900"
+                      >
+                        Schedule for later
+                      </label>
+                    </div>
+
+                    {formData.enableScheduling && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-900 mb-1">
+                          Scheduled Start Time
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={formData.scheduledAt}
+                          onChange={e =>
+                            setFormData({
+                              ...formData,
+                              scheduledAt: e.target.value,
+                            })
+                          }
+                          min={new Date().toISOString().slice(0, 16)}
+                          className="input-field"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-900 mb-1">
+                        Interview Duration{' '}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={formData.autoDestroyMinutes}
+                        onChange={e =>
+                          setFormData({
+                            ...formData,
+                            autoDestroyMinutes: parseInt(e.target.value),
+                          })
+                        }
+                        className="input-field"
+                        required
+                      >
+                        <option value={30}>30 minutes</option>
+                        <option value={45}>45 minutes</option>
+                        <option value={60}>1 hour</option>
+                        <option value={90}>1.5 hours</option>
+                        <option value={120}>2 hours</option>
+                        <option value={180}>3 hours</option>
+                        <option value={240}>4 hours</option>
+                      </select>
+                      <p className="text-xs text-slate-600 mt-1">
+                        Required: Interview will auto-destroy after this
+                        duration to prevent resource waste
+                      </p>
+                    </div>
+
+                    {/* File Saving Options */}
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="saveFiles"
+                        checked={formData.saveFiles}
+                        onChange={e =>
+                          setFormData({
+                            ...formData,
+                            saveFiles: e.target.checked,
+                          })
+                        }
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label
+                        htmlFor="saveFiles"
+                        className="text-sm font-medium text-slate-900"
+                      >
+                        Save candidate files to history
+                      </label>
+                    </div>
+                    <p className="text-xs text-slate-600 -mt-2">
+                      Recommended: Save candidate&apos;s work files before
+                      destroying the interview
                     </p>
                   </div>
-
-                  {/* File Saving Options */}
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="saveFiles"
-                      checked={formData.saveFiles}
-                      onChange={e =>
-                        setFormData({
-                          ...formData,
-                          saveFiles: e.target.checked,
-                        })
-                      }
-                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <label
-                      htmlFor="saveFiles"
-                      className="text-sm font-medium text-slate-900"
-                    >
-                      Save candidate files to history
-                    </label>
-                  </div>
-                  <p className="text-xs text-slate-500 -mt-2">
-                    Recommended: Save candidate&apos;s work files before
-                    destroying the interview
-                  </p>
                 </div>
-              </div>
 
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={handleCreateInterview}
-                  disabled={
-                    !formData.candidateName.trim() ||
-                    !formData.challenge ||
-                    loading ||
-                    (formData.enableScheduling && !formData.scheduledAt)
-                  }
-                  className="flex-1 btn-primary"
-                >
-                  {loading
-                    ? 'Creating...'
-                    : formData.enableScheduling
-                      ? 'Schedule Interview'
-                      : 'Create Interview'}
-                </button>
-                <button
-                  onClick={() => setShowCreateForm(false)}
-                  className="flex-1 btn-outline"
-                >
-                  Cancel
-                </button>
-              </div>
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={handleCreateInterview}
+                    disabled={
+                      !formData.candidateName.trim() ||
+                      !formData.challenge ||
+                      loading ||
+                      (formData.enableScheduling && !formData.scheduledAt)
+                    }
+                    className="flex-1 btn-primary"
+                  >
+                    {loading
+                      ? 'Creating...'
+                      : formData.enableScheduling
+                        ? 'Schedule Interview'
+                        : 'Create Interview'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCreateForm(false)
+                    }}
+                    className="flex-1 btn-outline"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            </div>
+          </div>
+        )}
+
+        {showCreateTakehomeForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="card p-4 sm:p-6 w-full max-w-md fade-in max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-semibold mb-4 text-slate-900">
+                Create Take-Home Test
+              </h2>
+
+              <TakehomeForm
+                formData={takehomeFormData}
+                setFormData={setTakehomeFormData}
+                challenges={challenges}
+                onSubmit={createTakehome}
+                onCancel={() => setShowCreateTakehomeForm(false)}
+                creating={loading}
+              />
             </div>
           </div>
         )}
@@ -1338,6 +1771,48 @@ export default function Home() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* Take-Home Tests Tab */}
+        {activeTab === 'takehome' && (
+          <div className="card overflow-hidden">
+            <TakehomeTable
+              takehomes={takehomes}
+              challenges={challenges}
+              onRevoke={revokeTakehome}
+              onViewLogs={interviewId => {
+                setSelectedInterviewForLogs(interviewId)
+                setShowLogsModal(true)
+              }}
+            />
+          </div>
+        )}
+
+        {/* Take-Home Test History Tab */}
+        {activeTab === 'takehomeHistory' && (
+          <div className="card overflow-hidden">
+            {takehomeHistory.length === 0 ? (
+              <div className="p-6 sm:p-8 text-center text-slate-500">
+                <p className="text-lg">No take-home test history yet</p>
+                <p className="text-sm mt-2">
+                  Completed, expired, or revoked take-home tests will appear
+                  here
+                </p>
+              </div>
+            ) : (
+              <TakehomeTable
+                takehomes={takehomeHistory}
+                challenges={challenges}
+                onRevoke={async passcode => {
+                  // History items can't be revoked again
+                  console.log(
+                    'Cannot revoke historical take-home test:',
+                    passcode
+                  )
+                }}
+              />
+            )}
           </div>
         )}
 
