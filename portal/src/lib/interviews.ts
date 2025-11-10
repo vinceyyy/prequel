@@ -464,14 +464,14 @@ export class InterviewManager {
       candidateName: string
       challenge: string
       password: string
+      openaiApiKey: string | undefined
     },
     onData?: (data: string) => void,
     onInfrastructureReady?: (accessUrl: string) => void,
     scheduledAt?: Date,
     autoDestroyAt?: Date,
     saveFiles?: boolean,
-    openaiServiceAccountId?: string,
-    openaiApiKey?: string
+    openaiServiceAccountId?: string
   ): Promise<{
     success: boolean
     error?: string
@@ -491,7 +491,7 @@ export class InterviewManager {
         autoDestroyAt,
         saveFiles,
         openaiServiceAccountId,
-        openaiApiKey,
+        openaiApiKey: instance.openaiApiKey,
       })
 
       if (onData) {

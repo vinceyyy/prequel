@@ -33,7 +33,7 @@ export interface InterviewInstance {
   candidateName: string // Name of the candidate taking the interview
   challenge: string // Challenge name (e.g., 'javascript', 'python')
   password: string // Generated password for VS Code access
-  openai_api_key?: string // Optional OpenAI API key for AI assistance
+  openaiApiKey?: string // Optional OpenAI API key
   accessUrl?: string // Full URL to access the VS Code instance
   status:
     | 'scheduled' // Waiting for scheduled start time
@@ -447,6 +447,7 @@ class TerraformManager {
           this.terraformStateBucket
         )
         .replaceAll('AWS_REGION_PLACEHOLDER', this.awsRegion)
+        .replaceAll('ENVIRONMENT_PLACEHOLDER', config.project.environment)
       await fs.writeFile(mainTfPath, mainTfContent)
 
       // Upload new workspace to S3 for persistence
@@ -466,9 +467,8 @@ interview_id = "${instance.id}"
 candidate_name = "${instance.candidateName}"
 challenge = "${instance.challenge}"
 password = "${instance.password}"
-openai_project_id = "${config.services.openaiProjectId}"
-openai_service_account_name = "${instance.candidateName}"
 welcome_text = "Welcome, ${instance.candidateName}!"
+openai_api_key = "${instance.openaiApiKey}"
 `.trim()
     console.log(`[createTfvarsFile] tfvarsContent: ${tfvarsContent}`)
 

@@ -156,15 +156,10 @@ export async function POST(request: NextRequest) {
       console.warn('Failed to track challenge usage:', error)
       await operationManager.addOperationLog(
         operationId,
-        `⚠️ Could not track challenge usage: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `⚠️ Could not track challenge usage: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
       )
-    }
-
-    const instance = {
-      id: interviewId,
-      candidateName,
-      challenge,
-      password,
     }
 
     // If scheduled for later, don't start immediately
@@ -248,10 +243,23 @@ export async function POST(request: NextRequest) {
           } else {
             await operationManager.addOperationLog(
               operationId,
-              `⚠️ OpenAI service account creation failed: ${serviceAccountResult.error}`
+              `❌ OpenAI service account creation failed: ${serviceAccountResult.error}`
             )
-            // Don't fail the entire interview creation - just continue without OpenAI
+            await operationManager.setOperationResult(operationId, {
+              success: false,
+              error: `Failed to create OpenAI service account: ${serviceAccountResult.error}`,
+            })
+            return // Exit early - don't proceed with interview creation
           }
+        }
+
+        // the information that will be passed into the instance
+        const instance = {
+          id: interviewId,
+          candidateName,
+          challenge,
+          password,
+          openaiApiKey,
         }
 
         const result = await interviewManager.createInterviewWithInfrastructure(
@@ -288,8 +296,7 @@ export async function POST(request: NextRequest) {
           scheduledDate,
           autoDestroyDate,
           saveFiles,
-          serviceAccountId,
-          openaiApiKey
+          serviceAccountId
         )
 
         if (result.success) {

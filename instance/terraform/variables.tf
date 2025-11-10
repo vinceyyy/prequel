@@ -36,3 +36,9 @@ variable "welcome_text" {
   type        = string
   default     = "Welcome!"
 }
+
+variable "openai_api_key" {
+  description = "The temporary OPENAI API KEY for the candidate to use"
+  type        = string
+  sensitive   = true
+}
