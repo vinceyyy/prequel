@@ -40,4 +40,4 @@ __pycache__/
 # Terraform state backups (keep locally, don't commit)
 infra/backups/
 # Documentation files (may contain sensitive information)
-docs/
+docs/plans/
