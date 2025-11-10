@@ -3,6 +3,7 @@ import { interviewManager } from '@/lib/interviews'
 import { operationManager } from '@/lib/operations'
 import { challengeService } from '@/lib/challenges'
 import { config } from '@/lib/config'
+import { openaiService } from '@/lib/openai'
 import { v4 as uuidv4 } from 'uuid'
 
 /**
@@ -222,6 +223,37 @@ export async function POST(request: NextRequest) {
           `Challenge: ${challenge}`
         )
 
+        // Create OpenAI service account if configured
+        let serviceAccountId: string | undefined
+        let openaiApiKey: string | undefined
+
+        if (config.services.openaiProjectId && config.services.openaiAdminKey) {
+          await operationManager.addOperationLog(
+            operationId,
+            '🤖 Creating OpenAI service account...'
+          )
+
+          const serviceAccountResult = await openaiService.createServiceAccount(
+            config.services.openaiProjectId,
+            `interview-${interviewId}`
+          )
+
+          if (serviceAccountResult.success) {
+            serviceAccountId = serviceAccountResult.serviceAccountId
+            openaiApiKey = serviceAccountResult.apiKey
+            await operationManager.addOperationLog(
+              operationId,
+              `✅ OpenAI service account created: ${serviceAccountId}`
+            )
+          } else {
+            await operationManager.addOperationLog(
+              operationId,
+              `⚠️ OpenAI service account creation failed: ${serviceAccountResult.error}`
+            )
+            // Don't fail the entire interview creation - just continue without OpenAI
+          }
+        }
+
         const result = await interviewManager.createInterviewWithInfrastructure(
           instance,
           (data: string) => {
@@ -255,7 +287,9 @@ export async function POST(request: NextRequest) {
           },
           scheduledDate,
           autoDestroyDate,
-          saveFiles
+          saveFiles,
+          serviceAccountId,
+          openaiApiKey
         )
 
         if (result.success) {

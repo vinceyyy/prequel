@@ -469,7 +469,9 @@ export class InterviewManager {
     onInfrastructureReady?: (accessUrl: string) => void,
     scheduledAt?: Date,
     autoDestroyAt?: Date,
-    saveFiles?: boolean
+    saveFiles?: boolean,
+    openaiServiceAccountId?: string,
+    openaiApiKey?: string
   ): Promise<{
     success: boolean
     error?: string
@@ -488,6 +490,8 @@ export class InterviewManager {
         scheduledAt,
         autoDestroyAt,
         saveFiles,
+        openaiServiceAccountId,
+        openaiApiKey,
       })
 
       if (onData) {
