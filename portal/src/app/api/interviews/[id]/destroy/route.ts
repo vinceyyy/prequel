@@ -207,8 +207,12 @@ export async function POST(
           )
         }
 
-        const result =
-          await interviewManager.destroyInterviewWithInfrastructure(
+        // Run infrastructure destruction and OpenAI cleanup in parallel
+        const promises: Promise<unknown>[] = []
+
+        // Infrastructure destruction
+        const infrastructurePromise =
+          interviewManager.destroyInterviewWithInfrastructure(
             interviewId,
             (data: string) => {
               // Add each line to operation logs
@@ -225,39 +229,72 @@ export async function POST(
             challenge,
             saveFiles
           )
+        promises.push(infrastructurePromise)
 
-        if (result.success) {
+        // OpenAI service account deletion (if exists)
+        let openaiPromise: Promise<{
+          success: boolean
+          error?: string
+        }> | null = null
+
+        if (interview?.openaiServiceAccountId) {
+          await operationManager.addOperationLog(
+            operationId,
+            '🤖 Deleting OpenAI service account...'
+          )
+
+          openaiPromise = openaiService.deleteServiceAccount(
+            config.services.openaiProjectId,
+            interview?.openaiServiceAccountId
+          )
+          promises.push(openaiPromise)
+        }
+
+        // Wait for both operations to complete
+        const [infrastructureResult, openaiResult] = (await Promise.all(
+          promises
+        )) as [
+          Awaited<
+            ReturnType<
+              typeof interviewManager.destroyInterviewWithInfrastructure
+            >
+          >,
+          Awaited<ReturnType<typeof openaiService.deleteServiceAccount>> | null,
+        ]
+
+        // Log results
+        if (infrastructureResult.success) {
           await operationManager.addOperationLog(
             operationId,
             '✅ Infrastructure destroyed successfully'
           )
+        } else {
+          await operationManager.addOperationLog(
+            operationId,
+            '❌ Infrastructure destruction failed'
+          )
+          await operationManager.addOperationLog(
+            operationId,
+            `Error: ${infrastructureResult.error}`
+          )
+        }
 
-          // Delete OpenAI service account if it exists
-          if (interview?.openaiServiceAccountId) {
+        if (openaiResult) {
+          if (openaiResult.success) {
             await operationManager.addOperationLog(
               operationId,
-              '🤖 Deleting OpenAI service account...'
+              `✅ OpenAI service account deleted: ${interview?.openaiServiceAccountId}`
             )
-
-            const deleteResult = await openaiService.deleteServiceAccount(
-              config.services.openaiProjectId,
-              interview.openaiServiceAccountId
+          } else {
+            await operationManager.addOperationLog(
+              operationId,
+              `⚠️ OpenAI service account deletion failed: ${openaiResult.error}`
             )
-
-            if (deleteResult.success) {
-              await operationManager.addOperationLog(
-                operationId,
-                `✅ OpenAI service account deleted: ${interview.openaiServiceAccountId}`
-              )
-            } else {
-              await operationManager.addOperationLog(
-                operationId,
-                `⚠️ OpenAI service account deletion failed: ${deleteResult.error}`
-              )
-              // Don't fail the entire destruction - service account can be cleaned up manually
-            }
+            // Don't fail the entire destruction - service account can be cleaned up manually
           }
+        }
 
+        if (infrastructureResult.success) {
           await operationManager.addOperationLog(
             operationId,
             '✅ Interview destroyed successfully!'
@@ -265,23 +302,14 @@ export async function POST(
 
           await operationManager.setOperationResult(operationId, {
             success: true,
-            fullOutput: result.fullOutput,
-            historyS3Key: result.historyS3Key,
+            fullOutput: infrastructureResult.fullOutput,
+            historyS3Key: infrastructureResult.historyS3Key,
           })
         } else {
-          await operationManager.addOperationLog(
-            operationId,
-            '❌ Interview destruction failed'
-          )
-          await operationManager.addOperationLog(
-            operationId,
-            `Error: ${result.error}`
-          )
-
           await operationManager.setOperationResult(operationId, {
             success: false,
-            error: result.error,
-            fullOutput: result.fullOutput,
+            error: infrastructureResult.error,
+            fullOutput: infrastructureResult.fullOutput,
           })
         }
       } catch (error) {
