@@ -1,0 +1,20 @@
+# infra/environments/prod/terraform.tfvars.example
+# Copy this file to terraform.tfvars and fill in your actual values
+# NEVER commit terraform.tfvars to version control!
+
+aws_region             = "us-east-1"
+environment            = "prod"
+project_prefix         = "your-project-prefix"
+terraform_state_bucket = "your-project-prod-terraform-state"
+domain_name            = "your-domain.example.com"
+
+# Authentication
+enable_auth   = true
+auth_passcode = "your-secure-passcode"
+
+# OpenAI Service Configuration
+openai_admin_key  = "sk-admin-YOUR_OPENAI_ADMIN_KEY_HERE"
+openai_project_id = "proj_YOUR_OPENAI_PROJECT_ID_HERE"
+
+# Logging
+log_level = "info"
