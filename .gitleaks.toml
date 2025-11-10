@@ -1,0 +1,155 @@
+# Gitleaks configuration for Prequel project
+# Prevents accidental commits of API keys, AWS credentials, and other secrets
+
+title = "Gitleaks config for Prequel"
+
+[extend]
+# Use default gitleaks rules as base
+useDefault = true
+
+[[rules]]
+description = "OpenAI API Keys (Production)"
+id = "openai-api-key"
+regex = '''sk-[a-zA-Z0-9]{40,}'''
+keywords = ["sk-"]
+# Exclude test mock keys
+[rules.allowlist]
+regexes = [
+  '''sk-test''',
+  '''sk-admin-test''',
+  '''sk-.*YOUR.*KEY''',
+  '''sk-.*your.*key''',
+  '''sk-.*placeholder''',
+  '''sk-.*example'''
+]
+paths = [
+  '''\.test\.(ts|tsx|js|jsx)$''',
+  '''\.spec\.(ts|tsx|js|jsx)$''',
+  '''\.example$'''
+]
+
+[[rules]]
+description = "OpenAI Admin API Keys (Production)"
+id = "openai-admin-key"
+regex = '''sk-admin-[a-zA-Z0-9]{48,}'''
+keywords = ["sk-admin-"]
+[rules.allowlist]
+regexes = [
+  '''sk-admin-test''',
+  '''sk-admin-YOUR''',
+  '''sk-admin-your''',
+  '''sk-admin-placeholder''',
+  '''sk-admin-example'''
+]
+paths = [
+  '''\.test\.(ts|tsx|js|jsx)$''',
+  '''\.spec\.(ts|tsx|js|jsx)$''',
+  '''\.example$'''
+]
+
+[[rules]]
+description = "OpenAI Project IDs"
+id = "openai-project-id"
+regex = '''proj_[a-zA-Z0-9]{24,}'''
+keywords = ["proj_"]
+[rules.allowlist]
+regexes = [
+  '''proj_test''',
+  '''proj_YOUR''',
+  '''proj_your''',
+  '''proj_placeholder''',
+  '''proj_example'''
+]
+paths = [
+  '''\.test\.(ts|tsx|js|jsx)$''',
+  '''\.spec\.(ts|tsx|js|jsx)$''',
+  '''\.example$'''
+]
+
+[[rules]]
+description = "AWS Access Key IDs"
+id = "aws-access-key"
+regex = '''AKIA[0-9A-Z]{16}'''
+keywords = ["AKIA"]
+# No allowlist - these should never appear
+
+[[rules]]
+description = "AWS Secret Access Keys"
+id = "aws-secret-key"
+regex = '''(?i)aws(.{0,20})?['\"][0-9a-zA-Z/+]{40}['\"]'''
+keywords = ["aws_secret"]
+
+[[rules]]
+description = "Terraform Variables Files (should use .example)"
+id = "terraform-tfvars"
+regex = '''terraform\.tfvars$'''
+path = '''terraform\.tfvars$'''
+[rules.allowlist]
+paths = [
+  '''\.example$'''
+]
+
+[[rules]]
+description = "Backend Config Files (should use .example)"
+id = "backend-config"
+regex = '''backend\.config$'''
+path = '''backend\.config$'''
+[rules.allowlist]
+paths = [
+  '''\.example$'''
+]
+
+[[rules]]
+description = "Environment Local Files"
+id = "env-local"
+regex = '''\.env\.local$'''
+path = '''\.env\.local$'''
+# .env.local should NEVER be committed
+
+[[rules]]
+description = "Generic High Entropy Strings (potential secrets)"
+id = "high-entropy"
+regex = '''[a-zA-Z0-9/+=]{64,}'''
+entropy = 4.5
+keywords = ["key", "secret", "token", "password", "credential"]
+[rules.allowlist]
+# Allow base64 encoded files and hashes in docs
+paths = [
+  '''\.md$''',
+  '''\.json$''',
+  '''package-lock\.json$''',
+  '''yarn\.lock$'''
+]
+regexes = [
+  '''sha256:''',
+  '''sha512:''',
+  '''integrity''',
+  '''hash'''
+]
+
+# Global allowlist for all rules
+[allowlist]
+description = "Global allowlist"
+paths = [
+  # Ignore git metadata
+  '''\.git/''',
+  # Ignore dependencies
+  '''^node_modules/''',
+  '''^\.next/''',
+  # Ignore build artifacts
+  '''^dist/''',
+  '''^build/''',
+  # Ignore test coverage
+  '''^coverage/''',
+  # Ignore lock files (contain hashes)
+  '''package-lock\.json$''',
+  '''yarn\.lock$''',
+  '''pnpm-lock\.yaml$''',
+  # Ignore Terraform state
+  '''\.tfstate$''',
+  '''\.tfstate\.backup$''',
+  # Ignore this gitleaks config itself
+  '''\.gitleaks\.toml$''',
+  # Allow examples in SECURITY.md documentation
+  '''^SECURITY\.md$'''
+]
