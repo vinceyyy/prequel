@@ -5,3 +5,35 @@ pre-migration-*.json
 old-single-env-archive/
 playwright-report/
 test-results/
+
+# Sensitive configuration files
+.env.local
+terraform.tfvars
+backend.config
+*.tfplan
+*-plan-output.txt
+
+# IDE and OS files
+.DS_Store
+.idea/
+*.swp
+*.swo
+*~
+
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+
+# Node.js
+node_modules/
+.next/
+coverage/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
