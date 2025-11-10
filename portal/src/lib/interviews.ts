@@ -37,6 +37,10 @@ export interface Interview {
   accessUrl?: string
   password?: string
 
+  // OpenAI service account details
+  openaiServiceAccountId?: string
+  openaiApiKey?: string
+
   // Scheduling information
   createdAt: Date
   scheduledAt?: Date
@@ -68,6 +72,10 @@ interface InterviewDynamoItem {
   status: InterviewStatus
   accessUrl?: string
   password?: string
+
+  // OpenAI service account details
+  openaiServiceAccountId?: string
+  openaiApiKey?: string
 
   // Timestamps stored as Unix seconds in DynamoDB
   createdAt: number
