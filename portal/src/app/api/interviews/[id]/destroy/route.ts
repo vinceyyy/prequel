@@ -207,6 +207,33 @@ export async function POST(
           )
         }
 
+        // Delete OpenAI service account first (before destroying infrastructure)
+        if (interview?.openaiServiceAccountId) {
+          await operationManager.addOperationLog(
+            operationId,
+            '🤖 Deleting OpenAI service account...'
+          )
+
+          const deleteResult = await openaiService.deleteServiceAccount(
+            config.services.openaiProjectId,
+            interview?.openaiServiceAccountId
+          )
+
+          if (deleteResult.success) {
+            await operationManager.addOperationLog(
+              operationId,
+              `✅ OpenAI service account deleted: ${interview?.openaiServiceAccountId}`
+            )
+          } else {
+            await operationManager.addOperationLog(
+              operationId,
+              `⚠️ OpenAI service account deletion failed: ${deleteResult.error}`
+            )
+            // Don't fail the entire destruction - continue with infrastructure cleanup
+          }
+        }
+
+        // Now destroy the infrastructure
         const result =
           await interviewManager.destroyInterviewWithInfrastructure(
             interviewId,
@@ -231,32 +258,6 @@ export async function POST(
             operationId,
             '✅ Infrastructure destroyed successfully'
           )
-
-          // Delete OpenAI service account if it exists
-          if (interview?.openaiServiceAccountId) {
-            await operationManager.addOperationLog(
-              operationId,
-              '🤖 Deleting OpenAI service account...'
-            )
-
-            const deleteResult = await openaiService.deleteServiceAccount(
-              config.services.openaiProjectId,
-              interview.openaiServiceAccountId
-            )
-
-            if (deleteResult.success) {
-              await operationManager.addOperationLog(
-                operationId,
-                `✅ OpenAI service account deleted: ${interview.openaiServiceAccountId}`
-              )
-            } else {
-              await operationManager.addOperationLog(
-                operationId,
-                `⚠️ OpenAI service account deletion failed: ${deleteResult.error}`
-              )
-              // Don't fail the entire destruction - service account can be cleaned up manually
-            }
-          }
 
           await operationManager.addOperationLog(
             operationId,
