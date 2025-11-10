@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { interviewManager } from '@/lib/interviews'
 import { operationManager } from '@/lib/operations'
+import { openaiService } from '@/lib/openai'
+import { config } from '@/lib/config'
 
 export async function DELETE(
   request: NextRequest,
@@ -194,6 +196,17 @@ export async function POST(
           )
         }
 
+        // Fetch interview record to get OpenAI service account ID
+        let interview = null
+        try {
+          interview = await interviewManager.getInterview(interviewId)
+        } catch (error) {
+          console.log(
+            'Could not fetch interview record for OpenAI cleanup:',
+            error
+          )
+        }
+
         const result =
           await interviewManager.destroyInterviewWithInfrastructure(
             interviewId,
@@ -214,6 +227,37 @@ export async function POST(
           )
 
         if (result.success) {
+          await operationManager.addOperationLog(
+            operationId,
+            '✅ Infrastructure destroyed successfully'
+          )
+
+          // Delete OpenAI service account if it exists
+          if (interview?.openaiServiceAccountId) {
+            await operationManager.addOperationLog(
+              operationId,
+              '🤖 Deleting OpenAI service account...'
+            )
+
+            const deleteResult = await openaiService.deleteServiceAccount(
+              config.services.openaiProjectId,
+              interview.openaiServiceAccountId
+            )
+
+            if (deleteResult.success) {
+              await operationManager.addOperationLog(
+                operationId,
+                `✅ OpenAI service account deleted: ${interview.openaiServiceAccountId}`
+              )
+            } else {
+              await operationManager.addOperationLog(
+                operationId,
+                `⚠️ OpenAI service account deletion failed: ${deleteResult.error}`
+              )
+              // Don't fail the entire destruction - service account can be cleaned up manually
+            }
+          }
+
           await operationManager.addOperationLog(
             operationId,
             '✅ Interview destroyed successfully!'
