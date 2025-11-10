@@ -400,11 +400,23 @@ Before running `terraform init`, you must:
 
 **Build Scripts:**
 
-All build scripts automatically load environment variables from `.env.local`:
+All build scripts support multi-environment deployment with optional environment parameter:
 
-- `instance/build-and-push.sh` - Build and push instance Docker image
-- `portal/build-push-deploy.sh` - Build, push and deploy portal
-- `challenge/sync-to-s3.sh` - Sync challenges to S3
+- `instance/build-and-push.sh [environment]` - Build and push instance Docker image
+- `portal/build-push-deploy.sh [environment]` - Build, push and deploy portal
+- `challenge/sync-to-s3.sh [environment]` - Sync challenges to S3
+- `instance/terraform/sync-to-s3.sh [environment]` - Sync instance templates to S3
+
+**Usage:**
+```bash
+# Deploy to specific environment
+./build-and-push.sh prod
+
+# Deploy to environment from .env.local (backward compatible)
+./build-and-push.sh
+```
+
+The `environment` parameter can be `dev`, `prod`, or `staging`. If not provided, scripts fall back to the `ENVIRONMENT` variable from `.env.local`.
 
 **Centralized Configuration System:**
 
