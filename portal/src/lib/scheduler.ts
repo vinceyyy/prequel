@@ -607,99 +607,63 @@ export class SchedulerService {
         )
       }
 
-      // Run infrastructure destruction and OpenAI cleanup in parallel
-      const promises: Promise<unknown>[] = []
+      const result = await interviewManager.destroyInterviewWithInfrastructure(
+        operation.interviewId,
+        (data: string) => {
+          const lines = data.split('\n').filter(line => line.trim())
+          lines.forEach(line => {
+            // Note: We can't await here since this is a streaming callback
+            // Logs will be added asynchronously without blocking the stream
+            operationManager
+              .addOperationLog(operation.id, line)
+              .catch(console.error)
+          })
+        },
+        operation.candidateName,
+        operation.challenge,
+        operation.saveFiles
+      )
 
-      // Infrastructure destruction
-      const infrastructurePromise =
-        interviewManager.destroyInterviewWithInfrastructure(
-          operation.interviewId,
-          (data: string) => {
-            const lines = data.split('\n').filter(line => line.trim())
-            lines.forEach(line => {
-              // Note: We can't await here since this is a streaming callback
-              // Logs will be added asynchronously without blocking the stream
-              operationManager
-                .addOperationLog(operation.id, line)
-                .catch(console.error)
-            })
-          },
-          operation.candidateName,
-          operation.challenge,
-          operation.saveFiles
-        )
-      promises.push(infrastructurePromise)
-
-      // OpenAI service account deletion (if exists)
-      let openaiPromise: Promise<{
-        success: boolean
-        error?: string
-      }> | null = null
-
-      if (interview?.openaiServiceAccountId) {
-        await operationManager.addOperationLog(
-          operation.id,
-          '🤖 Deleting OpenAI service account...'
-        )
-
-        openaiPromise = openaiService.deleteServiceAccount(
-          config.services.openaiProjectId,
-          interview?.openaiServiceAccountId
-        )
-        promises.push(openaiPromise)
-      }
-
-      // Wait for both operations to complete
-      const [infrastructureResult, openaiResult] = (await Promise.all(
-        promises
-      )) as [
-        Awaited<
-          ReturnType<typeof interviewManager.destroyInterviewWithInfrastructure>
-        >,
-        Awaited<ReturnType<typeof openaiService.deleteServiceAccount>> | null,
-      ]
-
-      // Log results
-      if (infrastructureResult.success) {
+      if (result.success) {
         await operationManager.addOperationLog(
           operation.id,
           '✅ Infrastructure destroyed successfully'
         )
-      } else {
-        await operationManager.addOperationLog(
-          operation.id,
-          '❌ Infrastructure destruction failed'
-        )
-        await operationManager.addOperationLog(
-          operation.id,
-          `Error: ${infrastructureResult.error}`
-        )
-      }
 
-      if (openaiResult) {
-        if (openaiResult.success) {
+        // Delete OpenAI service account if it exists
+        if (interview?.openaiServiceAccountId) {
           await operationManager.addOperationLog(
             operation.id,
-            `✅ OpenAI service account deleted: ${interview?.openaiServiceAccountId}`
+            '🤖 Deleting OpenAI service account...'
           )
-        } else {
-          await operationManager.addOperationLog(
-            operation.id,
-            `⚠️ OpenAI service account deletion failed: ${openaiResult.error}`
+
+          const deleteResult = await openaiService.deleteServiceAccount(
+            config.services.openaiProjectId,
+            interview.openaiServiceAccountId
           )
-          // Don't fail the entire destruction - service account can be cleaned up manually
+
+          if (deleteResult.success) {
+            await operationManager.addOperationLog(
+              operation.id,
+              `✅ OpenAI service account deleted: ${interview.openaiServiceAccountId}`
+            )
+          } else {
+            await operationManager.addOperationLog(
+              operation.id,
+              `⚠️ OpenAI service account deletion failed: ${deleteResult.error}`
+            )
+            // Don't fail the entire destruction - service account can be cleaned up manually
+          }
         }
-      }
 
-      if (infrastructureResult.success) {
         await operationManager.addOperationLog(
           operation.id,
           '✅ Scheduled interview destroyed successfully!'
         )
         await operationManager.setOperationResult(operation.id, {
           success: true,
-          historyS3Key: infrastructureResult.historyS3Key,
-          fullOutput: infrastructureResult.fullOutput,
+          historyS3Key: result.historyS3Key,
+          fullOutput: result.fullOutput,
         })
 
         this.emit({
@@ -709,10 +673,19 @@ export class SchedulerService {
           success: true,
         })
       } else {
+        await operationManager.addOperationLog(
+          operation.id,
+          '❌ Scheduled interview destruction failed'
+        )
+        await operationManager.addOperationLog(
+          operation.id,
+          `Error: ${result.error}`
+        )
+
         await operationManager.setOperationResult(operation.id, {
           success: false,
-          error: infrastructureResult.error,
-          fullOutput: infrastructureResult.fullOutput,
+          error: result.error,
+          fullOutput: result.fullOutput,
         })
 
         this.emit({
@@ -720,7 +693,7 @@ export class SchedulerService {
           operationId: operation.id,
           interviewId: operation.interviewId,
           success: false,
-          error: infrastructureResult.error,
+          error: result.error,
         })
       }
     } catch (error) {
