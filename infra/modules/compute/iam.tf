@@ -152,14 +152,23 @@ resource "aws_iam_role_policy" "ecs_task_terraform_state" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "s3:GetObject",
-        "s3:PutObject"
-      ]
-      Resource = "arn:aws:s3:::${var.terraform_state_bucket}/*"
-    }]
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject"
+        ]
+        Resource = "arn:aws:s3:::${var.terraform_state_bucket}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket"
+        ]
+        Resource = "arn:aws:s3:::${var.terraform_state_bucket}"
+      }
+    ]
   })
 }
 
@@ -178,6 +187,14 @@ resource "aws_iam_role_policy" "ecs_task_ecs_permissions" {
           "ec2:DescribeSubnets",
           "ec2:DescribeSecurityGroups",
           "ec2:DescribeNetworkInterfaces",
+          "ec2:CreateSecurityGroup",
+          "ec2:DeleteSecurityGroup",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupEgress",
+          "ec2:CreateTags",
+          "ec2:DeleteTags",
           "elasticloadbalancing:*",
           "route53:*",
           "acm:DescribeCertificate",
@@ -185,6 +202,16 @@ resource "aws_iam_role_policy" "ecs_task_ecs_permissions" {
           "logs:PutLogEvents"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:PassRole"
+        ]
+        Resource = [
+          aws_iam_role.ecs_task_role.arn,
+          aws_iam_role.ecs_execution_role.arn
+        ]
       }
     ]
   })
