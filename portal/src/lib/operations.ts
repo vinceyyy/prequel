@@ -45,7 +45,7 @@ export interface OperationEvent {
  */
 export interface Operation {
   id: string
-  type: 'create' | 'destroy'
+  type: 'create' | 'destroy' | 'revoke_takehome'
   status:
     | 'pending'
     | 'running'
@@ -292,7 +292,7 @@ class OperationManager {
    * ```
    */
   async createOperation(
-    type: 'create' | 'destroy',
+    type: 'create' | 'destroy' | 'revoke_takehome',
     interviewId: string,
     candidateName?: string,
     challenge?: string,
@@ -680,6 +680,13 @@ class OperationManager {
     const now = Math.floor(Date.now() / 1000)
     const status = result?.success ? 'completed' : 'failed'
 
+    operationsLogger.info('Setting operation result', {
+      operationId,
+      status,
+      success: result?.success,
+      hasError: !!result?.error,
+    })
+
     await this.dynamoClient.send(
       new UpdateItemCommand({
         TableName: this.tableName,
@@ -700,6 +707,11 @@ class OperationManager {
         ),
       })
     )
+
+    operationsLogger.info('Operation result set in DynamoDB', {
+      operationId,
+      status,
+    })
 
     // Fetch updated operation and emit event
     const operation = await this.getOperation(operationId)
