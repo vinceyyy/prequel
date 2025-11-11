@@ -8,17 +8,17 @@ jest.mock('@aws-sdk/client-dynamodb', () => {
     DynamoDBClient: jest.fn().mockImplementation(() => ({
       send: mockSend,
     })),
-    PutItemCommand: jest.fn((params) => params),
-    GetItemCommand: jest.fn((params) => params),
-    UpdateItemCommand: jest.fn((params) => params),
-    QueryCommand: jest.fn((params) => params),
+    PutItemCommand: jest.fn(params => params),
+    GetItemCommand: jest.fn(params => params),
+    UpdateItemCommand: jest.fn(params => params),
+    QueryCommand: jest.fn(params => params),
     __mockSend: mockSend, // Expose for test access
   }
 })
 
 jest.mock('@aws-sdk/util-dynamodb', () => ({
-  marshall: jest.fn((obj) => obj),
-  unmarshall: jest.fn((obj) => obj),
+  marshall: jest.fn(obj => obj),
+  unmarshall: jest.fn(obj => obj),
 }))
 
 jest.mock('../config', () => ({
@@ -39,8 +39,12 @@ jest.mock('../logger', () => ({
 import { assessmentManager } from '../assessments'
 import * as dynamodb from '@aws-sdk/client-dynamodb'
 
+interface DynamoDBMock {
+  __mockSend: jest.Mock
+}
+
 describe('Assessment Manager', () => {
-  const mockSend = (dynamodb as any).__mockSend
+  const mockSend = (dynamodb as unknown as DynamoDBMock).__mockSend
 
   beforeEach(() => {
     mockSend.mockClear()
@@ -83,7 +87,7 @@ describe('Assessment Manager', () => {
       id: 'th-123',
       accessToken: 'token-abc',
       availableFrom: Date.now() / 1000,
-      availableUntil: (Date.now() / 1000) + 86400 * 7,
+      availableUntil: Date.now() / 1000 + 86400 * 7,
       isActivated: false,
       sessionStatus: 'available',
       createdBy: 'user-123',
@@ -132,7 +136,11 @@ describe('Assessment Manager', () => {
       },
     })
 
-    await assessmentManager.updateInstanceStatus('int-123', 'interview', 'active')
+    await assessmentManager.updateInstanceStatus(
+      'int-123',
+      'interview',
+      'active'
+    )
 
     const updated = await assessmentManager.getAssessment('int-123')
     expect(updated?.instanceStatus).toBe('active')
@@ -150,7 +158,11 @@ describe('Assessment Manager', () => {
       },
     })
 
-    await assessmentManager.updateSessionStatus('int-123', 'interview', 'completed')
+    await assessmentManager.updateSessionStatus(
+      'int-123',
+      'interview',
+      'completed'
+    )
 
     const updated = await assessmentManager.getAssessment('int-123')
     if (updated && updated.sessionType === 'interview') {

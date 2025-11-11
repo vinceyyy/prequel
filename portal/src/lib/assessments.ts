@@ -4,7 +4,6 @@ import {
   PutItemCommand,
   GetItemCommand,
   UpdateItemCommand,
-  QueryCommand,
 } from '@aws-sdk/client-dynamodb'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
 import { logger } from './logger'
@@ -28,7 +27,8 @@ export class AssessmentManager {
 
   constructor() {
     this.dynamoClient = new DynamoDBClient(config.aws.getCredentials())
-    this.tableName = config.database.assessmentsTable || config.database.interviewsTable
+    this.tableName =
+      config.database.assessmentsTable || config.database.interviewsTable
   }
 
   /**
@@ -54,7 +54,10 @@ export class AssessmentManager {
       logger.info('Interview created', { interviewId: interview.id })
       return fullInterview
     } catch (error) {
-      logger.error('Failed to create interview', { interviewId: interview.id, error })
+      logger.error('Failed to create interview', {
+        interviewId: interview.id,
+        error,
+      })
       throw error
     }
   }
@@ -82,7 +85,10 @@ export class AssessmentManager {
       logger.info('TakeHome created', { takeHomeId: takeHome.id })
       return fullTakeHome
     } catch (error) {
-      logger.error('Failed to create take-home', { takeHomeId: takeHome.id, error })
+      logger.error('Failed to create take-home', {
+        takeHomeId: takeHome.id,
+        error,
+      })
       throw error
     }
   }
@@ -104,7 +110,7 @@ export class AssessmentManager {
         return unmarshall(response.Item) as Interview
       }
     } catch (error) {
-      logger.debug('Not found as interview, trying take-home', { id })
+      logger.debug('Not found as interview, trying take-home', { id, error })
     }
 
     // Try take-home
@@ -134,7 +140,8 @@ export class AssessmentManager {
     sessionType: 'interview' | 'takehome',
     status: InstanceStatus
   ): Promise<void> {
-    const pk = sessionType === 'interview' ? `INTERVIEW#${id}` : `TAKEHOME#${id}`
+    const pk =
+      sessionType === 'interview' ? `INTERVIEW#${id}` : `TAKEHOME#${id}`
 
     try {
       await this.dynamoClient.send(
@@ -148,7 +155,12 @@ export class AssessmentManager {
 
       logger.info('Instance status updated', { id, sessionType, status })
     } catch (error) {
-      logger.error('Failed to update instance status', { id, sessionType, status, error })
+      logger.error('Failed to update instance status', {
+        id,
+        sessionType,
+        status,
+        error,
+      })
       throw error
     }
   }
@@ -161,7 +173,8 @@ export class AssessmentManager {
     sessionType: 'interview' | 'takehome',
     status: InterviewSessionStatus | TakeHomeSessionStatus
   ): Promise<void> {
-    const pk = sessionType === 'interview' ? `INTERVIEW#${id}` : `TAKEHOME#${id}`
+    const pk =
+      sessionType === 'interview' ? `INTERVIEW#${id}` : `TAKEHOME#${id}`
 
     try {
       await this.dynamoClient.send(
@@ -175,7 +188,12 @@ export class AssessmentManager {
 
       logger.info('Session status updated', { id, sessionType, status })
     } catch (error) {
-      logger.error('Failed to update session status', { id, sessionType, status, error })
+      logger.error('Failed to update session status', {
+        id,
+        sessionType,
+        status,
+        error,
+      })
       throw error
     }
   }
