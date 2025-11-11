@@ -82,6 +82,7 @@ export default function TakeHomesPage() {
     challenge: '',
     availableDays: 7,
     durationHours: 4,
+    additionalInstructions: '',
   })
 
   // Use SSE for real-time updates
@@ -202,6 +203,12 @@ export default function TakeHomesPage() {
     const takeHome = takeHomes.find(th => th.id === takeHomeId)
     if (!takeHome) return
 
+    console.log('[DEBUG] Delete take-home requested', {
+      takeHomeId,
+      candidateName: takeHome.candidateName,
+      sessionStatus: takeHome.sessionStatus,
+    })
+
     const message = `Are you sure you want to permanently delete this take-home for ${takeHome.candidateName || 'Unknown'}? This action cannot be undone.`
 
     if (!confirm(message)) {
@@ -209,8 +216,12 @@ export default function TakeHomesPage() {
     }
 
     try {
+      console.log(
+        '[DEBUG] Sending DELETE request to:',
+        `/api/takehomes/${takeHomeId}/delete`
+      )
       const response = await fetch(`/api/takehomes/${takeHomeId}/delete`, {
-        method: 'DELETE',
+        method: 'POST',
       })
 
       if (!response.ok) {
@@ -233,6 +244,60 @@ export default function TakeHomesPage() {
     }
   }
 
+  const handleRevokeTakeHome = async (takeHomeId: string) => {
+    const takeHome = takeHomes.find(th => th.id === takeHomeId)
+    if (!takeHome) return
+
+    console.log('[DEBUG] Revoke take-home requested', {
+      takeHomeId,
+      candidateName: takeHome.candidateName,
+      sessionStatus: takeHome.sessionStatus,
+    })
+
+    const message = `Are you sure you want to revoke this take-home for ${takeHome.candidateName || 'Unknown'}? This will immediately destroy the environment and mark it as revoked. This action cannot be undone.`
+
+    if (!confirm(message)) {
+      return
+    }
+
+    try {
+      console.log(
+        '[DEBUG] Sending POST request to:',
+        `/api/takehomes/${takeHomeId}/revoke`
+      )
+      const response = await fetch(`/api/takehomes/${takeHomeId}/revoke`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to revoke take-home')
+      }
+
+      const result = await response.json()
+
+      if (result.operationId) {
+        setNotification(
+          'Take-home revocation initiated - check logs for progress'
+        )
+      } else {
+        setNotification('Take-home revoked successfully')
+      }
+
+      setTimeout(() => setNotification(null), 5000)
+
+      // Refresh the list
+      loadTakeHomes()
+    } catch (error) {
+      console.error('Error revoking take-home:', error)
+      alert(
+        `Failed to revoke take-home: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      )
+    }
+  }
+
   const handleCreateTakeHome = async () => {
     if (!formData.candidateName.trim() || !formData.challenge) return
 
@@ -244,6 +309,8 @@ export default function TakeHomesPage() {
         challengeId: formData.challenge,
         availableDays: formData.availableDays,
         durationHours: formData.durationHours,
+        additionalInstructions:
+          formData.additionalInstructions.trim() || undefined,
       }
 
       const response = await fetch('/api/takehomes/create', {
@@ -268,6 +335,7 @@ export default function TakeHomesPage() {
         challenge: challenges.length > 0 ? challenges[0].id : '',
         availableDays: 7,
         durationHours: 4,
+        additionalInstructions: '',
       })
       setShowCreateForm(false)
 
@@ -287,17 +355,6 @@ export default function TakeHomesPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleCopyLink = (takeHome: TakeHome) => {
-    const protocol = window.location.protocol
-    const host = window.location.host
-    const link = `${protocol}//${host}/takehome/${takeHome.accessToken}`
-
-    navigator.clipboard.writeText(link).then(() => {
-      setNotification('Access link copied to clipboard')
-      setTimeout(() => setNotification(null), 3000)
-    })
   }
 
   // Separate take-homes into active and history
@@ -540,6 +597,27 @@ export default function TakeHomesPage() {
                     Time limit once candidate activates
                   </p>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 mb-1">
+                    Additional Instructions (optional)
+                  </label>
+                  <textarea
+                    value={formData.additionalInstructions}
+                    onChange={e =>
+                      setFormData({
+                        ...formData,
+                        additionalInstructions: e.target.value,
+                      })
+                    }
+                    className="input-field"
+                    rows={4}
+                    placeholder="Any specific instructions or requirements for the candidate..."
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Custom instructions that will be shown to the candidate
+                  </p>
+                </div>
               </div>
 
               <div className="flex gap-3 mt-6">
@@ -685,24 +763,53 @@ export default function TakeHomesPage() {
                               </div>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => handleCopyLink(takeHome)}
-                              className="text-blue-600 hover:text-blue-700 underline"
-                            >
-                              Copy Access Link
-                            </button>
+                            <div className="text-sm">
+                              <a
+                                href={`${window.location.protocol}//${window.location.host}/takehome/${takeHome.accessToken}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-700 underline break-all"
+                              >
+                                {`${window.location.protocol}//${window.location.host}/takehome/${takeHome.accessToken}`}
+                              </a>
+                            </div>
                           )}
                         </td>
                         <td className="px-3 sm:px-6 py-4 text-sm font-medium">
                           <div className="flex flex-wrap gap-2 items-center">
                             {takeHome.sessionStatus === 'available' && (
+                              <>
+                                <button
+                                  onClick={() =>
+                                    handleRevokeTakeHome(takeHome.id)
+                                  }
+                                  className="btn-danger text-sm px-3 py-1"
+                                >
+                                  Revoke
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleDeleteTakeHome(takeHome.id)
+                                  }
+                                  className="btn-outline text-sm px-3 py-1"
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                            {takeHome.sessionStatus === 'activated' && (
                               <button
                                 onClick={() =>
-                                  handleDeleteTakeHome(takeHome.id)
+                                  handleRevokeTakeHome(takeHome.id)
                                 }
-                                className="btn-danger text-sm px-3 py-1"
+                                disabled={
+                                  takeHome.instanceStatus === 'destroying'
+                                }
+                                className="btn-danger text-sm px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                Delete
+                                {takeHome.instanceStatus === 'destroying'
+                                  ? 'Destroying...'
+                                  : 'Revoke'}
                               </button>
                             )}
                             <button
