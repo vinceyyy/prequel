@@ -359,11 +359,17 @@ export default function TakeHomesPage() {
 
   // Separate take-homes into active and history
   const activeTakeHomes = takeHomes.filter(
-    th => th.sessionStatus !== 'completed' && th.sessionStatus !== 'expired'
+    th =>
+      th.sessionStatus !== 'completed' &&
+      th.sessionStatus !== 'expired' &&
+      th.sessionStatus !== 'revoked'
   )
 
   const historicalTakeHomes = takeHomes.filter(
-    th => th.sessionStatus === 'completed' || th.sessionStatus === 'expired'
+    th =>
+      th.sessionStatus === 'completed' ||
+      th.sessionStatus === 'expired' ||
+      th.sessionStatus === 'revoked'
   )
 
   return (
@@ -908,7 +914,9 @@ export default function TakeHomesPage() {
                             className={`status-badge ${
                               takeHome.sessionStatus === 'completed'
                                 ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
+                                : takeHome.sessionStatus === 'revoked'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-amber-100 text-amber-800'
                             }`}
                           >
                             {takeHome.sessionStatus}
