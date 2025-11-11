@@ -24,28 +24,33 @@ export interface OperationEvent {
 }
 
 /**
- * Represents a background operation (interview creation or destruction).
+ * Represents a background operation (instance creation or destruction).
  *
  * Operations track the complete lifecycle of long-running tasks including
  * scheduling, execution, completion, and detailed logging. They serve as
- * the source of truth for interview status and provide audit trails.
+ * the source of truth for instance status and provide audit trails.
+ *
+ * NOTE: Despite the field name 'interviewId', this actually stores the
+ * instanceId which can reference either an Interview or TakeHome record.
+ * The field will be renamed to 'instanceId' in a future update to match
+ * the new architecture.
  */
 export interface Operation {
   id: string
   type: 'create' | 'destroy'
   status:
-    | 'pending' // Not yet started
-    | 'running' // Currently executing
-    | 'completed' // Finished successfully
-    | 'failed' // Failed with error
-    | 'cancelled' // Cancelled by user or system
-    | 'scheduled' // Waiting for scheduled time
-  interviewId: string
+    | 'pending'
+    | 'running'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
+    | 'scheduled'
+  interviewId: string // TODO: Rename to instanceId (references Interview or TakeHome)
   candidateName?: string
   challenge?: string
-  saveFiles?: boolean // Whether to save candidate files to S3 before destruction
-  createdAt: Date // When the operation was scheduled/created
-  executionStartedAt?: Date // When execution actually began
+  saveFiles?: boolean
+  createdAt: Date
+  executionStartedAt?: Date
   completedAt?: Date
   scheduledAt?: Date
   autoDestroyAt?: Date
@@ -58,7 +63,7 @@ export interface Operation {
     fullOutput?: string
     healthCheckPassed?: boolean
     infrastructureReady?: boolean
-    historyS3Key?: string // S3 key where candidate files were saved
+    historyS3Key?: string
   }
 }
 
