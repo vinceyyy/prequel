@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import AuthStatus from '@/components/AuthStatus'
 import CleanupDashboard from '@/components/CleanupDashboard'
 
 export default function AdminPage() {
@@ -9,22 +8,13 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-900 p-4 sm:p-8 w-full overflow-x-hidden text-white">
       <div className="max-w-7xl mx-auto w-full">
         <header className="mb-8">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-              <p className="text-gray-400 mt-2">
-                Manage challenges and clean up AWS resources
-              </p>
-            </div>
-            <AuthStatus />
+          <div>
+            <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
+            <p className="text-gray-400 mt-2">
+              Manage challenges and clean up AWS resources
+            </p>
           </div>
         </header>
-
-        <div className="mb-6 flex flex-wrap gap-3 items-center">
-          <Link href="/interviews" className="btn-secondary">
-            ← Back to Interviews
-          </Link>
-        </div>
 
         <div className="space-y-8">
           {/* Challenge Management Section */}

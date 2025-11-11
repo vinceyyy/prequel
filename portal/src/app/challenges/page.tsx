@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import Link from 'next/link'
-import AuthStatus from '@/components/AuthStatus'
 import { Challenge, ECSConfiguration } from '@/lib/challenges'
 import ChallengeForm from '@/components/ChallengeForm'
 import FileBrowser from '@/components/FileBrowser'
@@ -149,27 +147,16 @@ export default function ChallengesPage() {
 
       <div className="max-w-7xl mx-auto w-full">
         <header className="mb-8">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold text-white">
-                Challenge Management
-              </h1>
-              <p className="text-gray-400 mt-2">
-                Manage interview challenges, upload files, and configure ECS
-                settings
-              </p>
-            </div>
-            <AuthStatus />
+          <div>
+            <h1 className="text-3xl font-bold text-white">
+              Challenge Management
+            </h1>
+            <p className="text-gray-400 mt-2">
+              Manage interview challenges, upload files, and configure ECS
+              settings
+            </p>
           </div>
         </header>
-
-        <div className="mb-6 flex flex-wrap gap-3 items-center justify-between">
-          <div className="flex flex-wrap gap-3 items-center">
-            <Link href="/" className="btn-secondary">
-              ← Back to Interviews
-            </Link>
-          </div>
-        </div>
 
         {/* Tabs */}
         <div className="flex border-b border-gray-700 mb-6">
