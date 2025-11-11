@@ -16,6 +16,7 @@ interface StatusResponse {
   availableUntil?: string
   candidateName?: string
   challengeId?: string
+  additionalInstructions?: string
 }
 
 /**
@@ -58,17 +59,28 @@ export async function GET(
         ).toISOString()
         response.candidateName = takeHome.candidateName
         response.challengeId = takeHome.challengeId
+        response.additionalInstructions = takeHome.additionalInstructions
         break
 
       case 'activated':
         response.instanceStatus = takeHome.instanceStatus
-        response.activatedAt = new Date(
-          takeHome.activatedAt! * 1000
-        ).toISOString()
-        response.autoDestroyAt = new Date(
-          takeHome.autoDestroyAt! * 1000
-        ).toISOString()
-        response.timeRemaining = takeHome.autoDestroyAt! - now
+
+        // Safely handle activatedAt and autoDestroyAt fields
+        if (takeHome.activatedAt && typeof takeHome.activatedAt === 'number') {
+          response.activatedAt = new Date(
+            takeHome.activatedAt * 1000
+          ).toISOString()
+        }
+
+        if (
+          takeHome.autoDestroyAt &&
+          typeof takeHome.autoDestroyAt === 'number'
+        ) {
+          response.autoDestroyAt = new Date(
+            takeHome.autoDestroyAt * 1000
+          ).toISOString()
+          response.timeRemaining = takeHome.autoDestroyAt - now
+        }
 
         // Only include access credentials if instance is active
         if (takeHome.instanceStatus === 'active') {
@@ -79,10 +91,16 @@ export async function GET(
 
       case 'completed':
         response.instanceStatus = takeHome.instanceStatus
-        response.activatedAt = new Date(
-          takeHome.activatedAt! * 1000
-        ).toISOString()
-        if (takeHome.destroyedAt) {
+
+        // Safely handle activatedAt field
+        if (takeHome.activatedAt && typeof takeHome.activatedAt === 'number') {
+          response.activatedAt = new Date(
+            takeHome.activatedAt * 1000
+          ).toISOString()
+        }
+
+        // Safely handle destroyedAt field
+        if (takeHome.destroyedAt && typeof takeHome.destroyedAt === 'number') {
           response.destroyedAt = new Date(
             takeHome.destroyedAt * 1000
           ).toISOString()
@@ -96,6 +114,11 @@ export async function GET(
         response.availableUntil = new Date(
           takeHome.availableUntil * 1000
         ).toISOString()
+        break
+
+      case 'revoked':
+        // Revoked status returns minimal information
+        // No additional fields needed beyond sessionStatus
         break
     }
 
