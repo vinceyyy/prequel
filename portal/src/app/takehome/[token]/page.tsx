@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 
 interface TakeHomeStatus {
-  sessionStatus: 'available' | 'activated' | 'completed' | 'expired'
+  sessionStatus: 'available' | 'activated' | 'completed' | 'expired' | 'revoked'
   instanceStatus?: string
   accessUrl?: string
   password?: string
@@ -16,18 +16,7 @@ interface TakeHomeStatus {
   availableUntil?: string
   candidateName?: string
   challengeId?: string
-}
-
-interface ChallengeInfo {
-  id: string
-  name: string
-  description: string
-  ecsConfig: {
-    cpu: number
-    cpuCores: number
-    memory: number
-    storage: number
-  }
+  additionalInstructions?: string
 }
 
 export default function TakeHomePage() {
@@ -35,7 +24,6 @@ export default function TakeHomePage() {
   const token = params.token as string
 
   const [status, setStatus] = useState<TakeHomeStatus | null>(null)
-  const [challenge, setChallenge] = useState<ChallengeInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [activating, setActivating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -55,20 +43,6 @@ export default function TakeHomePage() {
       setStatus(data)
       setError(null)
 
-      // Fetch challenge details if available
-      if (data.challengeId && !challenge) {
-        const challengesResponse = await fetch('/api/challenges')
-        if (challengesResponse.ok) {
-          const challengesData = await challengesResponse.json()
-          const foundChallenge = challengesData.challenges?.find(
-            (c: ChallengeInfo) => c.id === data.challengeId
-          )
-          if (foundChallenge) {
-            setChallenge(foundChallenge)
-          }
-        }
-      }
-
       // Update time remaining if activated
       if (data.sessionStatus === 'activated' && data.timeRemaining) {
         setTimeRemaining(data.timeRemaining)
@@ -79,7 +53,7 @@ export default function TakeHomePage() {
     } finally {
       setLoading(false)
     }
-  }, [token, challenge])
+  }, [token])
 
   // Initial load
   useEffect(() => {
@@ -225,83 +199,78 @@ export default function TakeHomePage() {
           )}
         </div>
 
-        {/* Status: Available (not yet activated) */}
-        {status.sessionStatus === 'available' && (
-          <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
-            {challenge && (
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                  {challenge.name}
-                </h2>
-                <p className="text-slate-600 mb-4">{challenge.description}</p>
-
-                <div className="bg-slate-50 rounded-lg p-4 mb-4">
-                  <h3 className="text-sm font-medium text-slate-700 mb-2">
-                    Environment Specifications
-                  </h3>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="text-slate-500">CPU:</span>
-                      <span className="ml-2 font-medium text-slate-900">
-                        {challenge.ecsConfig.cpuCores}{' '}
-                        {challenge.ecsConfig.cpuCores === 1 ? 'core' : 'cores'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Memory:</span>
-                      <span className="ml-2 font-medium text-slate-900">
-                        {challenge.ecsConfig.memory / 1024}GB
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Storage:</span>
-                      <span className="ml-2 font-medium text-slate-900">
-                        {challenge.ecsConfig.storage}GB
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <h3 className="text-sm font-medium text-blue-900 mb-2">
-                Assessment Details
-              </h3>
-              <div className="space-y-2 text-sm">
-                {status.availableUntil && (
-                  <div>
-                    <span className="text-blue-700">Available until:</span>
-                    <span className="ml-2 font-medium text-blue-900">
-                      {new Date(status.availableUntil).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-                <div>
-                  <span className="text-blue-700">
-                    Duration after activation:
-                  </span>
-                  <span className="ml-2 font-medium text-blue-900">
-                    {getDurationHours()} hours
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <p className="text-red-800 text-sm">{error}</p>
-              </div>
-            )}
-
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-              <p className="text-amber-800 text-sm">
-                <strong>Important:</strong> Once you activate this assessment,
-                the timer will start immediately. Make sure you are ready to
-                begin before clicking the button below.
+        {/* Always show instructions */}
+        <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
+          {/* Platform Instructions */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-bold text-blue-900 mb-4">
+              📋 Platform Instructions
+            </h2>
+            <div className="space-y-3 text-sm text-blue-900">
+              <p>
+                <strong>Getting Started:</strong> Click &ldquo;Activate
+                Take-Home Assessment&rdquo; below to begin provisioning your
+                dedicated cloud workspace. The timer will start immediately upon
+                activation.
               </p>
+              <p>
+                <strong>Setup Time:</strong> Your workspace will be ready in
+                approximately 3-5 minutes. You&apos;ll see progress updates as
+                the environment is being prepared.
+              </p>
+              <p>
+                <strong>Time Limit:</strong> You will have{' '}
+                <span className="font-semibold">
+                  {getDurationHours()} hours
+                </span>{' '}
+                to complete the challenge once your workspace is active.
+              </p>
+              <p>
+                <strong>Automatic Shutdown:</strong> Once your workspace is
+                created, it will automatically shut down after{' '}
+                {getDurationHours()} hours to preserve resources.
+              </p>
+              <p>
+                <strong>Work Saving:</strong> All your work will be
+                automatically saved when the workspace shuts down.
+              </p>
+              <p>
+                <strong>One-Time Access:</strong> You can only activate and
+                start this assessment once. Make sure you&apos;re ready to begin
+                before clicking the button.
+              </p>
+              {status.availableUntil && (
+                <p>
+                  <strong>Availability Window:</strong> This assessment must be
+                  activated before{' '}
+                  <span className="font-semibold">
+                    {new Date(status.availableUntil).toLocaleString()}
+                  </span>
+                  .
+                </p>
+              )}
             </div>
+          </div>
 
+          {/* Additional Instructions from Manager */}
+          {status.additionalInstructions && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 mb-6">
+              <h2 className="text-xl font-bold text-amber-900 mb-4">
+                📝 Additional Instructions
+              </h2>
+              <div className="text-sm text-amber-900 whitespace-pre-wrap">
+                {status.additionalInstructions}
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-red-800 text-sm">{error}</p>
+            </div>
+          )}
+
+          {status.sessionStatus === 'available' && (
             <button
               onClick={handleActivate}
               disabled={activating}
@@ -316,8 +285,8 @@ export default function TakeHomePage() {
                 'Activate Take-Home Assessment'
               )}
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Status: Activated + Initializing/Configuring */}
         {status.sessionStatus === 'activated' &&
@@ -336,6 +305,10 @@ export default function TakeHomePage() {
                       ? 'Configuring VS Code environment...'
                       : 'Preparing your coding environment...'}
                 </p>
+                <p className="text-slate-600 mb-4">
+                  This typically takes 3-5 minutes. You can safely close this
+                  page and return later.
+                </p>
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 inline-block">
                   <p className="text-blue-900 text-sm">
@@ -343,9 +316,6 @@ export default function TakeHomePage() {
                     <span className="font-medium capitalize">
                       {status.instanceStatus || 'pending'}
                     </span>
-                  </p>
-                  <p className="text-blue-700 text-xs mt-1">
-                    This usually takes 3-5 minutes
                   </p>
                 </div>
               </div>
@@ -422,7 +392,7 @@ export default function TakeHomePage() {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">
-                      VS Code URL
+                      Workspace URL
                     </label>
                     <div className="flex items-center space-x-2">
                       <a
@@ -437,7 +407,7 @@ export default function TakeHomePage() {
                         onClick={() => {
                           navigator.clipboard.writeText(status.accessUrl!)
                         }}
-                        className="px-3 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors text-sm"
+                        className="px-3 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors text-sm text-slate-900 font-medium cursor-pointer"
                       >
                         Copy
                       </button>
@@ -458,7 +428,7 @@ export default function TakeHomePage() {
                         onClick={() => {
                           navigator.clipboard.writeText(status.password!)
                         }}
-                        className="px-3 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors text-sm"
+                        className="px-3 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors text-sm text-slate-900 font-medium cursor-pointer"
                       >
                         Copy
                       </button>
@@ -466,17 +436,6 @@ export default function TakeHomePage() {
                   </div>
                 </div>
               </div>
-
-              {challenge && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-blue-900 mb-2">
-                    Challenge: {challenge.name}
-                  </h3>
-                  <p className="text-blue-800 text-sm">
-                    {challenge.description}
-                  </p>
-                </div>
-              )}
             </div>
           )}
 
@@ -550,6 +509,21 @@ export default function TakeHomePage() {
                   </p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Status: Revoked */}
+        {status.sessionStatus === 'revoked' && (
+          <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
+            <div className="text-center">
+              <div className="text-red-600 text-5xl mb-4">🚫</div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                Assessment Revoked
+              </h2>
+              <p className="text-slate-600 mb-4">
+                This take-home assessment has been revoked.
+              </p>
             </div>
           </div>
         )}
