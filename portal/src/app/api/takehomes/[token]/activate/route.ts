@@ -14,10 +14,10 @@ import { logger } from '@/lib/logger'
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ): Promise<NextResponse> {
   try {
-    const { token } = params
+    const { token } = await params
 
     // Look up take-home by access token
     const takeHome = await assessmentManager.getTakeHomeByToken(token)

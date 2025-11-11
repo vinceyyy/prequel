@@ -66,7 +66,9 @@ describe('POST /api/takehomes/[token]/activate', () => {
       }
     )
 
-    const response = await POST(request, { params: { token: mockToken } })
+    const response = await POST(request, {
+      params: Promise.resolve({ token: mockToken }),
+    })
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -101,7 +103,9 @@ describe('POST /api/takehomes/[token]/activate', () => {
       }
     )
 
-    const response = await POST(request, { params: { token: mockToken } })
+    const response = await POST(request, {
+      params: Promise.resolve({ token: mockToken }),
+    })
     const data = await response.json()
 
     expect(response.status).toBe(404)
@@ -126,7 +130,9 @@ describe('POST /api/takehomes/[token]/activate', () => {
       }
     )
 
-    const response = await POST(request, { params: { token: mockToken } })
+    const response = await POST(request, {
+      params: Promise.resolve({ token: mockToken }),
+    })
     const data = await response.json()
 
     expect(response.status).toBe(400)
@@ -150,7 +156,9 @@ describe('POST /api/takehomes/[token]/activate', () => {
       }
     )
 
-    const response = await POST(request, { params: { token: mockToken } })
+    const response = await POST(request, {
+      params: Promise.resolve({ token: mockToken }),
+    })
     const data = await response.json()
 
     expect(response.status).toBe(400)
