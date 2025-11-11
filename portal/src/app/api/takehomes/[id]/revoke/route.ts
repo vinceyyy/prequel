@@ -1,4 +1,4 @@
-// portal/src/app/api/takehomes/[id]/delete/route.ts
+// portal/src/app/api/takehomes/[id]/revoke/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { assessmentManager } from '@/lib/assessments'
 import { operationManager } from '@/lib/operations'
@@ -7,12 +7,15 @@ import { openaiService } from '@/lib/openai'
 import { logger } from '@/lib/logger'
 
 /**
- * DELETE endpoint for managers to delete take-home assessments.
+ * POST endpoint for managers to revoke take-home assessments.
  *
  * Behavior:
- * - For non-activated take-homes (available/expired): Delete immediately from DynamoDB
- * - For activated take-homes: Create destroy operation and trigger infrastructure cleanup
+ * - For non-activated take-homes (available): Update sessionStatus to 'revoked' immediately
+ * - For activated take-homes: Create destroy operation, trigger infrastructure cleanup, and set sessionStatus to 'revoked'
  * - Always clean up OpenAI service accounts if they exist
+ * - Always save files (saveFiles: true) for revoked take-homes
+ * - Prevents revocation if take-home is already in destroying state
+ * - Prevents duplicate revoke operations
  */
 export async function POST(
   request: NextRequest,
@@ -21,7 +24,7 @@ export async function POST(
   try {
     const { id } = await params
 
-    logger.info('Delete take-home request received', { id })
+    logger.info('Revoke take-home request received', { id })
 
     // Get take-home record
     const assessment = await assessmentManager.getAssessment(id)
@@ -38,12 +41,51 @@ export async function POST(
       id,
       sessionType: assessment.sessionType,
       sessionStatus: assessment.sessionStatus,
+      instanceStatus: assessment.instanceStatus,
     })
 
     // Verify it's a take-home (not an interview)
     if (assessment.sessionType !== 'takehome') {
       return NextResponse.json(
-        { error: 'This endpoint is for take-homes only, not a take-home' },
+        { error: 'This endpoint is for take-homes only' },
+        { status: 400 }
+      )
+    }
+
+    // Check if already in a terminal state
+    if (
+      assessment.sessionStatus === 'completed' ||
+      assessment.sessionStatus === 'expired' ||
+      assessment.sessionStatus === 'revoked'
+    ) {
+      return NextResponse.json(
+        {
+          error: `Cannot revoke - take-home is already ${assessment.sessionStatus}`,
+        },
+        { status: 400 }
+      )
+    }
+
+    // Check if currently destroying
+    if (assessment.instanceStatus === 'destroying') {
+      return NextResponse.json(
+        { error: 'Cannot revoke - already destroying' },
+        { status: 400 }
+      )
+    }
+
+    // Check for existing revoke operations to prevent duplicates
+    const existingOperations =
+      await operationManager.getOperationsByInterview(id)
+    const hasActiveRevoke = existingOperations.some(
+      op =>
+        op.type === 'revoke_takehome' &&
+        (op.status === 'pending' || op.status === 'running')
+    )
+
+    if (hasActiveRevoke) {
+      return NextResponse.json(
+        { error: 'Revocation already in progress' },
         { status: 400 }
       )
     }
@@ -53,17 +95,20 @@ export async function POST(
 
     if (isActivated) {
       // Take-home has infrastructure - trigger background destruction
-      logger.info('Initiating destruction for activated take-home', {
+      logger.info('Initiating destruction for activated take-home (revoke)', {
         takeHomeId: id,
         candidateName: assessment.candidateName,
       })
 
       // Create operation to track progress
       const operationId = await operationManager.createOperation(
-        'destroy',
+        'revoke_takehome',
         id,
         assessment.candidateName,
-        assessment.challengeId
+        assessment.challengeId,
+        undefined, // scheduledAt
+        undefined, // autoDestroyAt
+        true // saveFiles - always save files for revoked take-homes
       )
 
       // Start background operation
@@ -72,7 +117,14 @@ export async function POST(
           await operationManager.updateOperationStatus(operationId, 'running')
           await operationManager.addOperationLog(
             operationId,
-            `Starting take-home destruction for ${id}`
+            `Starting take-home revocation for ${id}`
+          )
+
+          // Update session status to 'revoked' first
+          await assessmentManager.updateSessionStatus(id, 'takehome', 'revoked')
+          await operationManager.addOperationLog(
+            operationId,
+            'Take-home status set to revoked'
           )
 
           // Delete OpenAI service account if exists
@@ -102,7 +154,7 @@ export async function POST(
 
           // Destroy infrastructure
           const result = await destroyInstance(id, {
-            saveFiles: assessment.saveFiles,
+            saveFiles: true, // Always save files for revoked take-homes
             candidateName: assessment.candidateName,
             challenge: assessment.challengeId,
             onData: (data: string) => {
@@ -123,7 +175,7 @@ export async function POST(
 
             await operationManager.addOperationLog(
               operationId,
-              'Take-home destroyed successfully!'
+              'Take-home revoked successfully!'
             )
 
             await operationManager.setOperationResult(operationId, {
@@ -134,7 +186,7 @@ export async function POST(
           } else {
             await operationManager.addOperationLog(
               operationId,
-              'Take-home destruction failed'
+              'Take-home revocation failed'
             )
             await operationManager.addOperationLog(
               operationId,
@@ -164,11 +216,11 @@ export async function POST(
       return NextResponse.json({
         success: true,
         operationId,
-        message: 'Destruction initiated',
+        message: 'Revocation initiated',
       })
     } else {
-      // Take-home has not been activated - delete directly from DynamoDB
-      logger.info('Deleting non-activated take-home', {
+      // Take-home has not been activated - update status directly
+      logger.info('Revoking non-activated take-home', {
         takeHomeId: id,
         sessionStatus: assessment.sessionStatus,
       })
@@ -186,23 +238,23 @@ export async function POST(
             takeHomeId: id,
             error,
           })
-          // Continue with deletion even if OpenAI cleanup fails
+          // Continue with revocation even if OpenAI cleanup fails
         }
       }
 
-      // Delete from DynamoDB
-      await assessmentManager.deleteTakeHome(id)
+      // Update session status to 'revoked'
+      await assessmentManager.updateSessionStatus(id, 'takehome', 'revoked')
 
       return NextResponse.json({
         success: true,
-        message: 'Take-home deleted successfully',
+        message: 'Take-home revoked successfully',
       })
     }
   } catch (error) {
-    logger.error('Failed to delete take-home', { error })
+    logger.error('Failed to revoke take-home', { error })
     return NextResponse.json(
       {
-        error: 'Failed to delete take-home',
+        error: 'Failed to revoke take-home',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }

@@ -43,12 +43,14 @@ export type TakeHomeSessionStatus =
   | 'activated' // Candidate started (instance provisioning/active)
   | 'completed' // Take-home finished
   | 'expired' // Availability window passed without activation
+  | 'revoked' // Manually revoked by manager
 
 export const takeHomeSessionStatusValues: TakeHomeSessionStatus[] = [
   'available',
   'activated',
   'completed',
   'expired',
+  'revoked',
 ]
 
 /**
@@ -112,6 +114,7 @@ export interface TakeHome extends InstanceFields {
   createdBy: string
   candidateEmail?: string
   candidateName?: string
+  additionalInstructions?: string
 }
 
 /**

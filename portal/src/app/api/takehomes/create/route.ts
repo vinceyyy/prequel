@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
       challengeId,
       availableDays = 7,
       durationHours = 4, // eslint-disable-line @typescript-eslint/no-unused-vars
+      additionalInstructions,
     } = body
 
     // Validate required fields
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     // Generate IDs
     const takeHomeId = uuidv4()
-    const accessToken = uuidv4()
+    const accessToken = uuidv4().substring(0, 8) // Short token for cleaner URLs
 
     // Calculate timestamps
     const now = Math.floor(Date.now() / 1000)
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
       createdBy: 'admin', // TODO: Get from auth context
       candidateName,
       candidateEmail,
+      additionalInstructions,
       instanceStatus: 'pending',
       challengeId,
       autoDestroyAt: undefined, // Set when activated

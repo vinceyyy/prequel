@@ -49,6 +49,11 @@ export async function POST(
     // Calculate autoDestroyAt based on durationHours (default 4 hours)
     const durationHours = 4 // Default to 4 hours
     const autoDestroyAt = new Date(Date.now() + durationHours * 60 * 60 * 1000)
+    const activatedAt = Math.floor(Date.now() / 1000)
+
+    // Generate secure random password for VS Code instance
+    const crypto = await import('crypto')
+    const password = crypto.randomBytes(16).toString('base64').slice(0, 22) // 22 character password
 
     // Create operation for provisioning
     const operationId = await operationManager.createOperation(
@@ -61,11 +66,16 @@ export async function POST(
       false // saveFiles
     )
 
-    // Update take-home: sessionStatus='activated', isActivated=true, activatedAt=now
+    // Update take-home: sessionStatus='activated', isActivated=true, activatedAt=now, autoDestroyAt
     await assessmentManager.updateSessionStatus(
       takeHome.id,
       'takehome',
       'activated'
+    )
+    await assessmentManager.updateTakeHomeActivation(
+      takeHome.id,
+      activatedAt,
+      Math.floor(autoDestroyAt.getTime() / 1000)
     )
 
     // Start background provisioning using instance.provisionInstance()
@@ -77,7 +87,7 @@ export async function POST(
           instanceId: takeHome.id,
           candidateName: takeHome.candidateName || 'Candidate',
           challengeId: takeHome.challengeId,
-          password: takeHome.password || 'password', // Will be generated if not set
+          password, // Securely generated random password
           autoDestroyAt: Math.floor(autoDestroyAt.getTime() / 1000),
           resourceConfig: takeHome.resourceConfig,
           openaiApiKey: takeHome.openaiServiceAccount?.apiKey,
@@ -88,24 +98,66 @@ export async function POST(
             operationManager.updateOperationInfrastructureReady(
               operationId,
               accessUrl,
-              takeHome.password
+              password
             )
           },
         })
 
+        logger.info('Provisioning completed', {
+          takeHomeId: takeHome.id,
+          operationId,
+          success: result.success,
+          hasAccessUrl: !!result.accessUrl,
+          error: result.error,
+        })
+
+        await operationManager.addOperationLog(
+          operationId,
+          `Provisioning result: success=${result.success}, accessUrl=${result.accessUrl || 'none'}`
+        )
+
         await operationManager.setOperationResult(operationId, result)
 
         if (result.success) {
+          logger.info('Updating instance status to active', {
+            takeHomeId: takeHome.id,
+          })
           await assessmentManager.updateInstanceStatus(
             takeHome.id,
             'takehome',
             'active'
           )
+
+          // Update access credentials if available
+          if (result.accessUrl) {
+            await assessmentManager.updateAccessCredentials(
+              takeHome.id,
+              result.accessUrl,
+              password
+            )
+            await operationManager.addOperationLog(
+              operationId,
+              `✅ Access credentials updated: ${result.accessUrl}`
+            )
+          }
+
+          await operationManager.addOperationLog(
+            operationId,
+            '✅ Instance status updated to active'
+          )
         } else {
+          logger.error('Provisioning failed, updating status to error', {
+            takeHomeId: takeHome.id,
+            error: result.error,
+          })
           await assessmentManager.updateInstanceStatus(
             takeHome.id,
             'takehome',
             'error'
+          )
+          await operationManager.addOperationLog(
+            operationId,
+            `❌ Provisioning failed: ${result.error}`
           )
         }
       } catch (error) {

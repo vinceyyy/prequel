@@ -191,18 +191,9 @@ export default function InterviewsPage() {
         const operation: OperationData = lastEvent.operation
         console.log('Processing operation update:', operation)
 
-        // Filter for interview operations only (ignore take-home operations)
-        // Operations include an interviewId field (actually instanceId) with prefixes:
-        // - INTERVIEW# for interview operations
-        // - TAKEHOME# for take-home operations
-        if (
-          !operation.interviewId ||
-          !operation.interviewId.startsWith('INTERVIEW#')
-        ) {
-          console.log(
-            'Ignoring non-interview operation:',
-            operation.interviewId
-          )
+        // Skip operations without interviewId
+        if (!operation.interviewId) {
+          console.log('Ignoring operation without interviewId')
           return
         }
 

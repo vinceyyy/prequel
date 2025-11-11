@@ -96,41 +96,34 @@ export class AssessmentManager {
 
   /**
    * Retrieves an assessment by ID (works for both interviews and take-homes).
+   * Uses simple 'id' key since the table schema has 'id' as partition key.
    */
   async getAssessment(id: string): Promise<Assessment | null> {
-    // Try interview first
+    logger.debug('getAssessment called', { id })
+
     try {
       const response = await this.dynamoClient.send(
         new GetItemCommand({
           TableName: this.tableName,
-          Key: marshall({ PK: `INTERVIEW#${id}`, SK: 'METADATA' }),
+          Key: marshall({ id }),
         })
       )
 
       if (response.Item) {
-        return unmarshall(response.Item) as Interview
-      }
-    } catch (error) {
-      logger.debug('Not found as interview, trying take-home', { id, error })
-    }
-
-    // Try take-home
-    try {
-      const response = await this.dynamoClient.send(
-        new GetItemCommand({
-          TableName: this.tableName,
-          Key: marshall({ PK: `TAKEHOME#${id}`, SK: 'METADATA' }),
+        const item = unmarshall(response.Item) as Assessment
+        logger.debug('Assessment found', {
+          id,
+          sessionType: item.sessionType,
         })
-      )
-
-      if (response.Item) {
-        return unmarshall(response.Item) as TakeHome
+        return item
       }
-    } catch (error) {
-      logger.error('Failed to get assessment', { id, error })
-    }
 
-    return null
+      logger.warn('Assessment not found in database', { id })
+      return null
+    } catch (error) {
+      logger.error('Error looking up assessment', { id, error })
+      return null
+    }
   }
 
   /**
@@ -166,20 +159,18 @@ export class AssessmentManager {
 
   /**
    * Updates instance status for an assessment.
+   * Uses simple 'id' key since the table schema has 'id' as partition key.
    */
   async updateInstanceStatus(
     id: string,
     sessionType: 'interview' | 'takehome',
     status: InstanceStatus
   ): Promise<void> {
-    const pk =
-      sessionType === 'interview' ? `INTERVIEW#${id}` : `TAKEHOME#${id}`
-
     try {
       await this.dynamoClient.send(
         new UpdateItemCommand({
           TableName: this.tableName,
-          Key: marshall({ PK: pk, SK: 'METADATA' }),
+          Key: marshall({ id }),
           UpdateExpression: 'SET instanceStatus = :status',
           ExpressionAttributeValues: marshall({ ':status': status }),
         })
@@ -199,20 +190,18 @@ export class AssessmentManager {
 
   /**
    * Updates session status for an assessment.
+   * Uses simple 'id' key since the table schema has 'id' as partition key.
    */
   async updateSessionStatus(
     id: string,
     sessionType: 'interview' | 'takehome',
     status: InterviewSessionStatus | TakeHomeSessionStatus
   ): Promise<void> {
-    const pk =
-      sessionType === 'interview' ? `INTERVIEW#${id}` : `TAKEHOME#${id}`
-
     try {
       await this.dynamoClient.send(
         new UpdateItemCommand({
           TableName: this.tableName,
-          Key: marshall({ PK: pk, SK: 'METADATA' }),
+          Key: marshall({ id }),
           UpdateExpression: 'SET sessionStatus = :status',
           ExpressionAttributeValues: marshall({ ':status': status }),
         })
@@ -226,6 +215,78 @@ export class AssessmentManager {
         status,
         error,
       })
+      throw error
+    }
+  }
+
+  /**
+   * Updates take-home activation fields (activatedAt, autoDestroyAt, isActivated).
+   * Called when candidate activates their take-home assessment.
+   */
+  async updateTakeHomeActivation(
+    id: string,
+    activatedAt: number,
+    autoDestroyAt: number
+  ): Promise<void> {
+    try {
+      await this.dynamoClient.send(
+        new UpdateItemCommand({
+          TableName: this.tableName,
+          Key: marshall({ id }),
+          UpdateExpression:
+            'SET activatedAt = :activatedAt, autoDestroyAt = :autoDestroyAt, isActivated = :isActivated',
+          ExpressionAttributeValues: marshall({
+            ':activatedAt': activatedAt,
+            ':autoDestroyAt': autoDestroyAt,
+            ':isActivated': true,
+          }),
+        })
+      )
+
+      logger.info('Take-home activation fields updated', {
+        id,
+        activatedAt,
+        autoDestroyAt,
+      })
+    } catch (error) {
+      logger.error('Failed to update take-home activation', {
+        id,
+        activatedAt,
+        autoDestroyAt,
+        error,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Updates assessment access credentials (url, password).
+   * Called after infrastructure provisioning completes.
+   */
+  async updateAccessCredentials(
+    id: string,
+    url: string,
+    password: string
+  ): Promise<void> {
+    try {
+      await this.dynamoClient.send(
+        new UpdateItemCommand({
+          TableName: this.tableName,
+          Key: marshall({ id }),
+          UpdateExpression: 'SET #url = :url, password = :password',
+          ExpressionAttributeNames: {
+            '#url': 'url',
+          },
+          ExpressionAttributeValues: marshall({
+            ':url': url,
+            ':password': password,
+          }),
+        })
+      )
+
+      logger.info('Access credentials updated', { id, url })
+    } catch (error) {
+      logger.error('Failed to update access credentials', { id, error })
       throw error
     }
   }
@@ -281,6 +342,7 @@ export class AssessmentManager {
   /**
    * Deletes a take-home record from DynamoDB.
    * Used during take-home deletion (for non-activated assessments).
+   * Uses simple 'id' key since the table schema has 'id' as partition key.
    */
   async deleteTakeHome(id: string): Promise<void> {
     try {
@@ -288,7 +350,7 @@ export class AssessmentManager {
       await this.dynamoClient.send(
         new DeleteItemCommand({
           TableName: this.tableName,
-          Key: marshall({ PK: `TAKEHOME#${id}`, SK: 'METADATA' }),
+          Key: marshall({ id }),
         })
       )
 
