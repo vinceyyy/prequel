@@ -14,6 +14,8 @@ interface TakeHomeListItem {
   availableUntil: string
   activatedAt?: string
   accessToken: string
+  url?: string
+  password?: string
 }
 
 /**
@@ -39,6 +41,8 @@ export async function GET(): Promise<NextResponse> {
         availableFrom: new Date(takeHome.availableFrom * 1000).toISOString(),
         availableUntil: new Date(takeHome.availableUntil * 1000).toISOString(),
         accessToken: takeHome.accessToken,
+        url: takeHome.url,
+        password: takeHome.password,
       }
 
       // Add activatedAt if take-home has been activated
