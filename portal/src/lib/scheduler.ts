@@ -1,5 +1,6 @@
 import { operationManager } from './operations'
 import { interviewManager } from './interviews'
+import { assessmentManager } from './assessments'
 import { schedulerLogger } from './logger'
 import { config } from './config'
 import { openaiService } from './openai'
@@ -49,10 +50,11 @@ export class SchedulerService {
       clearInterval(this.checkInterval)
     }
 
-    // Check every 30 seconds for scheduled operations
+    // Check every 30 seconds for scheduled operations, auto-destroy, and take-home expiration
     this.checkInterval = setInterval(() => {
       this.processScheduledOperations()
       this.processAutoDestroyOperations()
+      this.processExpiredTakeHomes()
     }, 30000)
 
     schedulerLogger.info('Scheduler service started')
@@ -397,6 +399,100 @@ export class SchedulerService {
       }
     } catch (error) {
       schedulerLogger.error('Error in processInterviewsAutoDestroy', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }
+
+  /**
+   * Processes expired take-homes (availableUntil <= now AND sessionStatus === 'available').
+   * Marks them as expired and cleans up OpenAI service accounts if they exist.
+   * Called every 30 seconds as part of the scheduler tick.
+   */
+  private async processExpiredTakeHomes() {
+    try {
+      // Get all take-homes from DynamoDB
+      const takeHomes = await assessmentManager.listTakeHomes()
+      const now = Math.floor(Date.now() / 1000)
+
+      // Process all take-homes to check for expiration
+      for (const takeHome of takeHomes) {
+        // Skip if not yet expired
+        if (takeHome.availableUntil > now) {
+          continue
+        }
+
+        // Skip if already activated
+        if (takeHome.sessionStatus === 'activated' || takeHome.isActivated) {
+          schedulerLogger.debug('Skipping take-home - already activated', {
+            takeHomeId: takeHome.id,
+          })
+          continue
+        }
+
+        // Skip if already expired
+        if (takeHome.sessionStatus === 'expired') {
+          continue
+        }
+
+        // Only process available take-homes that have expired
+        if (takeHome.sessionStatus !== 'available') {
+          continue
+        }
+
+        schedulerLogger.info('Expiring take-home', {
+          takeHomeId: takeHome.id,
+          availableUntil: new Date(
+            takeHome.availableUntil * 1000
+          ).toISOString(),
+        })
+
+        try {
+          // Delete OpenAI service account if it exists
+          if (takeHome.openaiServiceAccount?.serviceAccountId) {
+            schedulerLogger.info('Deleting OpenAI service account', {
+              serviceAccountId: takeHome.openaiServiceAccount.serviceAccountId,
+            })
+
+            const deleteResult = await openaiService.deleteServiceAccount(
+              config.services.openaiProjectId,
+              takeHome.openaiServiceAccount.serviceAccountId
+            )
+
+            if (deleteResult.success) {
+              schedulerLogger.info('OpenAI service account deleted', {
+                serviceAccountId:
+                  takeHome.openaiServiceAccount.serviceAccountId,
+              })
+            } else {
+              schedulerLogger.error('OpenAI service account deletion failed', {
+                serviceAccountId:
+                  takeHome.openaiServiceAccount.serviceAccountId,
+                error: deleteResult.error,
+              })
+              // Continue with expiration even if OpenAI deletion fails
+            }
+          }
+
+          // Update session status to expired
+          await assessmentManager.updateSessionStatus(
+            takeHome.id,
+            'takehome',
+            'expired'
+          )
+
+          schedulerLogger.info('Take-home marked as expired', {
+            takeHomeId: takeHome.id,
+          })
+        } catch (error) {
+          schedulerLogger.error('Error expiring take-home', {
+            takeHomeId: takeHome.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          })
+        }
+      }
+    } catch (error) {
+      schedulerLogger.error('Error in processExpiredTakeHomes', {
         error: error instanceof Error ? error.message : 'Unknown error',
       })
     }
