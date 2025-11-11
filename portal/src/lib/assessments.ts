@@ -247,6 +247,36 @@ export class AssessmentManager {
     // For now, return empty array
     return []
   }
+
+  /**
+   * Lists all take-homes (for manager dashboard).
+   * Returns take-homes sorted by creation date descending.
+   */
+  async listTakeHomes(): Promise<TakeHome[]> {
+    try {
+      const response = await this.dynamoClient.send(
+        new ScanCommand({
+          TableName: this.tableName,
+          FilterExpression: 'begins_with(PK, :pkPrefix)',
+          ExpressionAttributeValues: marshall({
+            ':pkPrefix': 'TAKEHOME#',
+          }),
+        })
+      )
+
+      if (!response.Items || response.Items.length === 0) {
+        return []
+      }
+
+      const takeHomes = response.Items.map(item => unmarshall(item) as TakeHome)
+
+      // Sort by createdAt descending (newest first)
+      return takeHomes.sort((a, b) => b.createdAt - a.createdAt)
+    } catch (error) {
+      logger.error('Failed to list take-homes', { error })
+      throw error
+    }
+  }
 }
 
 export const assessmentManager = new AssessmentManager()
