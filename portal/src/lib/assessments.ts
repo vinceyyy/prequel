@@ -4,6 +4,7 @@ import {
   PutItemCommand,
   GetItemCommand,
   UpdateItemCommand,
+  ScanCommand,
 } from '@aws-sdk/client-dynamodb'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
 import { logger } from './logger'
@@ -130,6 +131,37 @@ export class AssessmentManager {
     }
 
     return null
+  }
+
+  /**
+   * Retrieves a take-home by access token.
+   * Used during candidate activation flow.
+   */
+  async getTakeHomeByToken(token: string): Promise<TakeHome | null> {
+    try {
+      // We need to scan to find by accessToken
+      // In a production system, this would use a GSI on accessToken
+      const response = await this.dynamoClient.send(
+        new ScanCommand({
+          TableName: this.tableName,
+          FilterExpression:
+            'begins_with(PK, :pkPrefix) AND accessToken = :token',
+          ExpressionAttributeValues: marshall({
+            ':pkPrefix': 'TAKEHOME#',
+            ':token': token,
+          }),
+        })
+      )
+
+      if (response.Items && response.Items.length > 0) {
+        return unmarshall(response.Items[0]) as TakeHome
+      }
+
+      return null
+    } catch (error) {
+      logger.error('Failed to get take-home by token', { token, error })
+      return null
+    }
   }
 
   /**

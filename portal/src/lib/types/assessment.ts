@@ -1,4 +1,3 @@
-
 /**
  * Instance-level status (infrastructure provisioning state).
  * Shared by both Interview and TakeHome types.

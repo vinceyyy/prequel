@@ -147,8 +147,9 @@ describe('OperationManager', () => {
     const originalClient = (
       operationManager as unknown as { dynamoClient: unknown }
     ).dynamoClient
-    ;(operationManager as unknown as { dynamoClient: { send: jest.Mock } }).dynamoClient =
-      { send: mockSend }
+    ;(
+      operationManager as unknown as { dynamoClient: { send: jest.Mock } }
+    ).dynamoClient = { send: mockSend }
 
     // Mock successful PutItem responses
     mockSend

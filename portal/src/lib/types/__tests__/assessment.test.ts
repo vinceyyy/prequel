@@ -1,4 +1,11 @@
-import { Interview, TakeHome, InstanceFields, instanceStatusValues, interviewSessionStatusValues, takeHomeSessionStatusValues } from '../assessment'
+import {
+  Interview,
+  TakeHome,
+  InstanceFields,
+  instanceStatusValues,
+  interviewSessionStatusValues,
+  takeHomeSessionStatusValues,
+} from '../assessment'
 
 describe('Assessment Types', () => {
   test('InstanceFields contains all required infrastructure fields', () => {
@@ -50,7 +57,7 @@ describe('Assessment Types', () => {
       id: 'th-123',
       accessToken: 'token-abc-123',
       availableFrom: Date.now() / 1000,
-      availableUntil: (Date.now() / 1000) + 86400 * 7,
+      availableUntil: Date.now() / 1000 + 86400 * 7,
       isActivated: false,
       sessionStatus: 'available',
       createdAt: Date.now() / 1000,
