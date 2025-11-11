@@ -144,6 +144,15 @@ export const database = {
     `${project.prefix}-${project.environment}-interviews`,
 
   /**
+   * DynamoDB table name for assessments (interviews + take-homes)
+   * Falls back to interviews table for backward compatibility
+   */
+  assessmentsTable:
+    process.env.ASSESSMENTS_TABLE_NAME ||
+    process.env.INTERVIEWS_TABLE_NAME ||
+    `${project.prefix}-${project.environment}-interviews`,
+
+  /**
    * DynamoDB table name for operations
    */
   operationsTable:

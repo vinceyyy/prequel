@@ -8,6 +8,7 @@ import type { Assessment } from './types/assessment'
  */
 export interface ProvisionParams {
   instanceId: string
+  candidateName: string
   challengeId: string
   password: string
   autoDestroyAt: number
@@ -71,6 +72,7 @@ export async function provisionInstance(
     const result = await terraformManager.createInterviewStreaming(
       {
         id: params.instanceId,
+        candidateName: params.candidateName,
         challenge: params.challengeId,
         password: params.password,
         openaiApiKey: params.openaiApiKey,
