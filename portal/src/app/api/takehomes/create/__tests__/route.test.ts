@@ -17,9 +17,11 @@ describe('POST /api/takehomes/create', () => {
     mockAssessmentManager.createTakeHome = jest
       .fn()
       .mockResolvedValue(undefined)
-    mockOpenaiService.createServiceAccount = jest
-      .fn()
-      .mockResolvedValue({ apiKey: 'test-key', projectId: 'test-project' })
+    mockOpenaiService.createServiceAccount = jest.fn().mockResolvedValue({
+      success: true,
+      apiKey: 'test-key',
+      serviceAccountId: 'sa-test-123',
+    })
   })
 
   test('creates take-home with generated token', async () => {

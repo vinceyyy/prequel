@@ -42,10 +42,15 @@ export async function POST(request: NextRequest) {
         config.services.openaiProjectId,
         `takehome-${takeHomeId}`
       )
-      if (serviceAccountResult.success && serviceAccountResult.apiKey) {
+      if (
+        serviceAccountResult.success &&
+        serviceAccountResult.apiKey &&
+        serviceAccountResult.serviceAccountId
+      ) {
         openaiServiceAccount = {
           apiKey: serviceAccountResult.apiKey,
           projectId: config.services.openaiProjectId,
+          serviceAccountId: serviceAccountResult.serviceAccountId,
         }
       }
     } catch (error) {

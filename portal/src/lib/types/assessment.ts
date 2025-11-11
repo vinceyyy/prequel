@@ -71,6 +71,7 @@ export interface InstanceFields {
   openaiServiceAccount?: {
     apiKey: string
     projectId: string
+    serviceAccountId: string
   }
   saveFiles?: boolean
   historyKey?: string

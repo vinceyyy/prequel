@@ -277,6 +277,27 @@ export class AssessmentManager {
       throw error
     }
   }
+
+  /**
+   * Deletes a take-home record from DynamoDB.
+   * Used during take-home deletion (for non-activated assessments).
+   */
+  async deleteTakeHome(id: string): Promise<void> {
+    try {
+      const { DeleteItemCommand } = await import('@aws-sdk/client-dynamodb')
+      await this.dynamoClient.send(
+        new DeleteItemCommand({
+          TableName: this.tableName,
+          Key: marshall({ PK: `TAKEHOME#${id}`, SK: 'METADATA' }),
+        })
+      )
+
+      logger.info('TakeHome deleted', { takeHomeId: id })
+    } catch (error) {
+      logger.error('Failed to delete take-home', { takeHomeId: id, error })
+      throw error
+    }
+  }
 }
 
 export const assessmentManager = new AssessmentManager()
