@@ -171,7 +171,10 @@ export default function TakeHomesPage() {
       if (lastEvent.type === 'operation_update' && lastEvent.operation) {
         const operation: OperationData = lastEvent.operation
 
-        // Check if this is a take-home operation
+        // Filter for take-home operations only (ignore interview operations)
+        // Operations include an interviewId field (actually instanceId) with prefixes:
+        // - TAKEHOME# for take-home operations
+        // - INTERVIEW# for interview operations
         if (
           operation.interviewId &&
           operation.interviewId.startsWith('TAKEHOME#')

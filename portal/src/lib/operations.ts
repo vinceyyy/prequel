@@ -14,6 +14,14 @@ import { config } from './config'
 /**
  * Event emitted when an operation's state changes.
  * Used by SSE endpoint to notify connected clients in real-time.
+ *
+ * Client-side filtering by session type:
+ * Operations can be filtered by checking the `operation.interviewId` prefix:
+ * - `operation.interviewId.startsWith('INTERVIEW#')` - Interview session operations
+ * - `operation.interviewId.startsWith('TAKEHOME#')` - Take-home session operations
+ *
+ * This allows clients (interviews page vs take-homes page) to only respond to
+ * events relevant to their specific session type.
  */
 export interface OperationEvent {
   type: 'operation_update' | 'operation_logs'
