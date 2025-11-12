@@ -159,14 +159,20 @@ resource "aws_iam_role_policy" "ecs_task_terraform_state" {
           "s3:GetObject",
           "s3:PutObject"
         ]
-        Resource = "arn:aws:s3:::${var.terraform_state_bucket}/*"
+        Resource = [
+          "arn:aws:s3:::${var.terraform_state_bucket}/*",
+          "arn:aws:s3:::${var.project_prefix}-${var.environment}-terraform-state/*"
+        ]
       },
       {
         Effect = "Allow"
         Action = [
           "s3:ListBucket"
         ]
-        Resource = "arn:aws:s3:::${var.terraform_state_bucket}"
+        Resource = [
+          "arn:aws:s3:::${var.terraform_state_bucket}",
+          "arn:aws:s3:::${var.project_prefix}-${var.environment}-terraform-state"
+        ]
       }
     ]
   })
