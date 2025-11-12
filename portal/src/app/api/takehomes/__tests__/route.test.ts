@@ -28,6 +28,7 @@ describe('GET /api/takehomes', () => {
     createdBy: 'admin',
     candidateName: `Candidate ${id}`,
     candidateEmail: `candidate${id}@example.com`,
+    durationHours: 4,
     instanceStatus: 'pending',
     challengeId: 'challenge-123',
     resourceConfig: {

@@ -25,6 +25,7 @@ describe('GET /api/takehome/[token]', () => {
     sessionStatus: 'available',
     createdAt: now - 3600,
     createdBy: 'admin',
+    durationHours: 4,
     candidateName: 'Jane Doe',
     candidateEmail: 'jane@example.com',
     instanceStatus: 'pending',
