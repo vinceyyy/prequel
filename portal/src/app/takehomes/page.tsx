@@ -788,21 +788,29 @@ export default function TakeHomesPage() {
                         </td>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                           <div className="space-y-1">
-                            <span
-                              className={`status-badge ${
-                                takeHome.sessionStatus === 'available'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : takeHome.sessionStatus === 'activated'
-                                    ? 'bg-green-100 text-green-800'
-                                    : takeHome.sessionStatus === 'revoked'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-slate-100 text-slate-800'
-                              }`}
-                            >
-                              {takeHome.sessionStatus}
-                            </span>
+                            <div>
+                              <div className="text-xs text-slate-500 mb-1">
+                                Session:
+                              </div>
+                              <span
+                                className={`status-badge ${
+                                  takeHome.sessionStatus === 'available'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : takeHome.sessionStatus === 'activated'
+                                      ? 'bg-green-100 text-green-800'
+                                      : takeHome.sessionStatus === 'revoked'
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-slate-100 text-slate-800'
+                                }`}
+                              >
+                                {takeHome.sessionStatus}
+                              </span>
+                            </div>
                             {takeHome.sessionStatus === 'activated' && (
                               <div>
+                                <div className="text-xs text-slate-500 mb-1">
+                                  Instance:
+                                </div>
                                 <span
                                   className={`status-badge status-${takeHome.instanceStatus}`}
                                 >
