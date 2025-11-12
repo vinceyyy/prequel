@@ -749,6 +749,16 @@ openai_service_account_name = "cleanup-placeholder-service-account-name"
 
       if (outputResult.success) {
         try {
+          // Log raw output for debugging
+          console.log(
+            '[createInterview] Raw terraform output length:',
+            outputResult.output.length
+          )
+          console.log(
+            '[createInterview] Raw terraform output (first 500 chars):',
+            outputResult.output.substring(0, 500)
+          )
+
           const outputs = JSON.parse(outputResult.output)
           const accessUrl = outputs.access_url?.value
           executionLog.push(`Access URL: ${accessUrl || 'Not found'}`)
@@ -794,7 +804,18 @@ openai_service_account_name = "cleanup-placeholder-service-account-name"
           }
 
           // Upload updated workspace to S3 after successful apply
-          await this.uploadWorkspaceToS3(instance.id, workspaceDir)
+          try {
+            await this.uploadWorkspaceToS3(instance.id, workspaceDir)
+            executionLog.push('✅ Workspace uploaded to S3 successfully')
+          } catch (s3Error) {
+            const s3ErrorMsg =
+              s3Error instanceof Error ? s3Error.message : 'Unknown error'
+            executionLog.push(
+              `⚠️ Failed to upload workspace to S3: ${s3ErrorMsg}`
+            )
+            streamData(`⚠️ Failed to upload workspace to S3: ${s3ErrorMsg}\n`)
+            // Continue anyway - infrastructure is created and working
+          }
 
           return {
             success: true,
@@ -805,9 +826,25 @@ openai_service_account_name = "cleanup-placeholder-service-account-name"
             infrastructureReady: !!accessUrl,
             executionLog,
           }
-        } catch {
-          executionLog.push('Failed to parse Terraform outputs')
-          streamData('Failed to parse Terraform outputs\n')
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown'
+          executionLog.push(`Failed to parse Terraform outputs: ${errorMsg}`)
+          executionLog.push(
+            `Raw output (first 500 chars): ${outputResult.output.substring(0, 500)}`
+          )
+          streamData(`Failed to parse Terraform outputs: ${errorMsg}\n`)
+
+          // Try to extract access_url using regex as fallback
+          let accessUrl: string | undefined
+          const urlMatch = outputResult.output.match(
+            /"access_url":\s*{\s*"value":\s*"([^"]+)"/
+          )
+          if (urlMatch) {
+            accessUrl = urlMatch[1]
+            executionLog.push(`Extracted URL via regex: ${accessUrl}`)
+            streamData(`Extracted URL via regex: ${accessUrl}\n`)
+          }
+
           return {
             success: true,
             output: applyResult.output,
@@ -815,6 +852,7 @@ openai_service_account_name = "cleanup-placeholder-service-account-name"
             executionLog,
             healthCheckPassed: false,
             infrastructureReady: false,
+            accessUrl, // Include extracted URL even on parse failure
           }
         }
       }

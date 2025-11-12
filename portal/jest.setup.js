@@ -5,10 +5,14 @@ global.Request =
   global.Request ||
   class Request {
     constructor(input, init) {
-      this.url = input
+      this._url = input
       this.method = init?.method || 'GET'
       this.headers = new Headers(init?.headers)
       this._body = init?.body
+    }
+
+    get url() {
+      return this._url
     }
 
     async json() {
@@ -27,6 +31,16 @@ global.Response =
 
     async json() {
       return JSON.parse(this.body || '{}')
+    }
+
+    static json(data, init) {
+      return new Response(JSON.stringify(data), {
+        ...init,
+        headers: {
+          'content-type': 'application/json',
+          ...init?.headers,
+        },
+      })
     }
   }
 
@@ -67,3 +81,8 @@ global.EventSource =
       this.readyState = 2
     }
   }
+
+// Polyfill setImmediate for Node.js environment
+if (typeof global.setImmediate === 'undefined') {
+  global.setImmediate = (fn, ...args) => setTimeout(fn, 0, ...args)
+}

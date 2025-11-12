@@ -10,6 +10,17 @@ export interface OperationResult {
   fullOutput?: string
 }
 
+/**
+ * Operation data structure received from SSE events.
+ *
+ * NOTE: The `interviewId` field actually contains the instanceId which can reference
+ * either an Interview or TakeHome record. The field name will be updated to `instanceId`
+ * in a future refactor.
+ *
+ * To distinguish between session types, check the prefix:
+ * - Interview operations: `operation.interviewId.startsWith('INTERVIEW#')`
+ * - Take-home operations: `operation.interviewId.startsWith('TAKEHOME#')`
+ */
 export interface OperationData {
   id: string
   type: 'create' | 'destroy'
@@ -20,6 +31,7 @@ export interface OperationData {
     | 'completed'
     | 'failed'
     | 'cancelled'
+  /** Instance ID with prefix (INTERVIEW# or TAKEHOME#) to identify session type */
   interviewId: string
   candidateName?: string
   challenge?: string
@@ -31,6 +43,17 @@ export interface OperationData {
   result?: OperationResult
 }
 
+/**
+ * Server-Sent Event data structure.
+ *
+ * All operation-related events include an `operation` or `operations` field containing
+ * OperationData with an `interviewId` field that identifies the session type:
+ * - `INTERVIEW#...` - Interview session operations
+ * - `TAKEHOME#...` - Take-home session operations
+ *
+ * Clients should filter events based on the interviewId prefix to handle only
+ * relevant operations for their page/component.
+ */
 export interface SSEEvent {
   type:
     | 'connection'
@@ -40,9 +63,11 @@ export interface SSEEvent {
     | 'operation_update'
     | 'operation_logs'
   timestamp: string
+  /** Array of operations (for operation_status events) */
   operations?: OperationData[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   event?: any
+  /** Single operation data (for operation_update events) */
   operation?: OperationData
   operationId?: string
   logs?: string[]

@@ -19,6 +19,33 @@ import { scheduler, type SchedulerEvent } from '@/lib/scheduler'
  * - `operation_update`: Immediate updates when operations change state
  * - `scheduler_event`: Background scheduler processing notifications
  *
+ * Filtering Events by Session Type:
+ *
+ * All operation events include an `interviewId` field (which actually contains instanceId)
+ * that can be used to distinguish between interview and take-home operations:
+ *
+ * - Interview operations: `operation.interviewId.startsWith('INTERVIEW#')`
+ * - Take-home operations: `operation.interviewId.startsWith('TAKEHOME#')`
+ *
+ * Example client-side filtering:
+ * ```typescript
+ * useEffect(() => {
+ *   if (lastEvent?.type === 'operation_update' && lastEvent.operation) {
+ *     const operation = lastEvent.operation
+ *
+ *     // Filter for take-home operations only
+ *     if (operation.interviewId?.startsWith('TAKEHOME#')) {
+ *       handleTakeHomeUpdate(operation)
+ *     }
+ *
+ *     // Filter for interview operations only
+ *     if (operation.interviewId?.startsWith('INTERVIEW#')) {
+ *       handleInterviewUpdate(operation)
+ *     }
+ *   }
+ * }, [lastEvent])
+ * ```
+ *
  * The connection automatically cleans up when the client disconnects.
  *
  * @param request - NextRequest object (used for abort signal detection)

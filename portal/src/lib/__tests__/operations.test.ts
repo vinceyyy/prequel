@@ -139,6 +139,78 @@ describe('OperationManager', () => {
     })
   })
 
+  test('operations reference instanceId for both interviews and take-homes', async () => {
+    // Mock DynamoDB client to avoid actual DB calls
+    const mockSend = jest.fn()
+
+    // Store original client to restore later
+    const originalClient = (
+      operationManager as unknown as { dynamoClient: unknown }
+    ).dynamoClient
+    ;(
+      operationManager as unknown as { dynamoClient: { send: jest.Mock } }
+    ).dynamoClient = { send: mockSend }
+
+    // Mock successful PutItem responses
+    mockSend
+      .mockResolvedValueOnce({}) // For interview operation creation
+      .mockResolvedValueOnce({}) // For take-home operation creation
+
+    const interviewOp = await operationManager.createOperation(
+      'create',
+      'INTERVIEW#int-123', // instanceId can be interview ID
+      'John Doe',
+      'challenge-123'
+    )
+
+    const takeHomeOp = await operationManager.createOperation(
+      'create',
+      'TAKEHOME#th-456', // instanceId can be take-home ID
+      'Jane Smith',
+      'challenge-456'
+    )
+
+    expect(interviewOp).toBeDefined()
+    expect(takeHomeOp).toBeDefined()
+
+    // Mock GetItem responses for fetching operations
+    mockSend
+      .mockResolvedValueOnce({
+        Item: {
+          id: { S: interviewOp },
+          type: { S: 'create' },
+          status: { S: 'pending' },
+          interviewId: { S: 'INTERVIEW#int-123' },
+          candidateName: { S: 'John Doe' },
+          challenge: { S: 'challenge-123' },
+          createdAt: { N: String(Math.floor(Date.now() / 1000)) },
+          logs: { L: [] },
+        },
+      })
+      .mockResolvedValueOnce({
+        Item: {
+          id: { S: takeHomeOp },
+          type: { S: 'create' },
+          status: { S: 'pending' },
+          interviewId: { S: 'TAKEHOME#th-456' },
+          candidateName: { S: 'Jane Smith' },
+          challenge: { S: 'challenge-456' },
+          createdAt: { N: String(Math.floor(Date.now() / 1000)) },
+          logs: { L: [] },
+        },
+      })
+
+    const fetchedInterviewOp = await operationManager.getOperation(interviewOp)
+    expect(fetchedInterviewOp?.interviewId).toBe('INTERVIEW#int-123')
+
+    const fetchedTakeHomeOp = await operationManager.getOperation(takeHomeOp)
+    expect(fetchedTakeHomeOp?.interviewId).toBe('TAKEHOME#th-456')
+
+    // Restore original client
+    ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient =
+      originalClient
+  })
+
   describe('getActiveOperations', () => {
     it('should return only running and scheduled operations', async () => {
       // Mock DynamoDB client to avoid actual DB calls in unit tests
