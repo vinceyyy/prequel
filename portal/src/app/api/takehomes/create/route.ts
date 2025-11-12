@@ -1,10 +1,10 @@
 // portal/src/app/api/takehomes/create/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { v4 as uuidv4 } from 'uuid'
 import { assessmentManager } from '@/lib/assessments'
 import { openaiService } from '@/lib/openai'
 import { logger } from '@/lib/logger'
 import { config } from '@/lib/config'
+import { generateId, generateSecureString } from '@/lib/idGenerator'
 import type { TakeHome } from '@/lib/types/assessment'
 
 export async function POST(request: NextRequest) {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       candidateEmail,
       challengeId,
       availableDays = 7,
-      durationHours = 4, // eslint-disable-line @typescript-eslint/no-unused-vars
+      durationHours = 4,
       additionalInstructions,
     } = body
 
@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate IDs
-    const takeHomeId = uuidv4()
-    const accessToken = uuidv4().substring(0, 8) // Short token for cleaner URLs
+    const takeHomeId = generateId()
+    const accessToken = generateSecureString()
 
     // Calculate timestamps
     const now = Math.floor(Date.now() / 1000)
@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       candidateName,
       candidateEmail,
       additionalInstructions,
+      durationHours,
       instanceStatus: 'pending',
       challengeId,
       autoDestroyAt: undefined, // Set when activated
