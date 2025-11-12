@@ -837,23 +837,12 @@ export default function TakeHomesPage() {
                           )}
                         </td>
                         <td className="px-3 sm:px-6 py-4 text-sm text-slate-900">
-                          {takeHome.sessionStatus === 'activated' &&
-                          takeHome.instanceStatus === 'active' &&
-                          takeHome.url ? (
-                            <div className="max-w-xs">
-                              <a
-                                className="text-blue-600 underline cursor-pointer break-all hover:text-blue-700 transition-colors"
-                                href={takeHome.url}
-                                target="_blank"
-                              >
-                                {takeHome.url}
-                              </a>
-                              <div className="text-slate-500 break-all">
-                                Password: {takeHome.password}
-                              </div>
-                            </div>
-                          ) : (
+                          <div className="space-y-2">
+                            {/* Candidate-facing page URL - always shown */}
                             <div className="text-sm">
+                              <div className="text-xs text-slate-500 mb-1">
+                                Candidate Page:
+                              </div>
                               <a
                                 href={`${window.location.protocol}//${window.location.host}/takehome/${takeHome.accessToken}`}
                                 target="_blank"
@@ -863,7 +852,28 @@ export default function TakeHomesPage() {
                                 {`${window.location.protocol}//${window.location.host}/takehome/${takeHome.accessToken}`}
                               </a>
                             </div>
-                          )}
+
+                            {/* Instance access URL - shown only when activated and active */}
+                            {takeHome.sessionStatus === 'activated' &&
+                              takeHome.instanceStatus === 'active' &&
+                              takeHome.url && (
+                                <div className="text-sm pt-2 border-t border-slate-200">
+                                  <div className="text-xs text-slate-500 mb-1">
+                                    Instance Access:
+                                  </div>
+                                  <a
+                                    className="text-blue-600 underline cursor-pointer break-all hover:text-blue-700 transition-colors"
+                                    href={takeHome.url}
+                                    target="_blank"
+                                  >
+                                    {takeHome.url}
+                                  </a>
+                                  <div className="text-slate-500 break-all mt-1">
+                                    Password: {takeHome.password}
+                                  </div>
+                                </div>
+                              )}
+                          </div>
                         </td>
                         <td className="px-3 sm:px-6 py-4 text-sm font-medium">
                           <div className="flex flex-wrap gap-2 items-center">
