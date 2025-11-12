@@ -4,6 +4,7 @@ import { assessmentManager } from './assessments'
 import { schedulerLogger } from './logger'
 import { config } from './config'
 import { openaiService } from './openai'
+import { generateSecureString } from './idGenerator'
 
 /**
  * Background scheduler service for processing scheduled operations and auto-destroy timeouts.
@@ -563,7 +564,7 @@ export class SchedulerService {
       id: operation.interviewId,
       candidateName: operation.candidateName,
       challenge: operation.challenge,
-      password: Math.random().toString(36).substring(2, 12),
+      password: generateSecureString(),
       openaiApiKey,
     }
 
