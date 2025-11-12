@@ -4,7 +4,7 @@ import { operationManager } from '@/lib/operations'
 import { challengeService } from '@/lib/challenges'
 import { config } from '@/lib/config'
 import { openaiService } from '@/lib/openai'
-import { v4 as uuidv4 } from 'uuid'
+import { generateId, generateSecureString } from '@/lib/idGenerator'
 
 /**
  * Creates a new coding interview instance.
@@ -119,8 +119,8 @@ export async function POST(request: NextRequest) {
       baseTime.getTime() + autoDestroyMinutes * 60 * 1000
     )
 
-    const interviewId = uuidv4().substring(0, 8)
-    const password = Math.random().toString(36).substring(2, 12)
+    const interviewId = generateId()
+    const password = generateSecureString()
 
     // Create operation to track progress
     const operationId = await operationManager.createOperation(
