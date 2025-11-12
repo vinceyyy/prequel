@@ -13,9 +13,12 @@ interface TakeHomeListItem {
   availableFrom: string
   availableUntil: string
   activatedAt?: string
+  autoDestroyAt?: string
+  destroyedAt?: string
   accessToken: string
   url?: string
   password?: string
+  saveFiles?: boolean
 }
 
 /**
@@ -48,6 +51,23 @@ export async function GET(): Promise<NextResponse> {
       // Add activatedAt if take-home has been activated
       if (takeHome.activatedAt) {
         item.activatedAt = new Date(takeHome.activatedAt * 1000).toISOString()
+      }
+
+      // Add autoDestroyAt if present
+      if (takeHome.autoDestroyAt) {
+        item.autoDestroyAt = new Date(
+          takeHome.autoDestroyAt * 1000
+        ).toISOString()
+      }
+
+      // Add destroyedAt if present
+      if (takeHome.destroyedAt) {
+        item.destroyedAt = new Date(takeHome.destroyedAt * 1000).toISOString()
+      }
+
+      // Add saveFiles flag if present
+      if (takeHome.saveFiles !== undefined) {
+        item.saveFiles = takeHome.saveFiles
       }
 
       return item
