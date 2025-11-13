@@ -115,6 +115,7 @@ export interface TakeHome extends InstanceFields {
   candidateEmail?: string
   candidateName?: string
   additionalInstructions?: string
+  durationHours: number // Duration in hours for the assessment (1-8)
 }
 
 /**

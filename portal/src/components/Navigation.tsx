@@ -34,7 +34,7 @@ export default function Navigation() {
           <div className="flex items-center">
             <Link
               href="/interviews"
-              className="text-xl font-bold text-white hover:text-blue-400 transition-colors"
+              className="text-2xl font-bold text-white hover:text-blue-400 transition-colors"
             >
               Prequel
             </Link>

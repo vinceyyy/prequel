@@ -64,6 +64,7 @@ export async function GET(
 
       case 'activated':
         response.instanceStatus = takeHome.instanceStatus
+        response.additionalInstructions = takeHome.additionalInstructions
 
         // Safely handle activatedAt and autoDestroyAt fields
         if (takeHome.activatedAt && typeof takeHome.activatedAt === 'number') {

@@ -62,6 +62,7 @@ describe('Assessment Types', () => {
       sessionStatus: 'available',
       createdAt: Date.now() / 1000,
       createdBy: 'user-123',
+      durationHours: 4,
 
       // Instance fields
       instanceStatus: 'pending',

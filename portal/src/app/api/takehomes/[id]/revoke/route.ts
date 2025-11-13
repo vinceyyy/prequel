@@ -120,11 +120,16 @@ export async function POST(
             `Starting take-home revocation for ${id}`
           )
 
-          // Update session status to 'revoked' first
+          // Update session status to 'revoked' and instance status to 'destroying'
           await assessmentManager.updateSessionStatus(id, 'takehome', 'revoked')
+          await assessmentManager.updateInstanceStatus(
+            id,
+            'takehome',
+            'destroying'
+          )
           await operationManager.addOperationLog(
             operationId,
-            'Take-home status set to revoked'
+            'Take-home status set to revoked, destroying infrastructure'
           )
 
           // Delete OpenAI service account if exists

@@ -4,6 +4,7 @@ import { assessmentManager } from '@/lib/assessments'
 import { operationManager } from '@/lib/operations'
 import { provisionInstance } from '@/lib/instance'
 import { logger } from '@/lib/logger'
+import { generateSecureString } from '@/lib/idGenerator'
 
 /**
  * POST /api/takehome/[token]/activate
@@ -47,13 +48,12 @@ export async function POST(
     }
 
     // Calculate autoDestroyAt based on durationHours (default 4 hours)
-    const durationHours = 4 // Default to 4 hours
+    const durationHours = takeHome.durationHours || 4 // Use stored duration, fallback to 4
     const autoDestroyAt = new Date(Date.now() + durationHours * 60 * 60 * 1000)
     const activatedAt = Math.floor(Date.now() / 1000)
 
     // Generate secure random password for VS Code instance
-    const crypto = await import('crypto')
-    const password = crypto.randomBytes(16).toString('base64').slice(0, 22) // 22 character password
+    const password = generateSecureString()
 
     // Create operation for provisioning
     const operationId = await operationManager.createOperation(

@@ -91,6 +91,7 @@ describe('Assessment Manager', () => {
       isActivated: false,
       sessionStatus: 'available',
       createdBy: 'user-123',
+      durationHours: 4,
       instanceStatus: 'pending',
       challengeId: 'challenge-123',
       resourceConfig: {

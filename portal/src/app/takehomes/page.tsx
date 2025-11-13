@@ -22,6 +22,9 @@ interface TakeHome {
   accessToken: string
   url?: string
   password?: string
+  autoDestroyAt?: string
+  destroyedAt?: string
+  saveFiles?: boolean
 }
 
 /**
@@ -44,7 +47,7 @@ function formatDuration(durationMs: number): string {
 }
 
 /**
- * Calculates the duration between activation and completion.
+ * Calculates the duration the candidate had active access to the instance.
  * Returns formatted duration string or null if not calculable.
  */
 function calculateTakeHomeDuration(takeHome: TakeHome): string | null {
@@ -52,10 +55,18 @@ function calculateTakeHomeDuration(takeHome: TakeHome): string | null {
     return null
   }
 
-  // For completed/expired take-homes, calculate from activatedAt to availableUntil
-  // (which is when it would have ended or expired)
   const activatedTime = new Date(takeHome.activatedAt).getTime()
-  const endTime = new Date(takeHome.availableUntil).getTime()
+
+  // Use destroyedAt if available (actual destruction time)
+  // Otherwise use autoDestroyAt (scheduled destruction time)
+  let endTime: number
+  if (takeHome.destroyedAt) {
+    endTime = new Date(takeHome.destroyedAt).getTime()
+  } else if (takeHome.autoDestroyAt) {
+    endTime = new Date(takeHome.autoDestroyAt).getTime()
+  } else {
+    return null
+  }
 
   // Only calculate if end time is after activation
   if (endTime > activatedTime) {
@@ -298,6 +309,59 @@ export default function TakeHomesPage() {
     }
   }
 
+  const handleDownloadFiles = async (takeHomeId: string) => {
+    try {
+      const response = await fetch(`/api/takehomes/${takeHomeId}/files`)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to download files')
+      }
+
+      // Create download link
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+
+      // Extract filename from response headers or use default
+      const contentDisposition = response.headers.get('Content-Disposition')
+      let filename = `takehome-${takeHomeId}-files.tar.gz`
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/)
+        if (filenameMatch) {
+          filename = filenameMatch[1]
+        }
+      }
+
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      setNotification('Files downloaded successfully')
+      setTimeout(() => setNotification(null), 3000)
+    } catch (error) {
+      console.error('Error downloading files:', error)
+      let errorMessage = 'Failed to download files'
+
+      if (error instanceof Error) {
+        errorMessage = error.message
+
+        // Make some common errors more user-friendly
+        if (error.message.includes('Files were not saved')) {
+          errorMessage = 'Files were not saved for this take-home'
+        } else if (error.message.includes('not yet available')) {
+          errorMessage = 'Files are not yet available. Please try again later.'
+        }
+      }
+
+      alert(errorMessage)
+    }
+  }
+
   const handleCreateTakeHome = async () => {
     if (!formData.candidateName.trim() || !formData.challenge) return
 
@@ -358,18 +422,23 @@ export default function TakeHomesPage() {
   }
 
   // Separate take-homes into active and history
-  const activeTakeHomes = takeHomes.filter(
-    th =>
-      th.sessionStatus !== 'completed' &&
-      th.sessionStatus !== 'expired' &&
-      th.sessionStatus !== 'revoked'
-  )
+  // Active: not completed/expired, OR revoked but still destroying
+  const activeTakeHomes = takeHomes.filter(th => {
+    if (th.sessionStatus === 'completed' || th.sessionStatus === 'expired') {
+      return false
+    }
+    if (th.sessionStatus === 'revoked' && th.instanceStatus !== 'destroying') {
+      return false
+    }
+    return true
+  })
 
+  // History: completed, expired, or revoked AND not destroying
   const historicalTakeHomes = takeHomes.filter(
     th =>
       th.sessionStatus === 'completed' ||
       th.sessionStatus === 'expired' ||
-      th.sessionStatus === 'revoked'
+      (th.sessionStatus === 'revoked' && th.instanceStatus !== 'destroying')
   )
 
   return (
@@ -666,7 +735,7 @@ export default function TakeHomesPage() {
                       Status
                     </th>
                     <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Available Until
+                      Schedule
                     </th>
                     <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                       Access Link
@@ -719,21 +788,29 @@ export default function TakeHomesPage() {
                         </td>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                           <div className="space-y-1">
-                            <span
-                              className={`status-badge ${
-                                takeHome.sessionStatus === 'available'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : takeHome.sessionStatus === 'activated'
-                                    ? 'bg-green-100 text-green-800'
-                                    : takeHome.sessionStatus === 'revoked'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-slate-100 text-slate-800'
-                              }`}
-                            >
-                              {takeHome.sessionStatus}
-                            </span>
+                            <div>
+                              <div className="text-xs text-slate-500 mb-1">
+                                Session:
+                              </div>
+                              <span
+                                className={`status-badge ${
+                                  takeHome.sessionStatus === 'available'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : takeHome.sessionStatus === 'activated'
+                                      ? 'bg-green-100 text-green-800'
+                                      : takeHome.sessionStatus === 'revoked'
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-slate-100 text-slate-800'
+                                }`}
+                              >
+                                {takeHome.sessionStatus}
+                              </span>
+                            </div>
                             {takeHome.sessionStatus === 'activated' && (
                               <div>
+                                <div className="text-xs text-slate-500 mb-1">
+                                  Instance:
+                                </div>
                                 <span
                                   className={`status-badge status-${takeHome.instanceStatus}`}
                                 >
@@ -745,33 +822,35 @@ export default function TakeHomesPage() {
                         </td>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                           <div>
-                            {new Date(takeHome.availableUntil).toLocaleString()}
+                            <div className="text-xs text-slate-500">
+                              Available until:
+                            </div>
+                            <div className="text-sm">
+                              {new Date(
+                                takeHome.availableUntil
+                              ).toLocaleString()}
+                            </div>
                           </div>
-                          {takeHome.activatedAt && (
-                            <div className="text-xs text-slate-500 mt-1">
-                              Activated:{' '}
-                              {new Date(takeHome.activatedAt).toLocaleString()}
+                          {takeHome.activatedAt && takeHome.autoDestroyAt && (
+                            <div className="bg-amber-50 p-1 rounded-md border border-amber-200 mt-1">
+                              <div className="text-xs text-amber-700">
+                                Auto-destroy:
+                              </div>
+                              <div className="text-xs font-medium text-amber-900">
+                                {new Date(
+                                  takeHome.autoDestroyAt
+                                ).toLocaleString()}
+                              </div>
                             </div>
                           )}
                         </td>
                         <td className="px-3 sm:px-6 py-4 text-sm text-slate-900">
-                          {takeHome.sessionStatus === 'activated' &&
-                          takeHome.instanceStatus === 'active' &&
-                          takeHome.url ? (
-                            <div className="max-w-xs">
-                              <a
-                                className="text-blue-600 underline cursor-pointer break-all hover:text-blue-700 transition-colors"
-                                href={takeHome.url}
-                                target="_blank"
-                              >
-                                {takeHome.url}
-                              </a>
-                              <div className="text-slate-500 break-all">
-                                Password: {takeHome.password}
-                              </div>
-                            </div>
-                          ) : (
+                          <div className="space-y-2">
+                            {/* Candidate-facing page URL - always shown */}
                             <div className="text-sm">
+                              <div className="text-xs text-slate-500 mb-1">
+                                Candidate Page:
+                              </div>
                               <a
                                 href={`${window.location.protocol}//${window.location.host}/takehome/${takeHome.accessToken}`}
                                 target="_blank"
@@ -781,45 +860,42 @@ export default function TakeHomesPage() {
                                 {`${window.location.protocol}//${window.location.host}/takehome/${takeHome.accessToken}`}
                               </a>
                             </div>
-                          )}
+
+                            {/* Instance access URL - shown only when activated and active */}
+                            {takeHome.sessionStatus === 'activated' &&
+                              takeHome.instanceStatus === 'active' &&
+                              takeHome.url && (
+                                <div className="text-sm pt-2 border-t border-slate-200">
+                                  <div className="text-xs text-slate-500 mb-1">
+                                    Instance Access:
+                                  </div>
+                                  <a
+                                    className="text-blue-600 underline cursor-pointer break-all hover:text-blue-700 transition-colors"
+                                    href={takeHome.url}
+                                    target="_blank"
+                                  >
+                                    {takeHome.url}
+                                  </a>
+                                  <div className="text-slate-500 break-all mt-1">
+                                    Password: {takeHome.password}
+                                  </div>
+                                </div>
+                              )}
+                          </div>
                         </td>
                         <td className="px-3 sm:px-6 py-4 text-sm font-medium">
                           <div className="flex flex-wrap gap-2 items-center">
-                            {takeHome.sessionStatus === 'available' && (
-                              <>
-                                <button
-                                  onClick={() =>
-                                    handleRevokeTakeHome(takeHome.id)
-                                  }
-                                  className="btn-danger text-sm px-3 py-1"
-                                >
-                                  Revoke
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    handleDeleteTakeHome(takeHome.id)
-                                  }
-                                  className="btn-outline text-sm px-3 py-1"
-                                >
-                                  Delete
-                                </button>
-                              </>
-                            )}
-                            {takeHome.sessionStatus === 'activated' && (
-                              <button
-                                onClick={() =>
-                                  handleRevokeTakeHome(takeHome.id)
-                                }
-                                disabled={
-                                  takeHome.instanceStatus === 'destroying'
-                                }
-                                className="btn-danger text-sm px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {takeHome.instanceStatus === 'destroying'
-                                  ? 'Destroying...'
-                                  : 'Revoke'}
-                              </button>
-                            )}
+                            <button
+                              onClick={() => handleRevokeTakeHome(takeHome.id)}
+                              disabled={
+                                takeHome.instanceStatus === 'destroying'
+                              }
+                              className="btn-danger text-sm px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {takeHome.instanceStatus === 'destroying'
+                                ? 'Destroying...'
+                                : 'Revoke'}
+                            </button>
                             <button
                               onClick={() => {
                                 setSelectedTakeHomeForLogs(takeHome.id)
@@ -963,15 +1039,31 @@ export default function TakeHomesPage() {
                           })()}
                         </td>
                         <td className="px-3 sm:px-6 py-4 text-sm font-medium">
-                          <button
-                            onClick={() => {
-                              setSelectedTakeHomeForLogs(takeHome.id)
-                              setShowLogsModal(true)
-                            }}
-                            className="btn-primary text-sm px-3 py-1"
-                          >
-                            Logs
-                          </button>
+                          <div className="flex flex-wrap gap-2 items-center">
+                            {takeHome.saveFiles && (
+                              <button
+                                onClick={() => handleDownloadFiles(takeHome.id)}
+                                className="btn-primary text-sm px-3 py-1"
+                              >
+                                Download
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteTakeHome(takeHome.id)}
+                              className="btn-outline text-sm px-3 py-1"
+                            >
+                              Delete
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedTakeHomeForLogs(takeHome.id)
+                                setShowLogsModal(true)
+                              }}
+                              className="btn-primary text-sm px-3 py-1"
+                            >
+                              Logs
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))

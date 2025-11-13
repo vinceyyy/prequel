@@ -29,6 +29,7 @@ describe('POST /api/takehome/[token]/activate', () => {
     sessionStatus: 'available',
     createdAt: Math.floor(Date.now() / 1000) - 3600,
     createdBy: 'admin',
+    durationHours: 4,
     candidateName: 'Jane Doe',
     candidateEmail: 'jane@example.com',
     instanceStatus: 'pending',
