@@ -115,6 +115,12 @@ variable "log_level" {
   default     = "info"
 }
 
+variable "node_env" {
+  description = "Node environment (production recommended for both staging and prod)"
+  type        = string
+  default     = "production"
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

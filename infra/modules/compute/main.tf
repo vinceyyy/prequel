@@ -121,6 +121,7 @@ resource "aws_ecs_task_definition" "portal" {
     }]
 
     environment = [
+      { name = "NODE_ENV", value = var.node_env },
       { name = "AWS_REGION", value = var.aws_region },
       { name = "PROJECT_PREFIX", value = var.project_prefix },
       { name = "ENVIRONMENT", value = var.environment },
