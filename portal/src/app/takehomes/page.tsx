@@ -2,10 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
-import {
-  useOperationPolling,
-  type OperationData,
-} from '@/hooks/usePolling'
+import { useOperationPolling, type OperationData } from '@/hooks/usePolling'
 import type {
   TakeHomeSessionStatus,
   InstanceStatus,
@@ -100,15 +97,12 @@ export default function TakeHomesPage() {
   })
 
   // Use polling for real-time updates (replaces SSE)
-  const {
-    lastOperation,
-    hasActiveOperations,
-    lastUpdated,
-  } = useOperationPolling({
-    filterPrefix: 'TAKEHOME#',
-    activeInterval: 5000,
-    idleInterval: 30000,
-  })
+  const { lastOperation, hasActiveOperations, lastUpdated } =
+    useOperationPolling({
+      filterPrefix: 'TAKEHOME#',
+      activeInterval: 5000,
+      idleInterval: 30000,
+    })
 
   const [challenges, setChallenges] = useState<
     Array<{
@@ -458,7 +452,9 @@ export default function TakeHomesPage() {
             <div className="flex items-center space-x-2">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  hasActiveOperations ? 'bg-blue-500 animate-pulse' : 'bg-green-500'
+                  hasActiveOperations
+                    ? 'bg-blue-500 animate-pulse'
+                    : 'bg-green-500'
                 }`}
               ></div>
               <span className="text-sm text-slate-600">

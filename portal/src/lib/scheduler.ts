@@ -450,8 +450,14 @@ export class SchedulerService {
       }
 
       // Update session status to expired
-      await assessmentManager.updateSessionStatus(takeHome.id, 'takehome', 'expired')
-      schedulerLogger.info('Take-home marked as expired', { takeHomeId: takeHome.id })
+      await assessmentManager.updateSessionStatus(
+        takeHome.id,
+        'takehome',
+        'expired'
+      )
+      schedulerLogger.info('Take-home marked as expired', {
+        takeHomeId: takeHome.id,
+      })
     } catch (error) {
       schedulerLogger.error('Error expiring take-home', {
         takeHomeId: takeHome.id,
@@ -471,7 +477,9 @@ export class SchedulerService {
     saveFiles?: boolean
   }) {
     // Check if there's already a destroy operation in progress
-    const operations = await operationManager.getOperationsByInterview(takeHome.id)
+    const operations = await operationManager.getOperationsByInterview(
+      takeHome.id
+    )
     const hasActiveDestroy = operations.some(
       op =>
         (op.type === 'destroy' || op.type === 'revoke_takehome') &&
@@ -495,8 +503,16 @@ export class SchedulerService {
 
     try {
       // Update statuses
-      await assessmentManager.updateSessionStatus(takeHome.id, 'takehome', 'completed')
-      await assessmentManager.updateInstanceStatus(takeHome.id, 'takehome', 'destroying')
+      await assessmentManager.updateSessionStatus(
+        takeHome.id,
+        'takehome',
+        'completed'
+      )
+      await assessmentManager.updateInstanceStatus(
+        takeHome.id,
+        'takehome',
+        'destroying'
+      )
 
       // Create destroy operation
       const destroyOpId = await operationManager.createOperation(

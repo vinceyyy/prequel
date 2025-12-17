@@ -3,10 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
 import { useOperations } from '@/hooks/useOperations'
-import {
-  useOperationPolling,
-  type OperationData,
-} from '@/hooks/usePolling'
+import { useOperationPolling, type OperationData } from '@/hooks/usePolling'
 
 interface Interview {
   id: string
@@ -606,7 +603,9 @@ export default function InterviewsPage() {
             <div className="flex items-center space-x-2">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  hasActiveOperations ? 'bg-blue-500 animate-pulse' : 'bg-green-500'
+                  hasActiveOperations
+                    ? 'bg-blue-500 animate-pulse'
+                    : 'bg-green-500'
                 }`}
               ></div>
               <span className="text-sm text-slate-600">
