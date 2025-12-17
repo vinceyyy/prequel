@@ -6,15 +6,17 @@ The result should be sorted by first element, then second element, then third el
 For example, if the given array is {12, 3, 6, 1, 6, 9} and the given target is 24, then the unique triplets are (3, 9, 12)
 and (6, 6, 12) whose sum is 24.
 
-Examples:
-Input: array = {12, 3, 6, 1, 6, 9} target = 24
-Output: [[3, 9, 12], [6, 6, 12]]
+Example 1:
+    Input: array = {12, 3, 6, 1, 6, 9} target = 24
+    Output: [[3, 9, 12], [6, 6, 12]]
 
-Input: array = {-2, 0, 1, 1, 2} target = 0
-Output: [[-2, 0, 2], [-2, 1, 1]]
+Example 2:
+    Input: array = {-2, 0, 1, 1, 2} target = 0
+    Output: [[-2, 0, 2], [-2, 1, 1]]
 
-Input: array = {-2, 0, 1, 1, 2} target = 10
-Output: No triplets can be formed.
+Example 3:
+    Input: array = {-2, 0, 1, 1, 2} target = 10
+    Output: No triplets can be formed.
 """
 
 
