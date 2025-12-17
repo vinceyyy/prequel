@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authLogger } from '@/lib/logger'
+import { validatePasscode, createSessionToken } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   const clientIp =
@@ -18,8 +19,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
-    // Validate passcode
-    if (!passcode || passcode !== process.env.AUTH_PASSCODE) {
+    // Validate passcode using constant-time comparison
+    if (!passcode || !validatePasscode(passcode)) {
       authLogger.warn('Login attempt failed - invalid passcode', {
         clientIp,
         hasPasscode: !!passcode,
@@ -27,12 +28,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid passcode' }, { status: 401 })
     }
 
+    // Create signed session token
+    const sessionToken = createSessionToken()
+
     // Create response with authentication cookie
     const response = NextResponse.json({ success: true })
 
-    // Set authentication cookie (expires in 24 hours)
-    // Note: maxAge is in seconds, not milliseconds
-    response.cookies.set('auth-token', 'authenticated', {
+    // Set authentication cookie with signed token (expires in 24 hours)
+    response.cookies.set('auth-token', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -40,7 +43,7 @@ export async function POST(request: NextRequest) {
       path: '/',
     })
 
-    authLogger.info('Login successful - cookie set', {
+    authLogger.info('Login successful - session token created', {
       clientIp,
       cookieMaxAge: '24h',
       secure: process.env.NODE_ENV === 'production',

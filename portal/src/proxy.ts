@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authLogger } from '@/lib/logger'
+import { validateSessionToken } from '@/lib/auth'
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
@@ -25,13 +26,14 @@ export function proxy(request: NextRequest) {
   // Check for authentication cookie
   const authCookie = request.cookies.get('auth-token')
 
-  if (!authCookie || authCookie.value !== 'authenticated') {
+  // Validate the signed session token
+  if (!authCookie || !validateSessionToken(authCookie.value)) {
     // Log auth failures for protected routes (but not too verbosely for assets)
     if (!pathname.includes('.') && !pathname.startsWith('/_next')) {
       authLogger.debug('Auth check failed - redirecting to login', {
         pathname,
         hasCookie: !!authCookie,
-        cookieValue: authCookie?.value ? '[redacted]' : 'none',
+        tokenValid: authCookie ? validateSessionToken(authCookie.value) : false,
       })
     }
     return NextResponse.redirect(new URL('/login', request.url))
