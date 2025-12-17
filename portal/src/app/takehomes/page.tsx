@@ -97,10 +97,15 @@ export default function TakeHomesPage() {
   })
 
   // Use polling for real-time updates (replaces SSE)
-  const { lastOperation, hasActiveOperations, lastUpdated } =
-    useOperationPolling({
-      filterPrefix: 'TAKEHOME#',
-    })
+  const {
+    operations: polledOperations,
+    lastOperation,
+    hasActiveOperations,
+    lastUpdated,
+    refresh: refreshOperations,
+  } = useOperationPolling({
+    filterPrefix: 'TAKEHOME#',
+  })
 
   const [challenges, setChallenges] = useState<
     Array<{
@@ -1083,7 +1088,12 @@ export default function TakeHomesPage() {
                 </button>
               </div>
 
-              <OperationDashboard interviewFilter={selectedTakeHomeForLogs} />
+              <OperationDashboard
+                operations={polledOperations.filter(
+                  op => op.interviewId === selectedTakeHomeForLogs
+                )}
+                onRefresh={refreshOperations}
+              />
 
               <div className="flex justify-end mt-4">
                 <button
