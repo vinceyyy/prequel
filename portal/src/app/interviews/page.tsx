@@ -61,14 +61,10 @@ export default function InterviewsPage() {
   const { destroyInterview } = useOperations()
 
   // Use polling for real-time updates (replaces SSE)
-  const {
-    lastOperation,
-    hasActiveOperations,
-    lastUpdated,
-    refresh: refreshOperations,
-  } = useOperationPolling({
-    filterPrefix: 'INTERVIEW#',
-  })
+  const { lastOperation, hasActiveOperations, lastUpdated } =
+    useOperationPolling({
+      filterPrefix: 'INTERVIEW#',
+    })
 
   const [challenges, setChallenges] = useState<
     Array<{
