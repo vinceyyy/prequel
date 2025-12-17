@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
-import { useSSE, type OperationData } from '@/hooks/useSSE'
+import {
+  useOperationPolling,
+  type OperationData,
+} from '@/hooks/usePolling'
 import type {
   TakeHomeSessionStatus,
   InstanceStatus,
@@ -96,8 +99,16 @@ export default function TakeHomesPage() {
     additionalInstructions: '',
   })
 
-  // Use SSE for real-time updates
-  const { connected: sseConnected, lastEvent } = useSSE('/api/events')
+  // Use polling for real-time updates (replaces SSE)
+  const {
+    lastOperation,
+    hasActiveOperations,
+    lastUpdated,
+  } = useOperationPolling({
+    filterPrefix: 'TAKEHOME#',
+    activeInterval: 5000,
+    idleInterval: 30000,
+  })
 
   const [challenges, setChallenges] = useState<
     Array<{
@@ -174,41 +185,18 @@ export default function TakeHomesPage() {
     return () => clearInterval(interval)
   }, [loadTakeHomes])
 
-  // Listen for SSE events to update data immediately
+  // Listen for operation updates from polling
   useEffect(() => {
-    if (lastEvent) {
-      console.log('Received SSE event:', lastEvent)
+    if (lastOperation) {
+      const operation: OperationData = lastOperation
+      console.log('Processing take-home operation update:', operation)
 
-      // Handle operation updates for take-homes
-      if (lastEvent.type === 'operation_update' && lastEvent.operation) {
-        const operation: OperationData = lastEvent.operation
-
-        // Filter for take-home operations only (ignore interview operations)
-        // Operations include an interviewId field (actually instanceId) with prefixes:
-        // - TAKEHOME# for take-home operations
-        // - INTERVIEW# for interview operations
-        if (
-          operation.interviewId &&
-          operation.interviewId.startsWith('TAKEHOME#')
-        ) {
-          console.log('Processing take-home operation update:', operation)
-
-          // Refresh take-homes from API
-          setTimeout(() => {
-            loadTakeHomes()
-          }, 100)
-        }
-      }
-
-      // Refresh on scheduler events
-      if (lastEvent.type === 'scheduler_event') {
-        console.log('Refreshing take-homes due to scheduler event')
-        setTimeout(() => {
-          loadTakeHomes()
-        }, 100)
-      }
+      // Refresh take-homes from API
+      setTimeout(() => {
+        loadTakeHomes()
+      }, 100)
     }
-  }, [lastEvent, loadTakeHomes])
+  }, [lastOperation, loadTakeHomes])
 
   const handleDeleteTakeHome = async (takeHomeId: string) => {
     const takeHome = takeHomes.find(th => th.id === takeHomeId)
@@ -470,11 +458,16 @@ export default function TakeHomesPage() {
             <div className="flex items-center space-x-2">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  sseConnected ? 'bg-green-500' : 'bg-red-500'
+                  hasActiveOperations ? 'bg-blue-500 animate-pulse' : 'bg-green-500'
                 }`}
               ></div>
               <span className="text-sm text-slate-600">
-                {sseConnected ? 'Live updates' : 'Offline'}
+                {hasActiveOperations ? 'Monitoring (5s)' : 'Idle (30s)'}
+                {lastUpdated && (
+                  <span className="ml-2 text-slate-400">
+                    Updated {lastUpdated.toLocaleTimeString()}
+                  </span>
+                )}
               </span>
             </div>
           </div>

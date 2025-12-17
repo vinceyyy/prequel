@@ -3,7 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
 import { useOperations } from '@/hooks/useOperations'
-import { useSSE, type OperationData } from '@/hooks/useSSE'
+import {
+  useOperationPolling,
+  type OperationData,
+} from '@/hooks/usePolling'
 
 interface Interview {
   id: string
@@ -60,8 +63,17 @@ export default function InterviewsPage() {
   // Use the operations hook for background operations
   const { destroyInterview } = useOperations()
 
-  // Use SSE for real-time updates
-  const { connected: sseConnected, lastEvent } = useSSE('/api/events')
+  // Use polling for real-time updates (replaces SSE)
+  const {
+    lastOperation,
+    hasActiveOperations,
+    lastUpdated,
+    refresh: refreshOperations,
+  } = useOperationPolling({
+    filterPrefix: 'INTERVIEW#',
+    activeInterval: 5000,
+    idleInterval: 30000,
+  })
 
   const [challenges, setChallenges] = useState<
     Array<{
@@ -181,113 +193,103 @@ export default function InterviewsPage() {
     return () => clearInterval(interval)
   }, [loadHistoricalInterviews])
 
-  // Listen for SSE events to update data immediately and refresh
+  // Listen for operation updates from polling
   useEffect(() => {
-    if (lastEvent) {
-      console.log('Received SSE event:', lastEvent)
+    if (lastOperation) {
+      console.log('Processing operation update:', lastOperation)
 
-      // Handle operation updates immediately for better UX
-      if (lastEvent.type === 'operation_update' && lastEvent.operation) {
-        const operation: OperationData = lastEvent.operation
-        console.log('Processing operation update:', operation)
+      const operation: OperationData = lastOperation
 
-        // Skip operations without interviewId
-        if (!operation.interviewId) {
-          console.log('Ignoring operation without interviewId')
-          return
+      // Skip operations without interviewId
+      if (!operation.interviewId) {
+        console.log('Ignoring operation without interviewId')
+        return
+      }
+
+      // Map operation status to interview status for immediate updates
+      let interviewStatus: Interview['status'] = 'initializing'
+
+      if (operation.status === 'scheduled') {
+        interviewStatus = 'scheduled'
+      } else if (operation.status === 'running') {
+        if (operation.result?.infrastructureReady) {
+          interviewStatus = 'configuring'
+        } else {
+          interviewStatus = 'initializing'
         }
-
-        // Map operation status to interview status for immediate updates
-        let interviewStatus: Interview['status'] = 'initializing'
-
-        if (operation.status === 'scheduled') {
-          interviewStatus = 'scheduled'
-        } else if (operation.status === 'running') {
-          if (operation.result?.infrastructureReady) {
-            interviewStatus = 'configuring'
-          } else {
-            interviewStatus = 'initializing'
-          }
-        } else if (operation.status === 'completed') {
-          if (operation.result?.success) {
-            interviewStatus = operation.result?.healthCheckPassed
-              ? 'active'
-              : 'configuring'
-          } else {
-            interviewStatus = 'error'
-          }
-        } else if (operation.status === 'failed') {
+      } else if (operation.status === 'completed') {
+        if (operation.result?.success) {
+          interviewStatus = operation.result?.healthCheckPassed
+            ? 'active'
+            : 'configuring'
+        } else {
           interviewStatus = 'error'
         }
+      } else if (operation.status === 'failed') {
+        interviewStatus = 'error'
+      }
 
-        console.log('Immediately updating interview status and details:', {
-          interviewId: operation.interviewId,
-          status: interviewStatus,
-          hasAccessUrl: !!operation.result?.accessUrl,
-          hasPassword: !!operation.result?.password,
-        })
+      console.log('Updating interview status and details:', {
+        interviewId: operation.interviewId,
+        status: interviewStatus,
+        hasAccessUrl: !!operation.result?.accessUrl,
+        hasPassword: !!operation.result?.password,
+      })
 
-        // Update interview state with latest operation data
-        setInterviews(prev => {
-          const updated = prev.map(interview => {
-            if (interview.id === operation.interviewId) {
-              return {
-                ...interview,
-                status: interviewStatus,
-                // Only update access details if they're available
-                ...(operation.result?.accessUrl && {
-                  accessUrl: operation.result.accessUrl,
-                  password: operation.result.password,
-                }),
-              }
-            }
-            return interview
-          })
-
-          // If interview doesn't exist in current state, add it
-          const exists = prev.some(i => i.id === operation.interviewId)
-          if (!exists && operation.candidateName && operation.challenge) {
-            const newInterview: Interview = {
-              id: operation.interviewId,
-              candidateName: operation.candidateName,
-              challenge: operation.challenge,
+      // Update interview state with latest operation data
+      setInterviews(prev => {
+        const updated = prev.map(interview => {
+          if (interview.id === operation.interviewId) {
+            return {
+              ...interview,
               status: interviewStatus,
-              createdAt: operation.createdAt || new Date().toISOString(),
-              scheduledAt: operation.scheduledAt,
-              autoDestroyAt: operation.autoDestroyAt,
-              saveFiles: true, // Default value
-              accessUrl: operation.result?.accessUrl,
-              password: operation.result?.password,
-              operationId: operation.id,
+              // Only update access details if they're available
+              ...(operation.result?.accessUrl && {
+                accessUrl: operation.result.accessUrl,
+                password: operation.result.password,
+              }),
             }
-            return [...updated, newInterview]
           }
-
-          return updated
+          return interview
         })
 
-        // Clear creating loading state if this is for the interview we're waiting for
-        if (operation.interviewId === creatingInterviewId) {
-          setCreatingInterviewId(null)
+        // If interview doesn't exist in current state, add it
+        const exists = prev.some(i => i.id === operation.interviewId)
+        if (!exists && operation.candidateName && operation.challenge) {
+          const newInterview: Interview = {
+            id: operation.interviewId,
+            candidateName: operation.candidateName,
+            challenge: operation.challenge,
+            status: interviewStatus,
+            createdAt: operation.createdAt || new Date().toISOString(),
+            scheduledAt: operation.scheduledAt,
+            autoDestroyAt: operation.autoDestroyAt,
+            saveFiles: true, // Default value
+            accessUrl: operation.result?.accessUrl,
+            password: operation.result?.password,
+            operationId: operation.id,
+          }
+          return [...updated, newInterview]
         }
+
+        return updated
+      })
+
+      // Clear creating loading state if this is for the interview we're waiting for
+      if (operation.interviewId === creatingInterviewId) {
+        setCreatingInterviewId(null)
       }
 
-      // Refresh interviews from API for consistency (after immediate update)
-      if (
-        lastEvent.type === 'operation_update' ||
-        lastEvent.type === 'scheduler_event'
-      ) {
-        console.log('Refreshing interviews from API due to SSE event')
-        // Use setTimeout to allow immediate UI update first
-        setTimeout(() => {
-          loadInterviews()
-        }, 100)
-      }
+      // Refresh interviews from API for consistency
+      console.log('Refreshing interviews from API due to operation update')
+      setTimeout(() => {
+        loadInterviews()
+      }, 100)
     }
-  }, [lastEvent, loadInterviews, creatingInterviewId])
+  }, [lastOperation, loadInterviews, creatingInterviewId])
 
-  // NO AUTOMATIC POLLING for current interviews - SSE provides real-time updates
-  // History interviews use 30-second polling for reasonable freshness
+  // Polling provides real-time updates with smart intervals
+  // Active mode (5s) when operations in progress, idle mode (30s) otherwise
 
   // Debug: Monitor when interviews state changes
   useEffect(() => {
@@ -604,11 +606,16 @@ export default function InterviewsPage() {
             <div className="flex items-center space-x-2">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  sseConnected ? 'bg-green-500' : 'bg-red-500'
+                  hasActiveOperations ? 'bg-blue-500 animate-pulse' : 'bg-green-500'
                 }`}
               ></div>
               <span className="text-sm text-slate-600">
-                {sseConnected ? 'Live updates' : 'Offline'}
+                {hasActiveOperations ? 'Monitoring (5s)' : 'Idle (30s)'}
+                {lastUpdated && (
+                  <span className="ml-2 text-slate-400">
+                    Updated {lastUpdated.toLocaleTimeString()}
+                  </span>
+                )}
               </span>
             </div>
           </div>
