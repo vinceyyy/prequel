@@ -62,7 +62,6 @@ export default function InterviewsPage() {
 
   // Use polling for real-time updates (replaces SSE)
   const {
-    operations: polledOperations,
     lastOperation,
     hasActiveOperations,
     lastUpdated,
@@ -1343,12 +1342,7 @@ export default function InterviewsPage() {
                 </button>
               </div>
 
-              <OperationDashboard
-                operations={polledOperations.filter(
-                  op => op.interviewId === selectedInterviewForLogs
-                )}
-                onRefresh={refreshOperations}
-              />
+              <OperationDashboard interviewFilter={selectedInterviewForLogs} />
 
               <div className="flex justify-end mt-4">
                 <button

@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 interface Operation {
   id: string
   type: 'create' | 'destroy'
-  status: 'scheduled' | 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
   interviewId: string
   candidateName?: string
   challenge?: string
@@ -13,6 +13,7 @@ interface Operation {
   startedAt?: string // Legacy field for backward compatibility
   executionStartedAt?: string // When execution actually began
   completedAt?: string
+  logs: string[]
   result?: {
     success: boolean
     accessUrl?: string
@@ -22,18 +23,15 @@ interface Operation {
 }
 
 interface OperationDashboardProps {
-  /** Operations to display (from parent's usePolling hook) */
-  operations: Operation[]
-  /** Callback to refresh operations */
-  onRefresh?: () => void
+  interviewFilter?: string | null // If provided, only show operations for this interview
   className?: string
 }
 
 export default function OperationDashboard({
-  operations,
-  onRefresh,
+  interviewFilter,
   className = '',
 }: OperationDashboardProps) {
+  const [operations, setOperations] = useState<Operation[]>([])
   const [selectedOperation, setSelectedOperation] = useState<string | null>(
     null
   )
@@ -42,7 +40,23 @@ export default function OperationDashboard({
     new Set()
   )
   const terminalRef = useRef<HTMLDivElement>(null)
+  const pollInterval = useRef<NodeJS.Timeout | null>(null)
   const logsPollInterval = useRef<NodeJS.Timeout | null>(null)
+
+  const loadOperations = useCallback(async () => {
+    try {
+      const url = interviewFilter
+        ? `/api/operations?interviewId=${interviewFilter}`
+        : '/api/operations'
+      const response = await fetch(url)
+      if (response.ok) {
+        const data = await response.json()
+        setOperations(data.operations || [])
+      }
+    } catch (error) {
+      console.error('Failed to load operations:', error)
+    }
+  }, [interviewFilter])
 
   const loadOperationLogs = useCallback(async (operationId: string) => {
     try {
@@ -73,8 +87,8 @@ export default function OperationDashboard({
       })
 
       if (response.ok) {
-        // Trigger refresh via parent's polling hook
-        onRefresh?.()
+        // Refresh operations to see the updated status
+        await loadOperations()
       } else {
         const data = await response.json()
         console.error('Failed to cancel operation:', data.error)
@@ -92,7 +106,39 @@ export default function OperationDashboard({
     }
   }
 
-  // Load logs when operation is selected
+  useEffect(() => {
+    loadOperations()
+  }, [interviewFilter, loadOperations])
+
+  // Only poll when there are running or pending operations
+  useEffect(() => {
+    const hasActiveOperations = operations.some(
+      op => op.status === 'running' || op.status === 'pending'
+    )
+
+    if (hasActiveOperations) {
+      console.log(
+        '[DEBUG] OperationDashboard: Active operations detected, starting operations polling...'
+      )
+      pollInterval.current = setInterval(loadOperations, 3000)
+    } else {
+      if (pollInterval.current) {
+        console.log(
+          '[DEBUG] OperationDashboard: No active operations, stopping polling'
+        )
+        clearInterval(pollInterval.current)
+        pollInterval.current = null
+      }
+    }
+
+    return () => {
+      if (pollInterval.current) {
+        clearInterval(pollInterval.current)
+        pollInterval.current = null
+      }
+    }
+  }, [operations, loadOperations])
+
   useEffect(() => {
     if (selectedOperation) {
       loadOperationLogs(selectedOperation)
@@ -106,7 +152,7 @@ export default function OperationDashboard({
     }
   }, [selectedOperation, loadOperationLogs])
 
-  // Poll logs for active operations (1-second interval for consistency)
+  // Poll logs for active operations
   useEffect(() => {
     if (selectedOperation) {
       const operation = operations.find(op => op.id === selectedOperation)
@@ -114,11 +160,17 @@ export default function OperationDashboard({
         operation &&
         (operation.status === 'running' || operation.status === 'pending')
       ) {
+        console.log(
+          `[DEBUG] Starting log polling for active operation: ${selectedOperation}`
+        )
         logsPollInterval.current = setInterval(() => {
           loadOperationLogs(selectedOperation)
-        }, 1000)
+        }, 3000) // Poll every 3 seconds for active operations
       } else {
         if (logsPollInterval.current) {
+          console.log(
+            `[DEBUG] Stopping log polling for completed operation: ${selectedOperation}`
+          )
           clearInterval(logsPollInterval.current)
           logsPollInterval.current = null
         }
@@ -163,8 +215,6 @@ export default function OperationDashboard({
 
   const getStatusIcon = (status: Operation['status']) => {
     switch (status) {
-      case 'scheduled':
-        return '📅'
       case 'pending':
         return '⏳'
       case 'running':
@@ -232,15 +282,17 @@ export default function OperationDashboard({
   return (
     <div className={`card ${className}`}>
       <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-slate-900">Operations</h2>
-        {onRefresh && (
-          <button
-            onClick={onRefresh}
-            className="btn-secondary text-sm px-3 py-1"
-          >
-            Refresh
-          </button>
-        )}
+        <h2 className="text-xl font-semibold text-slate-900">
+          {interviewFilter
+            ? `Operations for Interview ${interviewFilter}`
+            : 'All Operations'}
+        </h2>
+        <button
+          onClick={loadOperations}
+          className="btn-secondary text-sm px-3 py-1"
+        >
+          Refresh
+        </button>
       </div>
 
       <div className="flex h-[500px]">
