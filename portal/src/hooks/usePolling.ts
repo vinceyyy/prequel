@@ -85,7 +85,9 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingResult {
       setError(null)
 
       const timestamp = Date.now()
-      const response = await fetch(`/api/operations?t=${timestamp}`)
+      const response = await fetch(
+        `/api/operations?activeOnly=true&t=${timestamp}`
+      )
 
       if (!response.ok) {
         throw new Error(`Failed to fetch operations: ${response.status}`)
