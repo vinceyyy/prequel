@@ -100,8 +100,6 @@ export default function TakeHomesPage() {
   const { lastOperation, hasActiveOperations, lastUpdated } =
     useOperationPolling({
       filterPrefix: 'TAKEHOME#',
-      activeInterval: 5000,
-      idleInterval: 30000,
     })
 
   const [challenges, setChallenges] = useState<

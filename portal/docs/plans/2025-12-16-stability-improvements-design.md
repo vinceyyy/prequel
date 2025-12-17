@@ -55,20 +55,21 @@ Add structured logging to authentication flow:
 
 **Goal:** Reduce complexity by replacing SSE with polling and using proper auth library.
 
-### 2.1 Replace SSE with Smart Polling
+### 2.1 Replace SSE with Simple Polling
 
-Remove SSE infrastructure, implement smart polling:
+Remove SSE infrastructure, implement simple 1-second polling:
 
-**Polling intervals:**
+**Polling strategy:**
 
-- Active mode (5s): When operations are `pending`, `running`, or `scheduled`
-- Idle mode (30s): When all operations are `completed`, `failed`, or none exist
+- Fixed 1-second interval for all operations
+- Uses `activeOnly=true` query parameter for efficient DynamoDB GSI queries
+- Negligible overhead: ~$0.16/month per active user
 
 **Changes:**
 
 - Delete `src/app/api/events/route.ts`
 - Delete `src/hooks/useSSE.ts`
-- Create `src/hooks/usePolling.ts` with smart interval logic
+- Create `src/hooks/usePolling.ts` with simple interval logic
 - Update page components to use polling
 - Remove SSE event listeners from operations and scheduler
 - Replace connection indicator with "last updated" timestamp
@@ -187,5 +188,5 @@ Phase 1 (security) → Phase 2 (simplification) → Phase 3 (infrastructure)
 | --------------------------- | --------------------------------------------------- |
 | Next.js 16 breaking changes | Review migration guide, test thoroughly             |
 | better-auth learning curve  | Simple passcode config minimizes complexity         |
-| Polling performance         | Smart polling reduces unnecessary requests          |
+| Polling performance         | GSI queries (activeOnly=true) minimize DynamoDB cost |
 | Migration downtime          | Deploy each phase independently, rollback if needed |

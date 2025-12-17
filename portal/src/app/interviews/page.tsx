@@ -68,8 +68,6 @@ export default function InterviewsPage() {
     refresh: refreshOperations,
   } = useOperationPolling({
     filterPrefix: 'INTERVIEW#',
-    activeInterval: 5000,
-    idleInterval: 30000,
   })
 
   const [challenges, setChallenges] = useState<
