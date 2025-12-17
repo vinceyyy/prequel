@@ -513,24 +513,24 @@ export default function InterviewsPage() {
 
       const data = await response.json()
 
-      // If scheduled, add interview to state immediately with credentials
-      if (formData.enableScheduling) {
-        const scheduledInterview: Interview = {
-          id: data.interviewId,
-          candidateName: data.candidateName,
-          challenge: data.challenge,
-          status: 'scheduled',
-          saveFiles: formData.saveFiles,
-          accessUrl: data.accessUrl,
-          password: data.password,
-          createdAt: new Date().toISOString(),
-          scheduledAt: data.scheduledAt,
-          autoDestroyAt: data.autoDestroyAt,
-          operationId: data.operationId,
-        }
-        setInterviews(prev => [...prev, scheduledInterview])
-      } else {
-        // For immediate interviews, set creating interview ID to show loading state
+      // Add interview to state immediately
+      const newInterview: Interview = {
+        id: data.interviewId,
+        candidateName: data.candidateName,
+        challenge: data.challenge,
+        status: formData.enableScheduling ? 'scheduled' : 'initializing',
+        saveFiles: formData.saveFiles,
+        accessUrl: data.accessUrl,
+        password: data.password,
+        createdAt: new Date().toISOString(),
+        scheduledAt: data.scheduledAt,
+        autoDestroyAt: data.autoDestroyAt,
+        operationId: data.operationId,
+      }
+      setInterviews(prev => [...prev, newInterview])
+
+      // For immediate interviews, also set creating ID to track loading state
+      if (!formData.enableScheduling) {
         setCreatingInterviewId(data.interviewId)
       }
 
