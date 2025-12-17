@@ -456,7 +456,7 @@ export default function TakeHomesPage() {
                 }`}
               ></div>
               <span className="text-sm text-slate-600">
-                {hasActiveOperations ? 'Monitoring (5s)' : 'Idle (30s)'}
+                {hasActiveOperations ? 'Active' : 'Idle'}
                 {lastUpdated && (
                   <span className="ml-2 text-slate-400">
                     Updated {lastUpdated.toLocaleTimeString()}
