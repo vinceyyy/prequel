@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authLogger } from '@/lib/logger'
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
   // Skip authentication if disabled
   if (process.env.ENABLE_AUTH === 'false') {
     return NextResponse.next()
@@ -8,13 +11,13 @@ export function middleware(request: NextRequest) {
 
   // Skip authentication for specific routes
   if (
-    request.nextUrl.pathname.startsWith('/login') ||
-    request.nextUrl.pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/api/auth') ||
     // ALB health check endpoints
-    request.nextUrl.pathname.startsWith('/api/health') ||
+    pathname.startsWith('/api/health') ||
     // Take-home candidate pages (use token-based access)
-    request.nextUrl.pathname.startsWith('/takehome/') ||
-    request.nextUrl.pathname.startsWith('/api/takehome/')
+    pathname.startsWith('/takehome/') ||
+    pathname.startsWith('/api/takehome/')
   ) {
     return NextResponse.next()
   }
@@ -23,6 +26,14 @@ export function middleware(request: NextRequest) {
   const authCookie = request.cookies.get('auth-token')
 
   if (!authCookie || authCookie.value !== 'authenticated') {
+    // Log auth failures for protected routes (but not too verbosely for assets)
+    if (!pathname.includes('.') && !pathname.startsWith('/_next')) {
+      authLogger.debug('Auth check failed - redirecting to login', {
+        pathname,
+        hasCookie: !!authCookie,
+        cookieValue: authCookie?.value ? '[redacted]' : 'none',
+      })
+    }
     return NextResponse.redirect(new URL('/login', request.url))
   }
 

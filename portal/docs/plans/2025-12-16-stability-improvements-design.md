@@ -3,6 +3,7 @@
 ## Problem Statement
 
 The portal experiences issues after running in ECS for a period:
+
 - Login stops working
 - Debugger statements appear in production bundles when DevTools is open
 - CPU/memory usage at 16%
@@ -29,6 +30,7 @@ Three-phase approach to address security, simplify architecture, and improve obs
 ### 1.2 Login Logging
 
 Add structured logging to authentication flow:
+
 - Login attempts (timestamp, success/failure)
 - Cookie set/read operations
 - Middleware auth checks
@@ -41,6 +43,7 @@ Add structured logging to authentication flow:
 - Ensure source maps disabled for production browser
 
 **Files:**
+
 - `package.json`
 - `src/app/api/auth/login/route.ts`
 - `src/middleware.ts`
@@ -57,10 +60,12 @@ Add structured logging to authentication flow:
 Remove SSE infrastructure, implement smart polling:
 
 **Polling intervals:**
+
 - Active mode (5s): When operations are `pending`, `running`, or `scheduled`
 - Idle mode (30s): When all operations are `completed`, `failed`, or none exist
 
 **Changes:**
+
 - Delete `src/app/api/events/route.ts`
 - Delete `src/hooks/useSSE.ts`
 - Create `src/hooks/usePolling.ts` with smart interval logic
@@ -73,11 +78,13 @@ Remove SSE infrastructure, implement smart polling:
 Replace hand-rolled auth with better-auth:
 
 **Configuration:**
+
 - Simple passcode validation (same as current)
 - Secure session/cookie handling
 - CSRF protection
 
 **Changes:**
+
 - Install `better-auth` package
 - Create `src/lib/auth.ts` configuration
 - Rewrite `/api/auth/login` and `/api/auth/logout`
@@ -87,11 +94,13 @@ Replace hand-rolled auth with better-auth:
 ### 2.3 Scheduler Optimization
 
 Improve scheduler efficiency:
+
 - Batch DynamoDB queries where possible
 - Add early-exit checks when no work exists
 - Skip processing for empty result sets
 
 **Files:**
+
 - `src/app/api/events/route.ts` (delete)
 - `src/hooks/useSSE.ts` (delete)
 - `src/hooks/usePolling.ts` (new)
@@ -115,6 +124,7 @@ Improve scheduler efficiency:
 Standardize logging across the application:
 
 **Requirements:**
+
 - Unified logger with consistent format (timestamp, level, context, message)
 - Structured JSON for CloudWatch Logs Insights queries
 - Request ID/correlation ID for tracing
@@ -122,6 +132,7 @@ Standardize logging across the application:
 - Never log sensitive data (passcodes, tokens)
 
 **Instrumentation areas:**
+
 - Auth flow
 - API route handlers
 - Scheduler operations
@@ -130,6 +141,7 @@ Standardize logging across the application:
 ### 3.2 ECS Container Insights
 
 Enable CloudWatch Container Insights:
+
 - CPU/memory per task and service
 - Network I/O metrics
 - Automatic dashboards
@@ -139,6 +151,7 @@ Enable CloudWatch Container Insights:
 ### 3.3 Production Instance Sizing
 
 Increase ECS task resources for production:
+
 - Review current CPU/memory allocation
 - Increase based on observed usage patterns
 - Separate variables for dev vs prod sizing
@@ -150,6 +163,7 @@ Increase ECS task resources for production:
 - Create alarms for critical error thresholds
 
 **Files:**
+
 - `src/lib/logger.ts` (enhance)
 - All files using logging (standardize)
 - `infra/modules/compute/main.tf`
@@ -169,9 +183,9 @@ Phase 1 (security) → Phase 2 (simplification) → Phase 3 (infrastructure)
 
 ## Risk Considerations
 
-| Risk | Mitigation |
-|------|------------|
-| Next.js 16 breaking changes | Review migration guide, test thoroughly |
-| better-auth learning curve | Simple passcode config minimizes complexity |
-| Polling performance | Smart polling reduces unnecessary requests |
-| Migration downtime | Deploy each phase independently, rollback if needed |
+| Risk                        | Mitigation                                          |
+| --------------------------- | --------------------------------------------------- |
+| Next.js 16 breaking changes | Review migration guide, test thoroughly             |
+| better-auth learning curve  | Simple passcode config minimizes complexity         |
+| Polling performance         | Smart polling reduces unnecessary requests          |
+| Migration downtime          | Deploy each phase independently, rollback if needed |
