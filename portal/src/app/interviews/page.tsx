@@ -3,44 +3,23 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
 import { useOperations } from '@/hooks/useOperations'
-import { useSSE, type OperationData } from '@/hooks/useSSE'
+import {
+  useInterviewPolling,
+  useOperationPolling,
+  type InterviewData,
+  type OperationData,
+} from '@/hooks/usePolling'
 
-interface Interview {
-  id: string
-  candidateName: string
-  status:
-    | 'scheduled'
-    | 'initializing'
-    | 'configuring'
-    | 'active'
-    | 'destroying'
-    | 'destroyed'
-    | 'error'
-  challenge: string
-  saveFiles: boolean
-  accessUrl?: string
-  password?: string
-  createdAt: string
-  scheduledAt?: string
-  autoDestroyAt?: string
-  completedAt?: string
-  destroyedAt?: string
-  historyS3Key?: string
-  operationId?: string
-}
+// Use the shared InterviewData type from usePolling
+type Interview = InterviewData
 
 export default function InterviewsPage() {
-  const [interviews, setInterviews] = useState<Interview[]>([])
   const [historicalInterviews, setHistoricalInterviews] = useState<Interview[]>(
     []
   )
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [creatingInterviewId, setCreatingInterviewId] = useState<string | null>(
-    null
-  )
-  const [initialLoading, setInitialLoading] = useState(true)
   const [historyLoading, setHistoryLoading] = useState(false)
   const historyLoadingRef = useRef(false)
   const [showLogsModal, setShowLogsModal] = useState(false)
@@ -57,11 +36,21 @@ export default function InterviewsPage() {
     saveFiles: true, // Default to true as requested
   })
 
-  // Use the operations hook for background operations
+  // Use the operations hook for background operations (destroy only)
   const { destroyInterview } = useOperations()
 
-  // Use SSE for real-time updates
-  const { connected: sseConnected, lastEvent } = useSSE('/api/events')
+  // Poll interviews directly - server handles operation status merging
+  const {
+    interviews,
+    hasInProgressInterviews,
+    lastUpdated,
+    isLoading: initialLoading,
+  } = useInterviewPolling()
+
+  // Operation polling is only used for toast notifications
+  const { lastOperation } = useOperationPolling({
+    filterPrefix: 'INTERVIEW#',
+  })
 
   const [challenges, setChallenges] = useState<
     Array<{
@@ -101,37 +90,6 @@ export default function InterviewsPage() {
     }
   }, [formData.challenge])
 
-  const loadInterviews = useCallback(async () => {
-    try {
-      // Add cache busting to ensure fresh data
-      const timestamp = new Date().getTime()
-      const response = await fetch(`/api/interviews?t=${timestamp}`)
-      if (response.ok) {
-        const data = await response.json()
-        console.log(
-          '[DEBUG] Loaded current interviews from API:',
-          data.interviews?.map((i: Interview) => ({
-            id: i.id,
-            status: i.status,
-            candidateName: i.candidateName,
-          }))
-        )
-
-        const newInterviews = data.interviews || []
-        setInterviews(newInterviews)
-      } else {
-        console.error('Failed to load current interviews')
-      }
-    } catch (error) {
-      console.error('Error loading current interviews:', error)
-    } finally {
-      // Set initial loading to false after first load
-      if (initialLoading) {
-        setInitialLoading(false)
-      }
-    }
-  }, [initialLoading])
-
   const loadHistoricalInterviews = useCallback(async () => {
     if (historyLoadingRef.current) return // Prevent duplicate calls
 
@@ -159,147 +117,73 @@ export default function InterviewsPage() {
     }
   }, []) // Empty dependency array - function is stable
 
-  // Step 1: Load both current interviews and history on initial page load
+  // Load history and challenges on initial page load
+  // (interviews are loaded by useInterviewPolling hook)
   useEffect(() => {
-    console.log(
-      '[DEBUG] Interviews page: Step 1 - Initial load, loading current interviews, history, and challenges'
-    )
-    loadInterviews()
+    console.log('[DEBUG] Interviews page: Loading history and challenges')
     loadHistoricalInterviews()
     loadChallenges()
-  }, [loadInterviews, loadHistoricalInterviews, loadChallenges])
+  }, [loadHistoricalInterviews, loadChallenges])
 
   // 30-second polling for interview history updates
   useEffect(() => {
     const interval = setInterval(() => {
-      console.log(
-        '[DEBUG] Polling: Refreshing interview history (30s interval)'
-      )
       loadHistoricalInterviews()
-    }, 30000) // 30 seconds
+    }, 30000)
 
     return () => clearInterval(interval)
   }, [loadHistoricalInterviews])
 
-  // Listen for SSE events to update data immediately and refresh
+  // Track operation completions for toast notifications only
+  // Interview list updates are handled by useInterviewPolling
+  const previousOperationRef = useRef<OperationData | null>(null)
   useEffect(() => {
-    if (lastEvent) {
-      console.log('Received SSE event:', lastEvent)
+    if (!lastOperation) return
 
-      // Handle operation updates immediately for better UX
-      if (lastEvent.type === 'operation_update' && lastEvent.operation) {
-        const operation: OperationData = lastEvent.operation
-        console.log('Processing operation update:', operation)
+    const operation = lastOperation
+    const prevOperation = previousOperationRef.current
 
-        // Skip operations without interviewId
-        if (!operation.interviewId) {
-          console.log('Ignoring operation without interviewId')
-          return
-        }
-
-        // Map operation status to interview status for immediate updates
-        let interviewStatus: Interview['status'] = 'initializing'
-
-        if (operation.status === 'scheduled') {
-          interviewStatus = 'scheduled'
-        } else if (operation.status === 'running') {
-          if (operation.result?.infrastructureReady) {
-            interviewStatus = 'configuring'
-          } else {
-            interviewStatus = 'initializing'
-          }
-        } else if (operation.status === 'completed') {
-          if (operation.result?.success) {
-            interviewStatus = operation.result?.healthCheckPassed
-              ? 'active'
-              : 'configuring'
-          } else {
-            interviewStatus = 'error'
-          }
-        } else if (operation.status === 'failed') {
-          interviewStatus = 'error'
-        }
-
-        console.log('Immediately updating interview status and details:', {
-          interviewId: operation.interviewId,
-          status: interviewStatus,
-          hasAccessUrl: !!operation.result?.accessUrl,
-          hasPassword: !!operation.result?.password,
-        })
-
-        // Update interview state with latest operation data
-        setInterviews(prev => {
-          const updated = prev.map(interview => {
-            if (interview.id === operation.interviewId) {
-              return {
-                ...interview,
-                status: interviewStatus,
-                // Only update access details if they're available
-                ...(operation.result?.accessUrl && {
-                  accessUrl: operation.result.accessUrl,
-                  password: operation.result.password,
-                }),
-              }
-            }
-            return interview
-          })
-
-          // If interview doesn't exist in current state, add it
-          const exists = prev.some(i => i.id === operation.interviewId)
-          if (!exists && operation.candidateName && operation.challenge) {
-            const newInterview: Interview = {
-              id: operation.interviewId,
-              candidateName: operation.candidateName,
-              challenge: operation.challenge,
-              status: interviewStatus,
-              createdAt: operation.createdAt || new Date().toISOString(),
-              scheduledAt: operation.scheduledAt,
-              autoDestroyAt: operation.autoDestroyAt,
-              saveFiles: true, // Default value
-              accessUrl: operation.result?.accessUrl,
-              password: operation.result?.password,
-              operationId: operation.id,
-            }
-            return [...updated, newInterview]
-          }
-
-          return updated
-        })
-
-        // Clear creating loading state if this is for the interview we're waiting for
-        if (operation.interviewId === creatingInterviewId) {
-          setCreatingInterviewId(null)
-        }
-      }
-
-      // Refresh interviews from API for consistency (after immediate update)
-      if (
-        lastEvent.type === 'operation_update' ||
-        lastEvent.type === 'scheduler_event'
-      ) {
-        console.log('Refreshing interviews from API due to SSE event')
-        // Use setTimeout to allow immediate UI update first
-        setTimeout(() => {
-          loadInterviews()
-        }, 100)
-      }
+    // Only show toast for status transitions we haven't seen
+    if (
+      prevOperation?.id === operation.id &&
+      prevOperation?.status === operation.status
+    ) {
+      return
     }
-  }, [lastEvent, loadInterviews, creatingInterviewId])
+    previousOperationRef.current = operation
 
-  // NO AUTOMATIC POLLING for current interviews - SSE provides real-time updates
-  // History interviews use 30-second polling for reasonable freshness
-
-  // Debug: Monitor when interviews state changes
-  useEffect(() => {
-    console.log(
-      '[DEBUG] Interviews state changed:',
-      interviews.map(i => ({
-        id: i.id,
-        status: i.status,
-        candidateName: i.candidateName,
-      }))
-    )
-  }, [interviews])
+    // Show toast for completed operations
+    if (operation.status === 'completed' && operation.type === 'create') {
+      if (operation.result?.success) {
+        setNotification(
+          `Interview ready for ${operation.candidateName || 'candidate'}`
+        )
+        setTimeout(() => setNotification(null), 5000)
+      } else {
+        setNotification(
+          `Interview creation failed for ${operation.candidateName || 'candidate'}`
+        )
+        setTimeout(() => setNotification(null), 5000)
+      }
+    } else if (
+      operation.status === 'completed' &&
+      operation.type === 'destroy'
+    ) {
+      if (operation.result?.success) {
+        setNotification(
+          `Interview destroyed for ${operation.candidateName || 'candidate'}`
+        )
+        setTimeout(() => setNotification(null), 5000)
+        // Refresh history after successful destroy
+        loadHistoricalInterviews()
+      }
+    } else if (operation.status === 'failed') {
+      setNotification(
+        `Operation failed for ${operation.candidateName || 'candidate'}: ${operation.result?.error || 'Unknown error'}`
+      )
+      setTimeout(() => setNotification(null), 7000)
+    }
+  }, [lastOperation, loadHistoricalInterviews])
 
   const handleDownloadFiles = async (interviewId: string) => {
     try {
@@ -435,8 +319,7 @@ export default function InterviewsPage() {
       setNotification(`Interview cancelled for ${interview.candidateName}`)
       setTimeout(() => setNotification(null), 5000)
 
-      // Remove from interviews list immediately
-      setInterviews(prev => prev.filter(i => i.id !== interview.id))
+      // Interview will be removed automatically via polling
     } catch (error) {
       console.error('Error cancelling interview:', error)
       setNotification(
@@ -518,28 +401,9 @@ export default function InterviewsPage() {
         throw new Error(errorData.error || 'Failed to create interview')
       }
 
-      const data = await response.json()
+      await response.json()
 
-      // If scheduled, add interview to state immediately with credentials
-      if (formData.enableScheduling) {
-        const scheduledInterview: Interview = {
-          id: data.interviewId,
-          candidateName: data.candidateName,
-          challenge: data.challenge,
-          status: 'scheduled',
-          saveFiles: formData.saveFiles,
-          accessUrl: data.accessUrl,
-          password: data.password,
-          createdAt: new Date().toISOString(),
-          scheduledAt: data.scheduledAt,
-          autoDestroyAt: data.autoDestroyAt,
-          operationId: data.operationId,
-        }
-        setInterviews(prev => [...prev, scheduledInterview])
-      } else {
-        // For immediate interviews, set creating interview ID to show loading state
-        setCreatingInterviewId(data.interviewId)
-      }
+      // Interview will appear automatically via polling - no need to manually add
 
       // Reset form and close modal
       setFormData({
@@ -604,11 +468,18 @@ export default function InterviewsPage() {
             <div className="flex items-center space-x-2">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  sseConnected ? 'bg-green-500' : 'bg-red-500'
+                  hasInProgressInterviews
+                    ? 'bg-blue-500 animate-pulse'
+                    : 'bg-green-500'
                 }`}
               ></div>
               <span className="text-sm text-slate-600">
-                {sseConnected ? 'Live updates' : 'Offline'}
+                {hasInProgressInterviews ? 'Active' : 'Idle'}
+                {lastUpdated && (
+                  <span className="ml-2 text-slate-400">
+                    Updated {lastUpdated.toLocaleTimeString()}
+                  </span>
+                )}
               </span>
             </div>
           </div>
@@ -887,18 +758,6 @@ export default function InterviewsPage() {
         {/* Active Interviews Tab */}
         {activeTab === 'active' && (
           <div className="card overflow-hidden">
-            {/* Show loading state when creating a new interview */}
-            {creatingInterviewId && (
-              <div className="px-6 py-4 bg-blue-50 border-b border-blue-100">
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
-                  <span className="text-blue-700">
-                    Creating interview... Waiting for it to appear in the list.
-                  </span>
-                </div>
-              </div>
-            )}
-
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-slate-50">

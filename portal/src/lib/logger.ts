@@ -3,6 +3,12 @@
  *
  * Provides structured logging with different levels (DEBUG, INFO, WARN, ERROR)
  * and environment-based configuration to control verbosity.
+ *
+ * Features:
+ * - Structured JSON output for CloudWatch Logs Insights
+ * - Component-based child loggers
+ * - Request ID tracking for distributed tracing
+ * - Automatic redaction of sensitive fields
  */
 
 export enum LogLevel {
@@ -17,12 +23,24 @@ export interface LogContext {
   operation?: string
   interviewId?: string
   operationId?: string
+  requestId?: string
   [key: string]: unknown
 }
+
+// Fields that should be redacted in logs
+const SENSITIVE_FIELDS = [
+  'password',
+  'passcode',
+  'token',
+  'apiKey',
+  'secret',
+  'authorization',
+]
 
 class Logger {
   private currentLevel: LogLevel
   private prefix: string
+  private useJson: boolean
 
   constructor() {
     // Set log level based on environment
@@ -45,11 +63,29 @@ class Logger {
         this.currentLevel = LogLevel.INFO
     }
 
-    this.prefix = `[${process.env.PROJECT_PREFIX || 'prequel'}]`
+    this.prefix = process.env.PROJECT_PREFIX || 'prequel'
+    // Use JSON format in production for CloudWatch Logs Insights
+    this.useJson = process.env.NODE_ENV === 'production'
   }
 
   private shouldLog(level: LogLevel): boolean {
     return level >= this.currentLevel
+  }
+
+  /**
+   * Redact sensitive values from context
+   */
+  private redactSensitive(context: LogContext): LogContext {
+    const redacted: LogContext = {}
+    for (const [key, value] of Object.entries(context)) {
+      const lowerKey = key.toLowerCase()
+      if (SENSITIVE_FIELDS.some(f => lowerKey.includes(f))) {
+        redacted[key] = '[REDACTED]'
+      } else {
+        redacted[key] = value
+      }
+    }
+    return redacted
   }
 
   private formatMessage(
@@ -58,17 +94,32 @@ class Logger {
     context?: LogContext
   ): string {
     const timestamp = new Date().toISOString()
-    let formatted = `${timestamp} ${this.prefix} [${level}]`
+    const safeContext = context ? this.redactSensitive(context) : undefined
 
-    if (context?.component) {
-      formatted += ` [${context.component}]`
+    // JSON format for production (CloudWatch Logs Insights)
+    if (this.useJson) {
+      return JSON.stringify({
+        timestamp,
+        level,
+        service: this.prefix,
+        component: safeContext?.component,
+        message,
+        ...safeContext,
+      })
+    }
+
+    // Human-readable format for development
+    let formatted = `${timestamp} [${this.prefix}] [${level}]`
+
+    if (safeContext?.component) {
+      formatted += ` [${safeContext.component}]`
     }
 
     formatted += ` ${message}`
 
     // Add context details if provided
-    if (context) {
-      const contextStr = Object.entries(context)
+    if (safeContext) {
+      const contextStr = Object.entries(safeContext)
         .filter(([key]) => key !== 'component')
         .map(([key, value]) => `${key}=${value}`)
         .join(' ')
@@ -112,6 +163,7 @@ class Logger {
     const childLogger = new Logger()
     childLogger.currentLevel = this.currentLevel
     childLogger.prefix = this.prefix
+    childLogger.useJson = this.useJson
 
     // Override methods to include context
     const originalDebug = childLogger.debug.bind(childLogger)
@@ -146,4 +198,4 @@ export const logger = new Logger()
 export const schedulerLogger = logger.child({ component: 'scheduler' })
 export const operationsLogger = logger.child({ component: 'operations' })
 export const terraformLogger = logger.child({ component: 'terraform' })
-export const sseLogger = logger.child({ component: 'sse' })
+export const authLogger = logger.child({ component: 'auth' })

@@ -1,6 +1,6 @@
 # Local Testing Guide
 
-This guide covers testing for the Prequel Portal project, including real-time features like SSE and background operations.
+This guide covers testing for the Prequel Portal project, including real-time polling features and background operations.
 
 ## 🚀 Quick Reference
 
@@ -93,12 +93,9 @@ npm run build
 
 ## Testing Real-time Features
 
-### Server-Sent Events (SSE)
+### Polling-Based Updates
 
-**Challenges:**
-
-- SSE requires browser APIs (EventSource) not available in Node test environment
-- Real-time connections need manual testing in development environment
+The portal uses 1-second polling for real-time updates. This approach works in all environments and is straightforward to test.
 
 **Testing Approach:**
 
@@ -107,18 +104,18 @@ npm run build
 npm run dev
 
 # In browser, open DevTools > Network tab
-# Look for /api/events connection with "event-stream" type
-# Should show persistent connection with periodic heartbeat events
+# Look for /api/interviews or /api/takehomes requests every 1 second
+# Should see 200 responses with updated interview data
 ```
 
 **Manual Testing Checklist:**
 
-- [ ] SSE connection indicator shows "Live updates" (green dot)
-- [ ] Creating interview triggers immediate UI update
+- [ ] Status indicator shows "Active" when interviews are in progress
+- [ ] Creating interview appears in list within 1 second
 - [ ] Scheduling interview shows correct scheduled time
-- [ ] Status changes (initializing → configuring → active) update instantly
+- [ ] Status changes (initializing → configuring → active) update within 1 second
 - [ ] Auto-destroy countdown displays correctly
-- [ ] Connection reconnects automatically if interrupted
+- [ ] Toast notifications appear when operations complete
 
 ### Enhanced Challenge Management
 
@@ -176,7 +173,7 @@ npm run dev
 # Create scheduled interview (set time 1-2 minutes in future)
 # Check operation logs show "scheduled" status
 # Wait for scheduled time - should automatically start
-# Monitor real-time status updates via SSE
+# Monitor real-time status updates via polling
 ```
 
 **Testing auto-destroy:**
@@ -191,10 +188,10 @@ npm run dev
 
 **Key test scenarios:**
 
-- Operation creation emits SSE event
-- Status updates (pending → running → completed) emit events
-- Operation completion with results emits event
-- Failed operations emit appropriate events
+- Operation creation updates are visible via polling within 1 second
+- Status updates (pending → running → completed) visible via polling
+- Operation completion with results triggers toast notification
+- Failed operations show error toast and update status
 
 ## Test Types & Locations
 

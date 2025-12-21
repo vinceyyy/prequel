@@ -1,10 +1,10 @@
 # Prequel Portal
 
-Real-time NextJS web interface for managing coding interviews with live SSE updates, scheduling, and background operations.
+Real-time NextJS web interface for managing coding interviews with 1-second polling, scheduling, and background operations.
 
 ## Overview
 
-The portal provides a complete web-based management interface for conducting coding interviews. It features real-time updates via Server-Sent Events (SSE), interview scheduling, background operations with detailed logging, and automatic resource cleanup.
+The portal provides a complete web-based management interface for conducting coding interviews. It features real-time updates via 1-second polling, interview scheduling, background operations with detailed logging, and automatic resource cleanup.
 
 **Target Users:**
 
@@ -88,10 +88,10 @@ npm run test:e2e:headed # E2E tests with visible browser
 
 ### Technology Stack
 
-- **Framework**: Next.js 15 with App Router
+- **Framework**: Next.js 16 with App Router
 - **Language**: TypeScript (strict mode)
 - **Styling**: Tailwind CSS
-- **Real-time**: Server-Sent Events (SSE)
+- **Real-time**: 1-second polling via React hooks
 - **Testing**: Jest + React Testing Library + Playwright
 - **Code Quality**: ESLint + Prettier
 
@@ -101,25 +101,29 @@ npm run test:e2e:headed # E2E tests with visible browser
 src/
 ├── app/                    # Next.js App Router
 │   ├── api/               # API routes
-│   │   ├── events/        # SSE endpoint for real-time updates
 │   │   ├── interviews/    # Interview CRUD operations
 │   │   ├── operations/    # Background operation management
+│   │   ├── takehomes/     # Take-home assessment management
 │   │   └── challenges/    # S3-based challenge management
+│   ├── interviews/        # Interview management page
+│   ├── takehomes/         # Take-home management page
+│   ├── challenges/        # Challenge management page
 │   ├── __tests__/         # Page component tests
 │   └── globals.css        # Global styles
 ├── components/            # Reusable React components
 │   └── __tests__/         # Component tests
 ├── hooks/                 # Custom React hooks
-│   ├── useSSE.ts         # Server-Sent Events hook
+│   ├── usePolling.ts     # Polling hooks for real-time updates
 │   ├── useOperations.ts  # Background operations hook
 │   └── __tests__/        # Hook tests
 └── lib/                   # Core business logic
-    ├── config.ts          # Centralized configuration system with environment-aware naming
-    ├── aws-config.ts      # Legacy AWS config wrapper (deprecated)
-    ├── operations.ts      # Operation management with SSE events
+    ├── config.ts          # Centralized configuration system
+    ├── auth.ts            # Session token management (30-day expiry)
+    ├── operations.ts      # Operation management (DynamoDB)
     ├── scheduler.ts       # Background scheduler service
-    ├── terraform.ts      # AWS infrastructure management
+    ├── terraform.ts       # AWS infrastructure management
     ├── interviews.ts      # DynamoDB interview management
+    ├── assessments.ts     # Take-home assessment management
     ├── fileExtraction.ts  # File saving and extraction
     └── __mocks__/         # Test mocks
 
@@ -132,7 +136,7 @@ playwright-report/         # E2E test reports (generated)
 ### Features
 
 **Real-time Interview Management**
-Instant scheduling allows interviews to be created for future execution with datetime picker integration. Live status updates via Server-Sent Events (SSE) provide real-time status changes without page refresh. Background operations handle non-blocking interview creation and destruction with detailed logging, while mandatory auto-destroy with configurable timeouts (30min-4hrs) prevents resource waste. The operation dashboard provides real-time operation logs and cancellation capabilities.
+Instant scheduling allows interviews to be created for future execution with datetime picker integration. Live status updates via 1-second polling provide real-time status changes without page refresh. Background operations handle non-blocking interview creation and destruction with detailed logging, while mandatory auto-destroy with configurable timeouts (30min-4hrs) prevents resource waste. The operation dashboard provides real-time operation logs and cancellation capabilities.
 
 **AWS Integration & Infrastructure**
 Automated infrastructure management through Terraform handles ECS, ALB, and Route53 provisioning seamlessly. S3 challenge storage enables dynamic challenge loading from S3 buckets, while SOCI indexing via Lambda provides container image optimization for faster startup times. IAM role authentication ensures secure AWS access without manual credential management.
@@ -305,64 +309,21 @@ POST /api/operations/{id}/cancel
 GET /api/operations/{id}/logs
 ```
 
-### Real-time Events API
+### Real-time Updates
 
-#### Server-Sent Events
+The portal uses 1-second polling for real-time updates instead of SSE. See `docs/data-fetching.md` for architecture details.
 
-```http
-GET /api/events
-```
+**Polling Hooks**:
 
-Establishes persistent SSE connection for real-time updates.
+```typescript
+// Poll interviews - server merges operation status
+const { interviews, hasInProgressInterviews } = useInterviewPolling()
 
-**Event Types**:
+// Poll take-homes
+const { takeHomes, hasInProgressTakeHomes } = useTakeHomePolling()
 
-1. **Connection Event** (initial):
-
-```json
-{
-  "type": "connection",
-  "timestamp": "2024-01-15T09:00:00Z"
-}
-```
-
-2. **Heartbeat Event** (every 30 seconds):
-
-```json
-{
-  "type": "heartbeat",
-  "timestamp": "2024-01-15T09:00:30Z"
-}
-```
-
-3. **Operation Update Event** (immediate on status change):
-
-```json
-{
-  "type": "operation_update",
-  "timestamp": "2024-01-15T09:02:00Z",
-  "operation": {
-    "id": "op-12345",
-    "type": "create",
-    "status": "running",
-    "interviewId": "int-67890",
-    "candidateName": "John Doe"
-  }
-}
-```
-
-4. **Scheduler Event** (when scheduler processes operations):
-
-```json
-{
-  "type": "scheduler_event",
-  "timestamp": "2024-01-15T10:00:00Z",
-  "event": {
-    "type": "scheduled_start",
-    "operationId": "op-12345",
-    "interviewId": "int-67890"
-  }
-}
+// Poll operations for toast notifications
+const { lastOperation } = useOperationPolling({ filterPrefix: 'INTERVIEW#' })
 ```
 
 ### Challenges API
@@ -525,31 +486,18 @@ npm run test:all     # 5-10 minutes full confidence check
 
 ### Testing Real-time Features
 
-**SSE Testing Challenges**:
+**Polling Testing**:
 
-- SSE requires browser APIs (EventSource) not available in Node test environment
-- Real-time connections need manual testing in development environment
-
-**Manual Testing Approach**:
-
-```bash
-# Start development server
-npm run dev
-
-# In browser DevTools > Network tab:
-# 1. Look for /api/events connection with "event-stream" type
-# 2. Should show persistent connection with periodic heartbeat events
-# 3. Check connection indicator shows "Live updates" (green dot)
-```
+The portal uses 1-second polling which works in all environments. Check browser Network tab to see polling requests to `/api/interviews` or `/api/takehomes`.
 
 **Manual Testing Checklist**:
 
-- [ ] SSE connection indicator shows "Live updates" (green dot)
-- [ ] Creating interview triggers immediate UI update
+- [ ] Status indicator shows "Active" when interviews are in progress
+- [ ] Creating interview appears in list within 1 second
 - [ ] Scheduling interview shows correct scheduled time
-- [ ] Status changes (initializing → configuring → active) update instantly
+- [ ] Status changes (initializing → configuring → active) update within 1 second
 - [ ] Auto-destroy countdown displays correctly
-- [ ] Connection reconnects automatically if interrupted
+- [ ] Toast notifications appear when operations complete
 
 ### Debugging Tests
 
@@ -668,11 +616,11 @@ This script:
 - Run `npm run lint` to identify code quality issues
 - Check TypeScript errors in IDE or build output
 
-**SSE Connection Issues**:
+**Polling Issues**:
 
-- Check browser DevTools > Network > EventSource connections
-- Look for failed connections or missing heartbeats
-- Verify `/api/events` endpoint is accessible
+- Check browser DevTools > Network for `/api/interviews` requests
+- Verify requests return 200 status every second
+- Check for JavaScript errors in Console tab
 
 ### Development Tips
 
