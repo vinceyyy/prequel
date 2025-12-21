@@ -1,6 +1,6 @@
 # Contributing to Prequel
 
-This guide is for developers contributing code to the Prequel project with real-time polling features. It covers local development setup, testing, code quality, and submission guidelines for the scheduling and live-update system.
+This guide is for developers contributing code to the Prequel project with real-time SSE features. It covers local development setup, testing, code quality, and submission guidelines for the scheduling and live-update system.
 
 ## 🚀 Quick Start for Contributors
 
@@ -95,16 +95,16 @@ npm run test:coverage # Unit tests with coverage report
 
 **Unit Tests:** `src/**/*.test.{ts,tsx}`
 - Component tests: `src/components/__tests__/`
-- Hook tests: `src/hooks/__tests__/` (includes `usePolling`, `useOperations`)
-- API tests: `src/app/api/**/__tests__/` (includes polling, scheduling)
+- Hook tests: `src/hooks/__tests__/` (includes `useSSE`, `useOperations`)
+- API tests: `src/app/api/**/__tests__/` (includes SSE events, scheduling)
 - Page tests: `src/app/__tests__/`
 
 **E2E Tests:** `e2e/*.spec.ts`
 - User workflows: `e2e/portal.spec.ts` (includes scheduling and real-time features)
 
 **Real-time Feature Testing:**
-- Polling-based updates work in all environments
-- Test by checking Network tab for `/api/interviews` requests every 1 second
+- SSE connections require manual testing in development environment
+- EventSource API not available in Node.js test environment
 - Background operations tested via operation manager unit tests
 
 ### Writing Tests
@@ -154,13 +154,13 @@ npm run lint         # Run ESLint code quality checks
 Follow existing code patterns and conventions throughout the codebase. Use existing libraries and utilities rather than introducing new dependencies. Check neighboring files for style consistency and never assume library availability without checking package.json first.
 
 **Real-time Architecture Requirements**
-All long-running tasks must use the background operations system, while time-based execution should be scheduled via `SchedulerService`. UI updates are driven by 1-second polling hooks (`useInterviewPolling`, `useTakeHomePolling`). The server merges operation status into interview data, so clients poll complete state. Always implement auto-destroy functionality to prevent resource waste.
+Use `operationManager.emit()` for all operation status changes to ensure SSE events are properly triggered. All long-running tasks must use the background operations system, while time-based execution should be scheduled via `SchedulerService`. UI updates must be driven by SSE events only - avoid manual polling patterns. Always implement auto-destroy functionality to prevent resource waste.
 
 **Centralized Configuration System**
 The portal uses `src/lib/config.ts` for type-safe, centralized management of all environment variables and AWS resource configuration. This system automatically detects local vs ECS deployment contexts and uses appropriate AWS credentials (SSO for local development, IAM task roles for ECS). It auto-generates consistent AWS resource names from PROJECT_PREFIX and ENVIRONMENT, and provides complete TypeScript interfaces for all configuration values.
 
 **Key Architecture Components**
-The system relies on several core components: `src/lib/operations.ts` handles operation management and status tracking, `src/lib/scheduler.ts` provides background scheduler service with 30-second polling, `src/hooks/usePolling.ts` provides polling hooks for real-time updates (`useInterviewPolling`, `useTakeHomePolling`), and `src/hooks/useOperations.ts` provides operation polling for toast notifications.
+The system relies on several core components: `src/lib/operations.ts` handles operation management with SSE event emission, `src/lib/scheduler.ts` provides background scheduler service with 30-second polling, `src/app/api/events/route.ts` serves as the SSE endpoint for real-time updates, `src/hooks/useSSE.ts` manages client-side SSE connections with auto-reconnection, and `src/hooks/useOperations.ts` provides background operation management hooks.
 
 ## 🔧 Commit Guidelines
 
@@ -219,17 +219,17 @@ test: add E2E tests for interview workflow
 
 ### Manual Testing Checklist
 
-Polling-based real-time features are straightforward to test in any environment:
+Since SSE and scheduling features require browser APIs not available in Node test environment, manual testing is essential:
 
-**Polling Verification:**
+**SSE Connection Testing:**
 ```bash
 # Start development server
 npm run dev
 
 # In browser DevTools > Network tab:
-# 1. Look for /api/interviews requests every 1 second
-# 2. Should see 200 responses with interview data
-# 3. Status indicator shows "Active" when interviews are in progress
+# 1. Look for /api/events connection with "event-stream" type
+# 2. Should show persistent connection with periodic heartbeat events
+# 3. Check connection indicator shows "Live updates" (green dot)
 ```
 
 **Scheduling Feature Testing:**
@@ -238,7 +238,7 @@ npm run dev
 # 1. Create interview with future scheduled time (1-2 minutes ahead)
 # 2. Verify interview shows "scheduled" status with correct times
 # 3. Wait for scheduled time - should automatically start
-# 4. Monitor real-time status updates via polling
+# 4. Monitor real-time status updates via SSE
 # 5. Verify auto-destroy countdown displays correctly
 ```
 
@@ -263,13 +263,13 @@ npm run dev
 
 ### Real-time Development Workflow
 
-When working on polling or scheduling features:
+When working on SSE or scheduling features:
 
 1. **Start with unit tests** for operation manager logic
-2. **Use manual testing** to verify polling in Network tab
-3. **Test edge cases** like API errors and retry logic
+2. **Use manual testing** for SSE connection verification
+3. **Test edge cases** like connection loss and reconnection
 4. **Verify timing** for scheduled operations and auto-destroy
-5. **Check that polling stops** when no active interviews
+5. **Check browser compatibility** for EventSource support
 
 ## 🐛 Troubleshooting
 

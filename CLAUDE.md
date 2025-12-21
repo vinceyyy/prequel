@@ -8,7 +8,7 @@ Prequel is a coding interview platform that provisions on-demand VS Code instanc
 
 - **Enhanced Challenge Management**: Drag-and-drop file/folder uploads with `.vscode` support and automatic dependency installation
 - **Scheduled Interviews**: Create interviews for future execution with configurable auto-destroy timers
-- **Real-time Updates**: 1-second polling for live status updates without manual refresh
+- **Real-time Updates**: Live SSE-powered status updates without manual refresh
 - **Background Operations**: Non-blocking interview creation and destruction with detailed logs
 - **Auto-destroy Protection**: Mandatory resource cleanup to prevent AWS cost overruns
 - **File History Management**: Save and download candidate files with smart error handling
@@ -16,12 +16,12 @@ Prequel is a coding interview platform that provisions on-demand VS Code instanc
 
 ## Real-time Architecture
 
-**Polling System:**
-- 1-second interval polling for interviews and take-homes
-- `useInterviewPolling` / `useTakeHomePolling` hooks for state-based polling
-- `useOperationPolling` hook for toast notifications
-- Server-side merging of operation status into interview/take-home state
-- Live status indicator in UI showing Active/Idle state
+**Server-Sent Events (SSE) System:**
+- `/api/events` - SSE endpoint providing real-time updates
+- `OperationManager` - Emits events on all operation status changes
+- `SchedulerService` - 30-second polling for scheduled operations with event emission
+- `useSSE` hook - Client-side SSE connection with auto-reconnection
+- Live status indicator in UI showing connection health
 
 **Background Operations:**
 - All interview creation/destruction happens in background
@@ -51,7 +51,7 @@ Prequel is a coding interview platform that provisions on-demand VS Code instanc
   - **`infra/environments/dev/`** - Development environment (DynamoDB, S3, ECS, ALB, DNS)
   - **`infra/environments/prod/`** - Production environment (DynamoDB, S3, ECS, ALB, DNS)
   - **`infra/modules/`** - Reusable Terraform modules (networking, storage, compute, dns)
-- **`portal/`** - NextJS web interface with real-time polling for managing interviews
+- **`portal/`** - NextJS web interface with real-time SSE updates for managing interviews
 - **`instance/`** - Per-interview Terraform templates for ECS instances
 - **`challenge/`** - Interview coding challenges and environments stored in S3
 
@@ -463,10 +463,10 @@ Access at http://localhost:8443 with password "password"
 
 Current structure:
 
-- `portal/` - NextJS frontend with real-time polling
+- `portal/` - NextJS frontend with SSE real-time updates
   - `src/app/` - Next.js app router pages and API routes
   - `src/components/` - Reusable React components
-  - `src/hooks/` - Custom React hooks (usePolling, useOperations)
+  - `src/hooks/` - Custom React hooks (useSSE, useOperations)
   - `src/lib/` - Core business logic (operations with DynamoDB, scheduler, terraform)
 - `infra/` - Shared AWS infrastructure code in terraform (VPC, ECS, ALB, DynamoDB)
 - `instance/` - Terraform code for provisioning code-server instance
@@ -539,7 +539,7 @@ The checkbox indicates features that are currently implemented.
     2. [X] Select from available challenges with CPU/memory/storage display
     3. [X] Schedule instance creation for future execution
     4. [X] **Mandatory**: Choose interview duration (30min-4hrs) with automatic destruction
-    5. [X] Real-time status updates via polling (no manual refresh needed)
+    5. [X] Real-time status updates via SSE (no manual refresh needed)
     6. [X] **Pre-provisioning**: Scheduled interviews automatically start 5 minutes early to be ready at scheduled time
 4. [X] Wait for instance to become `Active`
    - [X] Challenge files are automatically copied from S3 during configuring stage
@@ -564,7 +564,7 @@ The checkbox indicates features that are currently implemented.
 
 ## Instance Status
 
-**Live status updates via 1-second polling - no manual refresh required**
+**Live status updates via Server-Sent Events (SSE) - no manual refresh required**
 
 1. **Scheduled** - Interview scheduled for future execution
    - Displayed with scheduled start time and auto-destroy time
@@ -598,7 +598,7 @@ The checkbox indicates features that are currently implemented.
    - Retry destroy option available
    - Red status indicator in UI
 
-**Status changes are picked up by polling for real-time UI updates**
+**Status changes trigger immediate SSE events for real-time UI updates**
 
 ## Scheduled Interview Timing
 

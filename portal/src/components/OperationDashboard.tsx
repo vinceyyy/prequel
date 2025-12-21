@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useSSE } from '@/hooks/useSSE'
 
 interface Operation {
   id: string
@@ -42,6 +43,9 @@ export default function OperationDashboard({
   const terminalRef = useRef<HTMLDivElement>(null)
   const pollInterval = useRef<NodeJS.Timeout | null>(null)
   const logsPollInterval = useRef<NodeJS.Timeout | null>(null)
+
+  // Use SSE for real-time log updates
+  const { lastEvent } = useSSE('/api/events')
 
   const loadOperations = useCallback(async () => {
     try {
@@ -110,6 +114,41 @@ export default function OperationDashboard({
     loadOperations()
   }, [interviewFilter, loadOperations])
 
+  // Handle SSE events for real-time log updates
+  useEffect(() => {
+    if (
+      lastEvent &&
+      lastEvent.type === 'operation_logs' &&
+      lastEvent.operationId === selectedOperation
+    ) {
+      console.log('[DEBUG] Received real-time log update via SSE:', {
+        operationId: lastEvent.operationId,
+        newLogs: lastEvent.logs?.length || 0,
+      })
+
+      // Append new logs to existing logs
+      if (lastEvent.logs && lastEvent.logs.length > 0) {
+        setLogs(currentLogs => {
+          // Merge new logs with existing ones, avoiding duplicates
+          const existingSet = new Set(currentLogs)
+          const newLogs = lastEvent.logs!.filter(log => !existingSet.has(log))
+          if (newLogs.length > 0) {
+            return [...currentLogs, ...newLogs]
+          }
+          return currentLogs
+        })
+      }
+    }
+
+    // Also handle operation updates for status changes
+    if (lastEvent && lastEvent.type === 'operation_update') {
+      console.log(
+        '[DEBUG] Received operation update via SSE, refreshing operations list'
+      )
+      loadOperations()
+    }
+  }, [lastEvent, selectedOperation, loadOperations])
+
   // Only poll when there are running or pending operations
   useEffect(() => {
     const hasActiveOperations = operations.some(
@@ -152,7 +191,8 @@ export default function OperationDashboard({
     }
   }, [selectedOperation, loadOperationLogs])
 
-  // Poll logs for active operations
+  // SSE provides real-time log updates, but keep minimal polling as fallback
+  // Only poll once every 10 seconds for active operations (reduced from 2 seconds)
   useEffect(() => {
     if (selectedOperation) {
       const operation = operations.find(op => op.id === selectedOperation)
@@ -161,15 +201,15 @@ export default function OperationDashboard({
         (operation.status === 'running' || operation.status === 'pending')
       ) {
         console.log(
-          `[DEBUG] Starting log polling for active operation: ${selectedOperation}`
+          `[DEBUG] Starting fallback log polling for active operation: ${selectedOperation} (SSE is primary)`
         )
         logsPollInterval.current = setInterval(() => {
           loadOperationLogs(selectedOperation)
-        }, 3000) // Poll every 3 seconds for active operations
+        }, 10000) // Reduced to 10 seconds as SSE handles real-time updates
       } else {
         if (logsPollInterval.current) {
           console.log(
-            `[DEBUG] Stopping log polling for completed operation: ${selectedOperation}`
+            `[DEBUG] Stopping fallback log polling for completed operation: ${selectedOperation}`
           )
           clearInterval(logsPollInterval.current)
           logsPollInterval.current = null

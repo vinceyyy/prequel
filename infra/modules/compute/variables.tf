@@ -121,24 +121,6 @@ variable "node_env" {
   default     = "production"
 }
 
-variable "portal_cpu" {
-  description = "CPU units for portal task (256, 512, 1024, 2048, 4096)"
-  type        = number
-  default     = 512
-}
-
-variable "portal_memory" {
-  description = "Memory in MB for portal task"
-  type        = number
-  default     = 1024
-}
-
-variable "log_retention_days" {
-  description = "CloudWatch log retention in days"
-  type        = number
-  default     = 30
-}
-
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

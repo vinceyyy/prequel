@@ -376,21 +376,20 @@ class OperationManager {
   }
 
   /**
-   * Retrieves active operations (pending + running + scheduled) using efficient GSI queries.
+   * Retrieves active operations (running + scheduled) using efficient GSI queries.
    * Much more efficient than getAllOperations() when you only need active operations.
-   * Perfect for polling status updates and real-time monitoring.
+   * Perfect for SSE status updates and real-time monitoring.
    *
-   * @returns Promise<Operation[]> - Array of active operations (pending + running + scheduled)
+   * @returns Promise<Operation[]> - Array of active operations (running + scheduled)
    */
   async getActiveOperations(): Promise<Operation[]> {
-    const [pendingOps, runningOps, scheduledOps] = await Promise.all([
-      this.getOperationsByStatus('pending'),
+    const [runningOps, scheduledOps] = await Promise.all([
       this.getOperationsByStatus('running'),
       this.getOperationsByStatus('scheduled'),
     ])
 
     // Combine and sort by creation time (newest first)
-    const activeOperations = [...pendingOps, ...runningOps, ...scheduledOps].sort(
+    const activeOperations = [...runningOps, ...scheduledOps].sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
     )
 

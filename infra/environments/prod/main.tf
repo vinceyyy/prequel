@@ -63,13 +63,7 @@ module "compute" {
   openai_admin_key        = var.openai_admin_key
   openai_project_id       = var.openai_project_id
   log_level               = var.log_level
-
-  # Production sizing: 1 vCPU, 2 GB memory
-  portal_cpu         = 1024
-  portal_memory      = 2048
-  log_retention_days = 30
-
-  tags = local.tags
+  tags                    = local.tags
 }
 
 # DNS module (Route53, ACM)

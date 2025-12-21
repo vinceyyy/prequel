@@ -17,30 +17,34 @@ export const metadata: Metadata = {
   title: 'Prequel Interview Platform',
 }
 
-// Log environment variables once at module load time (server-side only)
-if (typeof window === 'undefined') {
-  console.log('🔧 Environment Variables (server startup):')
-  console.log('NODE_ENV:', process.env.NODE_ENV)
-  console.log('ENVIRONMENT:', process.env.ENVIRONMENT)
-  console.log('PROJECT_PREFIX:', process.env.PROJECT_PREFIX)
-  console.log('AWS_REGION:', process.env.AWS_REGION)
-  console.log('ENABLE_AUTH:', process.env.ENABLE_AUTH)
-  console.log(
-    'AUTH_PASSCODE:',
-    process.env.AUTH_PASSCODE ? '[SET]' : '[NOT SET]'
-  )
-  console.log('NEXT_PUBLIC_ENABLE_AUTH:', process.env.NEXT_PUBLIC_ENABLE_AUTH)
-  console.log(
-    'OPERATIONS_TABLE_NAME:',
-    process.env.OPERATIONS_TABLE_NAME || 'auto-generated'
-  )
-}
+// Global flag to ensure environment variables are only logged once
+let hasLoggedEnvVars = false
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Debug: Print environment variables on server start (only once)
+  if (typeof window === 'undefined' && !hasLoggedEnvVars) {
+    console.log('🔧 Environment Variables (server startup):')
+    console.log('NODE_ENV:', process.env.NODE_ENV)
+    console.log('ENVIRONMENT:', process.env.ENVIRONMENT)
+    console.log('PROJECT_PREFIX:', process.env.PROJECT_PREFIX)
+    console.log('AWS_REGION:', process.env.AWS_REGION)
+    console.log('ENABLE_AUTH:', process.env.ENABLE_AUTH)
+    console.log(
+      'AUTH_PASSCODE:',
+      process.env.AUTH_PASSCODE ? '[SET]' : '[NOT SET]'
+    )
+    console.log('NEXT_PUBLIC_ENABLE_AUTH:', process.env.NEXT_PUBLIC_ENABLE_AUTH)
+    console.log(
+      'OPERATIONS_TABLE_NAME:',
+      process.env.OPERATIONS_TABLE_NAME || 'auto-generated'
+    )
+    hasLoggedEnvVars = true
+  }
+
   return (
     <html lang="en">
       <body

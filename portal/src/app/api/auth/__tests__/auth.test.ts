@@ -62,11 +62,9 @@ describe('Authentication API', () => {
       expect(response.status).toBe(200)
       expect(data.success).toBe(true)
 
-      // Check that auth cookie is set with a signed token
+      // Check that auth cookie is set
       const setCookieHeader = response.headers.get('set-cookie')
-      expect(setCookieHeader).toContain('auth-token=')
-      // Token format: timestamp.signature (e.g., 1234567890.abc123...)
-      expect(setCookieHeader).toMatch(/auth-token=\d+\.[a-f0-9]+/)
+      expect(setCookieHeader).toContain('auth-token=authenticated')
     })
 
     it('should return error for empty passcode', async () => {
