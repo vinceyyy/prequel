@@ -131,7 +131,7 @@ The platform requires several AWS services for proper operation:
 ### Component Integration
 
 The platform orchestrates four main components to deliver seamless coding interviews. The **portal** (NextJS
-application) serves as your control center with Server-Sent Events providing real-time status updates. When you create
+application) serves as your control center with 1-second polling providing real-time status updates. When you create
 an interview, the portal downloads Terraform templates from S3 and provisions dedicated AWS resources.
 
 The **infrastructure** component uses a two-tier approach: shared AWS infrastructure (VPC, ECS cluster, shared ALB) remains always provisioned, while interview-specific resources (ECS services, Route53 records, ALB listener rules) are created on-demand using Terraform. The shared ALB architecture reduces interview creation time from 4-6 minutes to ~1 minute. This hybrid approach keeps base costs around $50/month while adding only $0.50/hour per active interview.
@@ -155,8 +155,8 @@ functions ensures faster container startup. Containers are automatically destroy
 6. Container starts, challenge files sync from S3, VS Code becomes accessible
 
 **For Scheduled Interviews:**
-The background scheduler (30-second polling) processes scheduled operations and auto-destroy timeouts. All status
-changes trigger immediate SSE events to update the portal UI in real-time without page refresh.
+The background scheduler (30-second polling) processes scheduled operations and auto-destroy timeouts. The portal UI
+polls `/api/interviews` every second to receive status updates in real-time without page refresh.
 
 ## Contributing
 

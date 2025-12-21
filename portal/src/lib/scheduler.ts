@@ -12,7 +12,7 @@ import { generateSecureString } from './idGenerator'
  * This service runs continuously in the background (30-second polling interval) to:
  * 1. Process scheduled interview creation/destruction operations from DynamoDB
  * 2. Handle auto-destroy timeouts for active interviews
- * 3. Emit events for SSE clients to track scheduler activities
+ * 3. Process take-home expiration and auto-destruction
  *
  * The scheduler ensures that interviews are created/destroyed at their scheduled times
  * and prevents resource waste by automatically cleaning up expired interviews.
@@ -20,23 +20,12 @@ import { generateSecureString } from './idGenerator'
  * Key Features:
  * - **Scheduled Operations**: Executes operations at their scheduled time using DynamoDB queries
  * - **Auto-destroy**: Mandatory cleanup of interviews after timeout with duplicate prevention
- * - **Event Emission**: SSE events for real-time scheduler status
+ * - **Efficient Queries**: Combines related operations to minimize DynamoDB calls
  * - **Error Handling**: Robust error handling with detailed logging
  * - **DynamoDB Integration**: Uses efficient GSI queries for scalable operation lookup
- *
- * @example
- * ```typescript
- * // Listen for scheduler events
- * scheduler.addEventListener((event) => {
- *   if (event.type === 'auto_destroy_triggered') {
- *     console.log(`Auto-destroying interview ${event.interviewId}`)
- *   }
- * })
- * ```
  */
 export class SchedulerService {
   private checkInterval: NodeJS.Timeout | null = null
-  private eventListeners: ((event: SchedulerEvent) => void)[] = []
 
   constructor() {
     this.start()
@@ -55,8 +44,7 @@ export class SchedulerService {
     this.checkInterval = setInterval(() => {
       this.processScheduledOperations()
       this.processAutoDestroyOperations()
-      this.processExpiredTakeHomes()
-      this.processActivatedTakeHomesAutoDestroy()
+      this.processTakeHomes() // Combined: handles both expiration and auto-destroy
     }, 30000)
 
     schedulerLogger.info('Scheduler service started')
@@ -74,38 +62,12 @@ export class SchedulerService {
   }
 
   /**
-   * Adds an event listener for scheduler events.
-   * @param listener - Function to call when scheduler events occur
+   * No-op emit method. Events are logged but not broadcast.
+   * Kept for code documentation purposes.
    */
-  addEventListener(listener: (event: SchedulerEvent) => void) {
-    this.eventListeners.push(listener)
-  }
-
-  /**
-   * Removes an event listener.
-   * @param listener - The listener function to remove
-   */
-  removeEventListener(listener: (event: SchedulerEvent) => void) {
-    const index = this.eventListeners.indexOf(listener)
-    if (index > -1) {
-      this.eventListeners.splice(index, 1)
-    }
-  }
-
-  /**
-   * Emits a scheduler event to all registered listeners.
-   * @param event - The scheduler event to emit
-   */
-  private emit(event: SchedulerEvent) {
-    this.eventListeners.forEach(listener => {
-      try {
-        listener(event)
-      } catch (error) {
-        schedulerLogger.error('Error in scheduler event listener', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-        })
-      }
-    })
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private emit(_event: SchedulerEvent) {
+    // No-op: SSE removed, events are logged in-place
   }
 
   /**
@@ -407,209 +369,175 @@ export class SchedulerService {
   }
 
   /**
-   * Processes expired take-homes (availableUntil <= now AND sessionStatus === 'available').
-   * Marks them as expired and cleans up OpenAI service accounts if they exist.
+   * Combined processing of take-homes: expiration and auto-destroy.
+   * Uses a single DynamoDB query for efficiency.
    * Called every 30 seconds as part of the scheduler tick.
    */
-  private async processExpiredTakeHomes() {
+  private async processTakeHomes() {
     try {
-      // Get all take-homes from DynamoDB
+      // Single DynamoDB query for all take-homes
       const takeHomes = await assessmentManager.listTakeHomes()
+
+      // Early exit if no take-homes
+      if (takeHomes.length === 0) {
+        return
+      }
+
       const now = Math.floor(Date.now() / 1000)
 
-      // Process all take-homes to check for expiration
       for (const takeHome of takeHomes) {
-        // Skip if not yet expired
-        if (takeHome.availableUntil > now) {
+        // CASE 1: Expire available take-homes that are past their availability window
+        if (
+          takeHome.sessionStatus === 'available' &&
+          takeHome.availableUntil <= now
+        ) {
+          await this.expireTakeHome(takeHome)
           continue
         }
 
-        // Skip if already activated
-        if (takeHome.sessionStatus === 'activated' || takeHome.isActivated) {
-          schedulerLogger.debug('Skipping take-home - already activated', {
-            takeHomeId: takeHome.id,
-          })
-          continue
-        }
-
-        // Skip if already expired
-        if (takeHome.sessionStatus === 'expired') {
-          continue
-        }
-
-        // Only process available take-homes that have expired
-        if (takeHome.sessionStatus !== 'available') {
-          continue
-        }
-
-        schedulerLogger.info('Expiring take-home', {
-          takeHomeId: takeHome.id,
-          availableUntil: new Date(
-            takeHome.availableUntil * 1000
-          ).toISOString(),
-        })
-
-        try {
-          // Delete OpenAI service account if it exists
-          if (takeHome.openaiServiceAccount?.serviceAccountId) {
-            schedulerLogger.info('Deleting OpenAI service account', {
-              serviceAccountId: takeHome.openaiServiceAccount.serviceAccountId,
-            })
-
-            const deleteResult = await openaiService.deleteServiceAccount(
-              config.services.openaiProjectId,
-              takeHome.openaiServiceAccount.serviceAccountId
-            )
-
-            if (deleteResult.success) {
-              schedulerLogger.info('OpenAI service account deleted', {
-                serviceAccountId:
-                  takeHome.openaiServiceAccount.serviceAccountId,
-              })
-            } else {
-              schedulerLogger.error('OpenAI service account deletion failed', {
-                serviceAccountId:
-                  takeHome.openaiServiceAccount.serviceAccountId,
-                error: deleteResult.error,
-              })
-              // Continue with expiration even if OpenAI deletion fails
-            }
-          }
-
-          // Update session status to expired
-          await assessmentManager.updateSessionStatus(
-            takeHome.id,
-            'takehome',
-            'expired'
-          )
-
-          schedulerLogger.info('Take-home marked as expired', {
-            takeHomeId: takeHome.id,
-          })
-        } catch (error) {
-          schedulerLogger.error('Error expiring take-home', {
-            takeHomeId: takeHome.id,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          })
+        // CASE 2: Auto-destroy activated take-homes that have reached timeout
+        if (
+          takeHome.sessionStatus === 'activated' &&
+          takeHome.instanceStatus === 'active' &&
+          takeHome.autoDestroyAt &&
+          takeHome.autoDestroyAt <= now
+        ) {
+          await this.autoDestroyTakeHome(takeHome)
         }
       }
     } catch (error) {
-      schedulerLogger.error('Error in processExpiredTakeHomes', {
+      schedulerLogger.error('Error in processTakeHomes', {
         error: error instanceof Error ? error.message : 'Unknown error',
       })
     }
   }
 
   /**
-   * Processes activated take-homes that have reached their auto-destroy timeout.
-   * Creates destroy operations for expired activated take-homes.
-   * Called every 30 seconds as part of the scheduler tick.
-   *
-   * This handles activated take-homes separately from non-activated ones:
-   * - Non-activated take-homes: processExpiredTakeHomes() marks as expired
-   * - Activated take-homes: this method triggers infrastructure destruction
+   * Expires a single take-home and cleans up its OpenAI service account.
    */
-  private async processActivatedTakeHomesAutoDestroy() {
+  private async expireTakeHome(takeHome: {
+    id: string
+    availableUntil: number
+    openaiServiceAccount?: { serviceAccountId: string }
+  }) {
+    schedulerLogger.info('Expiring take-home', {
+      takeHomeId: takeHome.id,
+      availableUntil: new Date(takeHome.availableUntil * 1000).toISOString(),
+    })
+
     try {
-      // Get all take-homes from DynamoDB
-      const takeHomes = await assessmentManager.listTakeHomes()
-      const now = Math.floor(Date.now() / 1000)
-
-      // Filter for activated take-homes that have reached auto-destroy timeout
-      const expiredActivatedTakeHomes = takeHomes.filter(
-        takeHome =>
-          takeHome.sessionStatus === 'activated' &&
-          takeHome.instanceStatus === 'active' &&
-          takeHome.autoDestroyAt &&
-          takeHome.autoDestroyAt <= now
-      )
-
-      if (expiredActivatedTakeHomes.length > 0) {
-        schedulerLogger.debug(
-          `Found ${expiredActivatedTakeHomes.length} activated take-homes eligible for auto-destroy`
-        )
-      }
-
-      for (const takeHome of expiredActivatedTakeHomes) {
-        // Check if there's already a destroy operation in progress for this take-home
-        const operations = await operationManager.getOperationsByInterview(
-          takeHome.id
-        )
-        const hasActiveDestroy = operations.some(
-          op =>
-            (op.type === 'destroy' || op.type === 'revoke_takehome') &&
-            (op.status === 'pending' || op.status === 'running')
-        )
-
-        if (hasActiveDestroy) {
-          schedulerLogger.debug(
-            'Skipping auto-destroy - destroy already in progress',
-            {
-              takeHomeId: takeHome.id,
-              candidateName: takeHome.candidateName,
-            }
-          )
-          continue
-        }
-
-        schedulerLogger.info('Auto-destroying activated take-home', {
-          takeHomeId: takeHome.id,
-          candidateName: takeHome.candidateName,
-          autoDestroyAt: takeHome.autoDestroyAt
-            ? new Date(takeHome.autoDestroyAt * 1000).toISOString()
-            : 'unknown',
+      // Delete OpenAI service account if it exists
+      if (takeHome.openaiServiceAccount?.serviceAccountId) {
+        schedulerLogger.info('Deleting OpenAI service account', {
+          serviceAccountId: takeHome.openaiServiceAccount.serviceAccountId,
         })
 
-        try {
-          // Update session status to 'completed' and instance status to 'destroying'
-          await assessmentManager.updateSessionStatus(
-            takeHome.id,
-            'takehome',
-            'completed'
-          )
-          await assessmentManager.updateInstanceStatus(
-            takeHome.id,
-            'takehome',
-            'destroying'
-          )
+        const deleteResult = await openaiService.deleteServiceAccount(
+          config.services.openaiProjectId,
+          takeHome.openaiServiceAccount.serviceAccountId
+        )
 
-          // Create a new destroy operation for the auto-destroy
-          const destroyOpId = await operationManager.createOperation(
-            'destroy',
-            takeHome.id,
-            takeHome.candidateName,
-            takeHome.challengeId,
-            undefined, // scheduledAt
-            undefined, // autoDestroyAt
-            takeHome.saveFiles || true // Default to saving files for auto-destroyed take-homes
-          )
-
-          const destroyOp = await operationManager.getOperation(destroyOpId)
-          if (destroyOp) {
-            await this.executeScheduledDestroy({
-              id: destroyOp.id,
-              interviewId: destroyOp.interviewId,
-              candidateName: destroyOp.candidateName,
-              challenge: destroyOp.challenge,
-              saveFiles: destroyOp.saveFiles,
-            })
-          }
-
-          this.emit({
-            type: 'auto_destroy_triggered',
-            operationId: destroyOpId,
-            interviewId: takeHome.id,
-            originalOperationId: undefined,
+        if (deleteResult.success) {
+          schedulerLogger.info('OpenAI service account deleted', {
+            serviceAccountId: takeHome.openaiServiceAccount.serviceAccountId,
           })
-        } catch (error) {
-          schedulerLogger.error('Error auto-destroying activated take-home', {
-            takeHomeId: takeHome.id,
-            error: error instanceof Error ? error.message : 'Unknown error',
+        } else {
+          schedulerLogger.error('OpenAI service account deletion failed', {
+            serviceAccountId: takeHome.openaiServiceAccount.serviceAccountId,
+            error: deleteResult.error,
           })
         }
       }
+
+      // Update session status to expired
+      await assessmentManager.updateSessionStatus(
+        takeHome.id,
+        'takehome',
+        'expired'
+      )
+      schedulerLogger.info('Take-home marked as expired', {
+        takeHomeId: takeHome.id,
+      })
     } catch (error) {
-      schedulerLogger.error('Error in processActivatedTakeHomesAutoDestroy', {
+      schedulerLogger.error('Error expiring take-home', {
+        takeHomeId: takeHome.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }
+
+  /**
+   * Auto-destroys an activated take-home that has reached its timeout.
+   */
+  private async autoDestroyTakeHome(takeHome: {
+    id: string
+    candidateName?: string
+    challengeId: string
+    autoDestroyAt?: number
+    saveFiles?: boolean
+  }) {
+    // Check if there's already a destroy operation in progress
+    const operations = await operationManager.getOperationsByInterview(
+      takeHome.id
+    )
+    const hasActiveDestroy = operations.some(
+      op =>
+        (op.type === 'destroy' || op.type === 'revoke_takehome') &&
+        (op.status === 'pending' || op.status === 'running')
+    )
+
+    if (hasActiveDestroy) {
+      schedulerLogger.debug('Skipping auto-destroy - already in progress', {
+        takeHomeId: takeHome.id,
+      })
+      return
+    }
+
+    schedulerLogger.info('Auto-destroying activated take-home', {
+      takeHomeId: takeHome.id,
+      candidateName: takeHome.candidateName,
+      autoDestroyAt: takeHome.autoDestroyAt
+        ? new Date(takeHome.autoDestroyAt * 1000).toISOString()
+        : 'unknown',
+    })
+
+    try {
+      // Update statuses
+      await assessmentManager.updateSessionStatus(
+        takeHome.id,
+        'takehome',
+        'completed'
+      )
+      await assessmentManager.updateInstanceStatus(
+        takeHome.id,
+        'takehome',
+        'destroying'
+      )
+
+      // Create destroy operation
+      const destroyOpId = await operationManager.createOperation(
+        'destroy',
+        takeHome.id,
+        takeHome.candidateName,
+        takeHome.challengeId,
+        undefined,
+        undefined,
+        takeHome.saveFiles || true
+      )
+
+      const destroyOp = await operationManager.getOperation(destroyOpId)
+      if (destroyOp) {
+        await this.executeScheduledDestroy({
+          id: destroyOp.id,
+          interviewId: destroyOp.interviewId,
+          candidateName: destroyOp.candidateName,
+          challenge: destroyOp.challenge,
+          saveFiles: destroyOp.saveFiles,
+        })
+      }
+    } catch (error) {
+      schedulerLogger.error('Error auto-destroying activated take-home', {
+        takeHomeId: takeHome.id,
         error: error instanceof Error ? error.message : 'Unknown error',
       })
     }

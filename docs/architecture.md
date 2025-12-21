@@ -56,7 +56,7 @@ graph TB
 - **On-Demand Provisioning**: Interview environments are created when needed and destroyed after use
 - **Isolation**: Each interview gets its own containerized VS Code instance
 - **Persistence**: Operations survive container restarts using DynamoDB
-- **Real-time**: Live status updates via Server-Sent Events (SSE)
+- **Real-time**: Live status updates via 1-second polling
 - **Auto-cleanup**: Mandatory resource cleanup prevents forgotten instances
 
 ## Core Components
@@ -117,7 +117,7 @@ const config = {
 **Key Features**:
 
 - Interview creation with challenge selection
-- Real-time status monitoring via SSE
+- Real-time status monitoring via polling
 - Operation logs and progress tracking
 - Scheduled interviews with auto-destroy timers
 - Authentication and access control
@@ -130,7 +130,7 @@ const config = {
 
 - Persistent operation storage across container restarts
 - Efficient querying using DynamoDB Global Secondary Indexes (GSI)
-- Real-time event emission for SSE clients
+- Status tracking for polling-based real-time updates
 - Automatic cleanup via TTL (24 hours)
 - Atomic status updates and batched logging
 - Graceful throttling handling during auto-scaling
@@ -163,7 +163,7 @@ interface Operation {
 - 30-second polling interval for due operations
 - Efficient DynamoDB GSI queries for scheduled operations
 - Auto-destroy timeout processing with duplicate prevention
-- Event emission for real-time scheduler status
+- Status updates for polling-based real-time UI
 - Robust error handling and retry logic
 
 ### 4. Interview Instances (`instance/`)
@@ -284,8 +284,7 @@ sequenceDiagram
     T -->> P: Success + accessUrl
     P ->> OM: setOperationResult(success: true, accessUrl)
     OM ->> DB: Update operation (status: 'completed')
-    OM -->> P: Emit SSE event
-    P -->> U: Real-time status update
+    P -->> U: Real-time status update (via polling)
 ```
 
 1. Immediate Response (< 1 second):
@@ -305,7 +304,7 @@ sequenceDiagram
         - Operation status updated to completed with access URL
 3. Real-time Updates:
     - Each step logs to DynamoDB (batched every 2 seconds)
-    - SSE events sent to browser for live status updates
+    - Client polls /api/interviews every second for live status updates
     - User sees progress in real-time without refreshing
 
 ### Scheduled Interview Creation Flow
@@ -344,8 +343,7 @@ sequenceDiagram
         T -->> S: Success + accessUrl
         S ->> OM: setOperationResult(success: true, accessUrl)
         OM ->> DB: Update operation (status: 'completed')
-        OM -->> P: Emit SSE event
-        P -->> U: Real-time status update
+        P -->> U: Real-time status update (via polling)
     end
 ```
 
@@ -395,8 +393,7 @@ sequenceDiagram
         T -->> S: Success confirmation
         S ->> OM: setOperationResult(success: true)
         OM ->> DB: Update operation (status: 'completed')
-        OM -->> P: Emit SSE event
-        P -->> U: Real-time status update
+        P -->> U: Real-time status update (via polling)
     end
 ```
 
@@ -427,7 +424,7 @@ sequenceDiagram
 
 - **Automatic**: No manual intervention required
 - **Reliable**: Duplicate prevention ensures single cleanup per interview
-- **Observable**: Real-time logs and SSE events for monitoring
+- **Observable**: Real-time logs and polling-based monitoring
 - **Efficient**: GSI queries prevent full table scans
 - **Mandatory**: All interviews must have auto-destroy times set
 
@@ -465,40 +462,46 @@ stateDiagram-v2
 
 ## Real-time Communication
 
-### Server-Sent Events (SSE) Architecture
+### Polling-Based Architecture
+
+The portal uses 1-second polling for real-time updates. The server merges operation status into interview data, so clients poll the complete state rather than tracking operations separately.
 
 ```mermaid
 graph LR
     subgraph "Client Browser"
         UI[React UI]
-        SSE[SSE Connection]
+        POLL[Polling Hooks]
     end
 
     subgraph "Portal Server"
-        API["/api/events"]
+        API["/api/interviews"]
         OM[Operations Manager]
-        S[Scheduler]
+        DB[(DynamoDB)]
     end
 
-    UI <--> SSE
-    SSE <--> API
-    OM --> API
-    S --> API
-    OM -->|Operation Events| API
-    S -->|Scheduler Events| API
-    API -->|Event Stream| SSE
-    SSE -->|Real - time Updates| UI
+    UI <--> POLL
+    POLL -->|Poll every 1s| API
+    API -->|Query| DB
+    API -->|Get operation status| OM
+    API -->|Merge & Return| POLL
+    POLL -->|Update state| UI
 ```
 
-### Event Types
+### Polling Hooks
 
-| Event Type         | Source             | Purpose                             |
-|--------------------|--------------------|-------------------------------------|
-| `connection`       | SSE Endpoint       | Connection acknowledgment           |
-| `heartbeat`        | SSE Endpoint       | Keep-alive (every 30s)              |
-| `operation_status` | SSE Endpoint       | Periodic active operation summary   |
-| `operation_update` | Operations Manager | Immediate operation state changes   |
-| `scheduler_event`  | Scheduler Service  | Background processing notifications |
+| Hook                   | Endpoint           | Purpose                             |
+|------------------------|--------------------|-------------------------------------|
+| `useInterviewPolling`  | `/api/interviews`  | Poll interview list with merged status |
+| `useTakeHomePolling`   | `/api/takehomes`   | Poll take-home assessments          |
+| `useOperationPolling`  | `/api/operations`  | Poll for toast notifications only   |
+
+### Server-Side Status Merging
+
+The `/api/interviews` endpoint automatically merges operation status into interview data:
+- Gets interviews from DynamoDB
+- Finds related operations by interview ID
+- Maps operation status to interview status (e.g., `running` → `initializing`)
+- Returns complete state in single response
 
 ## Interview Lifecycle
 

@@ -44,7 +44,10 @@ test.describe('Interview Lifecycle with OpenAI Integration', () => {
     })
 
     // Mock interview creation API
-    let creationRequestBody: any = null
+    let creationRequestBody: {
+      candidateName: string
+      challenge: string
+    } | null = null
     await page.route('/api/interviews/create', async route => {
       const request = route.request()
       creationRequestBody = await request.postDataJSON()
@@ -93,12 +96,14 @@ test.describe('Interview Lifecycle with OpenAI Integration', () => {
   test('should delete OpenAI service account during interview destruction', async ({
     page,
   }) => {
-    let deleteCallMade = false
+    // Track if delete was called (for debugging, not asserted since deletion is async)
+    let _deleteCallMade = false
 
     // Mock OpenAI DELETE API
     await page.route('**/api.openai.com/**/service_accounts/**', route => {
       if (route.request().method() === 'DELETE') {
-        deleteCallMade = true
+        _deleteCallMade = true
+        void _deleteCallMade // Acknowledge intentionally unused
         route.fulfill({
           status: 200,
           body: JSON.stringify({

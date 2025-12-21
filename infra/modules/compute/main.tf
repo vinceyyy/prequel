@@ -88,14 +88,14 @@ resource "aws_ecr_lifecycle_policy" "code_server" {
 # CloudWatch Log Groups
 resource "aws_cloudwatch_log_group" "portal" {
   name              = "/ecs/${var.name_prefix}-portal"
-  retention_in_days = 7
+  retention_in_days = var.log_retention_days
 
   tags = var.tags
 }
 
 resource "aws_cloudwatch_log_group" "interview" {
   name              = "/ecs/${var.name_prefix}-interview"
-  retention_in_days = 7
+  retention_in_days = var.log_retention_days
 
   tags = var.tags
 }
@@ -105,8 +105,8 @@ resource "aws_ecs_task_definition" "portal" {
   family                   = "${var.name_prefix}-portal"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = 512
-  memory                   = 1024
+  cpu                      = var.portal_cpu
+  memory                   = var.portal_memory
   execution_role_arn       = aws_iam_role.ecs_execution_role.arn
   task_role_arn            = aws_iam_role.ecs_task_role.arn
 
