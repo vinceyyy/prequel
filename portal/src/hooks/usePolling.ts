@@ -187,3 +187,308 @@ export function useOperationPolling(options: UsePollingOptions = {}) {
     lastOperation,
   }
 }
+
+// Interview data structure (matching API response)
+export interface InterviewData {
+  id: string
+  candidateName: string
+  challenge: string
+  status:
+    | 'scheduled'
+    | 'initializing'
+    | 'configuring'
+    | 'active'
+    | 'destroying'
+    | 'destroyed'
+    | 'error'
+  saveFiles?: boolean
+  accessUrl?: string
+  password?: string
+  createdAt: string
+  scheduledAt?: string
+  autoDestroyAt?: string
+  completedAt?: string
+  destroyedAt?: string
+  historyS3Key?: string
+  operationId?: string
+}
+
+interface UseInterviewPollingOptions {
+  /** Polling interval in ms (default: 1000) */
+  interval?: number
+  /** Callback when interviews change */
+  onInterviewsChange?: (interviews: InterviewData[]) => void
+}
+
+interface UseInterviewPollingResult {
+  /** All active interviews */
+  interviews: InterviewData[]
+  /** Whether there are interviews in progress (initializing/configuring/destroying) */
+  hasInProgressInterviews: boolean
+  /** Last time data was fetched */
+  lastUpdated: Date | null
+  /** Whether currently fetching */
+  isLoading: boolean
+  /** Any error that occurred */
+  error: string | null
+  /** Manually trigger a refresh */
+  refresh: () => Promise<void>
+}
+
+/**
+ * Simple polling hook for interviews.
+ * Polls /api/interviews directly for real-time updates.
+ * The server handles merging operation status into interview status.
+ */
+export function useInterviewPolling(
+  options: UseInterviewPollingOptions = {}
+): UseInterviewPollingResult {
+  const { interval = 1000, onInterviewsChange } = options
+
+  const [interviews, setInterviews] = useState<InterviewData[]>([])
+  const [hasInProgressInterviews, setHasInProgressInterviews] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [isLoading, setIsLoading] = useState(true) // Start true for initial load
+  const [error, setError] = useState<string | null>(null)
+
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const previousItemsRef = useRef<string>('')
+  const hasLoadedRef = useRef(false)
+
+  const fetchData = useCallback(async () => {
+    try {
+      // Only show loading on initial fetch, not subsequent polls
+      if (!hasLoadedRef.current) {
+        setIsLoading(true)
+      }
+      setError(null)
+
+      const timestamp = Date.now()
+      const response = await fetch(`/api/interviews?t=${timestamp}`)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch interviews: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const items: InterviewData[] = data.interviews || []
+
+      // Check if any items are in progress
+      const inProgress = items.some(
+        item =>
+          item.status === 'initializing' ||
+          item.status === 'configuring' ||
+          item.status === 'destroying'
+      )
+
+      setInterviews(items)
+      setHasInProgressInterviews(inProgress)
+      setLastUpdated(new Date())
+
+      // Notify callback if items changed
+      const currentJson = JSON.stringify(items)
+      if (currentJson !== previousItemsRef.current) {
+        previousItemsRef.current = currentJson
+        onInterviewsChange?.(items)
+      }
+
+      // Mark as loaded after first successful fetch
+      hasLoadedRef.current = true
+      setIsLoading(false)
+
+      return inProgress
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      console.error('Interview polling error:', errorMessage)
+      // Only clear loading on error if this was initial load
+      if (!hasLoadedRef.current) {
+        setIsLoading(false)
+      }
+      return hasInProgressInterviews
+    }
+  }, [onInterviewsChange, hasInProgressInterviews])
+
+  const refresh = useCallback(async () => {
+    await fetchData()
+  }, [fetchData])
+
+  // Set up polling with fixed interval
+  useEffect(() => {
+    // Initial fetch
+    fetchData()
+
+    intervalRef.current = setInterval(() => {
+      fetchData()
+    }, interval)
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [fetchData, interval])
+
+  return {
+    interviews,
+    hasInProgressInterviews,
+    lastUpdated,
+    isLoading,
+    error,
+    refresh,
+  }
+}
+
+// TakeHome data structure (matching API response)
+export interface TakeHomeData {
+  id: string
+  candidateName?: string
+  candidateEmail?: string
+  challengeId: string
+  sessionStatus: 'available' | 'activated' | 'completed' | 'expired' | 'revoked'
+  instanceStatus:
+    | 'pending'
+    | 'initializing'
+    | 'configuring'
+    | 'active'
+    | 'destroying'
+    | 'destroyed'
+    | 'error'
+  createdAt: string
+  availableFrom: string
+  availableUntil: string
+  activatedAt?: string
+  accessToken: string
+  url?: string
+  password?: string
+  autoDestroyAt?: string
+  destroyedAt?: string
+  saveFiles?: boolean
+}
+
+interface UseTakeHomePollingOptions {
+  /** Polling interval in ms (default: 1000) */
+  interval?: number
+  /** Callback when take-homes change */
+  onTakeHomesChange?: (takeHomes: TakeHomeData[]) => void
+}
+
+interface UseTakeHomePollingResult {
+  /** All take-homes */
+  takeHomes: TakeHomeData[]
+  /** Whether there are take-homes in progress (initializing/configuring/destroying) */
+  hasInProgressTakeHomes: boolean
+  /** Last time data was fetched */
+  lastUpdated: Date | null
+  /** Whether currently fetching */
+  isLoading: boolean
+  /** Any error that occurred */
+  error: string | null
+  /** Manually trigger a refresh */
+  refresh: () => Promise<void>
+}
+
+/**
+ * Simple polling hook for take-homes.
+ * Polls /api/takehomes directly for real-time updates.
+ */
+export function useTakeHomePolling(
+  options: UseTakeHomePollingOptions = {}
+): UseTakeHomePollingResult {
+  const { interval = 1000, onTakeHomesChange } = options
+
+  const [takeHomes, setTakeHomes] = useState<TakeHomeData[]>([])
+  const [hasInProgressTakeHomes, setHasInProgressTakeHomes] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [isLoading, setIsLoading] = useState(true) // Start true for initial load
+  const [error, setError] = useState<string | null>(null)
+
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const previousItemsRef = useRef<string>('')
+  const hasLoadedRef = useRef(false)
+
+  const fetchData = useCallback(async () => {
+    try {
+      // Only show loading on initial fetch, not subsequent polls
+      if (!hasLoadedRef.current) {
+        setIsLoading(true)
+      }
+      setError(null)
+
+      const timestamp = Date.now()
+      const response = await fetch(`/api/takehomes?t=${timestamp}`)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch take-homes: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const items: TakeHomeData[] = data.takeHomes || []
+
+      // Check if any items are in progress
+      const inProgress = items.some(
+        item =>
+          item.instanceStatus === 'initializing' ||
+          item.instanceStatus === 'configuring' ||
+          item.instanceStatus === 'destroying'
+      )
+
+      setTakeHomes(items)
+      setHasInProgressTakeHomes(inProgress)
+      setLastUpdated(new Date())
+
+      // Notify callback if items changed
+      const currentJson = JSON.stringify(items)
+      if (currentJson !== previousItemsRef.current) {
+        previousItemsRef.current = currentJson
+        onTakeHomesChange?.(items)
+      }
+
+      // Mark as loaded after first successful fetch
+      hasLoadedRef.current = true
+      setIsLoading(false)
+
+      return inProgress
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      console.error('Take-home polling error:', errorMessage)
+      // Only clear loading on error if this was initial load
+      if (!hasLoadedRef.current) {
+        setIsLoading(false)
+      }
+      return hasInProgressTakeHomes
+    }
+  }, [onTakeHomesChange, hasInProgressTakeHomes])
+
+  const refresh = useCallback(async () => {
+    await fetchData()
+  }, [fetchData])
+
+  // Set up polling with fixed interval
+  useEffect(() => {
+    // Initial fetch
+    fetchData()
+
+    intervalRef.current = setInterval(() => {
+      fetchData()
+    }, interval)
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [fetchData, interval])
+
+  return {
+    takeHomes,
+    hasInProgressTakeHomes,
+    lastUpdated,
+    isLoading,
+    error,
+    refresh,
+  }
+}

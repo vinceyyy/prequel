@@ -1,31 +1,16 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import OperationDashboard from '@/components/OperationDashboard'
-import { useOperationPolling, type OperationData } from '@/hooks/usePolling'
-import type {
-  TakeHomeSessionStatus,
-  InstanceStatus,
-} from '@/lib/types/assessment'
+import {
+  useTakeHomePolling,
+  useOperationPolling,
+  type TakeHomeData,
+  type OperationData,
+} from '@/hooks/usePolling'
 
-interface TakeHome {
-  id: string
-  candidateName?: string
-  candidateEmail?: string
-  challengeId: string
-  sessionStatus: TakeHomeSessionStatus
-  instanceStatus: InstanceStatus
-  createdAt: string
-  availableFrom: string
-  availableUntil: string
-  activatedAt?: string
-  accessToken: string
-  url?: string
-  password?: string
-  autoDestroyAt?: string
-  destroyedAt?: string
-  saveFiles?: boolean
-}
+// Use the shared TakeHomeData type from usePolling
+type TakeHome = TakeHomeData
 
 /**
  * Formats a duration in milliseconds to human-readable format.
@@ -77,11 +62,9 @@ function calculateTakeHomeDuration(takeHome: TakeHome): string | null {
 }
 
 export default function TakeHomesPage() {
-  const [takeHomes, setTakeHomes] = useState<TakeHome[]>([])
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [initialLoading, setInitialLoading] = useState(true)
   const [showLogsModal, setShowLogsModal] = useState(false)
   const [selectedTakeHomeForLogs, setSelectedTakeHomeForLogs] = useState<
     string | null
@@ -96,11 +79,18 @@ export default function TakeHomesPage() {
     additionalInstructions: '',
   })
 
-  // Use polling for real-time updates (replaces SSE)
-  const { lastOperation, hasActiveOperations, lastUpdated } =
-    useOperationPolling({
-      filterPrefix: 'TAKEHOME#',
-    })
+  // Poll take-homes directly - server provides complete state
+  const {
+    takeHomes,
+    hasInProgressTakeHomes,
+    lastUpdated,
+    isLoading: initialLoading,
+  } = useTakeHomePolling()
+
+  // Operation polling is only used for toast notifications
+  const { lastOperation } = useOperationPolling({
+    filterPrefix: 'TAKEHOME#',
+  })
 
   const [challenges, setChallenges] = useState<
     Array<{
@@ -140,55 +130,61 @@ export default function TakeHomesPage() {
     }
   }, [formData.challenge])
 
-  const loadTakeHomes = useCallback(async () => {
-    try {
-      const timestamp = new Date().getTime()
-      const response = await fetch(`/api/takehomes?t=${timestamp}`)
-      if (response.ok) {
-        const data = await response.json()
-        console.log('[DEBUG] Loaded take-homes from API:', data.takeHomes)
-        setTakeHomes(data.takeHomes || [])
-      } else {
-        console.error('Failed to load take-homes')
-      }
-    } catch (error) {
-      console.error('Error loading take-homes:', error)
-    } finally {
-      if (initialLoading) {
-        setInitialLoading(false)
-      }
-    }
-  }, [initialLoading])
-
-  // Initial load
+  // Load challenges on initial page load
+  // (take-homes are loaded by useTakeHomePolling hook)
   useEffect(() => {
-    console.log('[DEBUG] TakeHomes page: Initial load')
-    loadTakeHomes()
+    console.log('[DEBUG] TakeHomes page: Loading challenges')
     loadChallenges()
-  }, [loadTakeHomes, loadChallenges])
+  }, [loadChallenges])
 
-  // 30-second polling for take-home updates
+  // Track operation completions for toast notifications only
+  // Take-home list updates are handled by useTakeHomePolling
+  const previousOperationRef = useRef<OperationData | null>(null)
   useEffect(() => {
-    const interval = setInterval(() => {
-      console.log('[DEBUG] Polling: Refreshing take-homes (30s interval)')
-      loadTakeHomes()
-    }, 30000)
+    if (!lastOperation) return
 
-    return () => clearInterval(interval)
-  }, [loadTakeHomes])
+    const operation = lastOperation
+    const prevOperation = previousOperationRef.current
 
-  // Listen for operation updates from polling
-  useEffect(() => {
-    if (lastOperation) {
-      const operation: OperationData = lastOperation
-      console.log('Processing take-home operation update:', operation)
-
-      // Refresh take-homes from API
-      setTimeout(() => {
-        loadTakeHomes()
-      }, 100)
+    // Only show toast for status transitions we haven't seen
+    if (
+      prevOperation?.id === operation.id &&
+      prevOperation?.status === operation.status
+    ) {
+      return
     }
-  }, [lastOperation, loadTakeHomes])
+    previousOperationRef.current = operation
+
+    // Show toast for completed operations
+    if (operation.status === 'completed' && operation.type === 'create') {
+      if (operation.result?.success) {
+        setNotification(
+          `Take-home ready for ${operation.candidateName || 'candidate'}`
+        )
+        setTimeout(() => setNotification(null), 5000)
+      } else {
+        setNotification(
+          `Take-home creation failed for ${operation.candidateName || 'candidate'}`
+        )
+        setTimeout(() => setNotification(null), 5000)
+      }
+    } else if (
+      operation.status === 'completed' &&
+      operation.type === 'destroy'
+    ) {
+      if (operation.result?.success) {
+        setNotification(
+          `Take-home destroyed for ${operation.candidateName || 'candidate'}`
+        )
+        setTimeout(() => setNotification(null), 5000)
+      }
+    } else if (operation.status === 'failed') {
+      setNotification(
+        `Operation failed for ${operation.candidateName || 'candidate'}: ${operation.result?.error || 'Unknown error'}`
+      )
+      setTimeout(() => setNotification(null), 7000)
+    }
+  }, [lastOperation])
 
   const handleDeleteTakeHome = async (takeHomeId: string) => {
     const takeHome = takeHomes.find(th => th.id === takeHomeId)
@@ -223,8 +219,7 @@ export default function TakeHomesPage() {
       setNotification('Take-home deleted successfully')
       setTimeout(() => setNotification(null), 5000)
 
-      // Refresh the list
-      loadTakeHomes()
+      // Take-home will be removed automatically via polling
     } catch (error) {
       console.error('Error deleting take-home:', error)
       alert(
@@ -277,8 +272,7 @@ export default function TakeHomesPage() {
 
       setTimeout(() => setNotification(null), 5000)
 
-      // Refresh the list
-      loadTakeHomes()
+      // Take-home will be updated automatically via polling
     } catch (error) {
       console.error('Error revoking take-home:', error)
       alert(
@@ -387,8 +381,7 @@ export default function TakeHomesPage() {
       setNotification(`Take-home created for ${formData.candidateName.trim()}`)
       setTimeout(() => setNotification(null), 5000)
 
-      // Refresh the list
-      loadTakeHomes()
+      // Take-home will appear automatically via polling
     } catch (error) {
       console.error('Error creating take-home:', error)
       alert(
@@ -450,13 +443,13 @@ export default function TakeHomesPage() {
             <div className="flex items-center space-x-2">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  hasActiveOperations
+                  hasInProgressTakeHomes
                     ? 'bg-blue-500 animate-pulse'
                     : 'bg-green-500'
                 }`}
               ></div>
               <span className="text-sm text-slate-600">
-                {hasActiveOperations ? 'Active' : 'Idle'}
+                {hasInProgressTakeHomes ? 'Active' : 'Idle'}
                 {lastUpdated && (
                   <span className="ml-2 text-slate-400">
                     Updated {lastUpdated.toLocaleTimeString()}

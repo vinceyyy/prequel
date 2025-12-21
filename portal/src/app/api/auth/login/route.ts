@@ -34,18 +34,18 @@ export async function POST(request: NextRequest) {
     // Create response with authentication cookie
     const response = NextResponse.json({ success: true })
 
-    // Set authentication cookie with signed token (expires in 24 hours)
+    // Set authentication cookie with signed token (expires in 30 days)
     response.cookies.set('auth-token', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 24 * 60 * 60, // 24 hours in seconds
+      maxAge: 30 * 24 * 60 * 60, // 30 days in seconds
       path: '/',
     })
 
     authLogger.info('Login successful - session token created', {
       clientIp,
-      cookieMaxAge: '24h',
+      cookieMaxAge: '30d',
       secure: process.env.NODE_ENV === 'production',
     })
 

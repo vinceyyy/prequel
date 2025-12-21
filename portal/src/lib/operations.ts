@@ -390,9 +390,11 @@ class OperationManager {
     ])
 
     // Combine and sort by creation time (newest first)
-    const activeOperations = [...pendingOps, ...runningOps, ...scheduledOps].sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    )
+    const activeOperations = [
+      ...pendingOps,
+      ...runningOps,
+      ...scheduledOps,
+    ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
     return activeOperations
   }
