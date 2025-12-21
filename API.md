@@ -37,7 +37,7 @@ The portal uses configurable authentication:
 
 ### Create Interview
 
-Creates a new interview instance with background processing and real-time status updates via SSE.
+Creates a new interview instance with background processing and real-time status updates via polling.
 
 ```http
 POST /api/interviews/create
@@ -257,73 +257,47 @@ GET /api/operations/{id}/logs
 }
 ```
 
-## Real-time Events API
+## Real-time Updates
 
-Server-Sent Events (SSE) provide real-time updates without page refresh.
+The portal uses 1-second polling for real-time updates. The server merges operation status into interview data.
 
-### Server-Sent Events Connection
+### Polling Architecture
 
-```http
-GET /api/events
-Accept: text/event-stream
+Instead of SSE, the portal polls these endpoints every 1 second:
+
+| Hook                   | Endpoint           | Purpose                                |
+|------------------------|--------------------|----------------------------------------|
+| `useInterviewPolling`  | `/api/interviews`  | Poll interview list with merged status |
+| `useTakeHomePolling`   | `/api/takehomes`   | Poll take-home assessments             |
+| `useOperationPolling`  | `/api/operations`  | Poll for toast notifications only      |
+
+### Server-Side Status Merging
+
+The `/api/interviews` endpoint automatically merges operation status:
+
+```
+GET /api/interviews
 ```
 
-Establishes persistent SSE connection for real-time updates.
-
-**Event Types:**
-
-#### 1. Connection Event (initial)
+**Response includes merged status:**
 ```json
 {
-  "type": "connection",
-  "timestamp": "2024-01-15T09:00:00Z"
+  "interviews": [
+    {
+      "id": "int-67890",
+      "candidateName": "John Doe",
+      "status": "initializing",  // Merged from operation status
+      "accessUrl": null,         // Not yet available
+      "...": "..."
+    }
+  ]
 }
 ```
 
-#### 2. Heartbeat Event (every 30 seconds)
-```json
-{
-  "type": "heartbeat", 
-  "timestamp": "2024-01-15T09:00:30Z"
-}
-```
-
-#### 3. Operation Status Event (every 5 seconds if active operations)
-```json
-{
-  "type": "operation_status",
-  "timestamp": "2024-01-15T09:01:00Z",
-  "activeOperations": 2
-}
-```
-
-#### 4. Operation Update Event (immediate on status change)
-```json
-{
-  "type": "operation_update",
-  "timestamp": "2024-01-15T09:02:00Z", 
-  "operation": {
-    "id": "op-12345",
-    "type": "create",
-    "status": "running",
-    "interviewId": "int-67890",
-    "candidateName": "John Doe"
-  }
-}
-```
-
-#### 5. Scheduler Event (when scheduler processes operations)
-```json
-{
-  "type": "scheduler_event",
-  "timestamp": "2024-01-15T10:00:00Z",
-  "event": {
-    "type": "scheduled_start",
-    "operationId": "op-12345", 
-    "interviewId": "int-67890"
-  }
-}
-```
+**Status mapping from operations:**
+- Operation `running` with type `create` → Interview status `initializing`
+- Operation `completed` with success → Interview status `active`
+- Operation `failed` → Interview status `error`
 
 ## Challenges API
 
@@ -498,17 +472,17 @@ Content-Type: application/json
 
 - **General API**: 100 requests per minute per IP
 - **File Uploads**: 10 uploads per minute per IP
-- **SSE Connections**: 5 concurrent connections per IP
+- **Polling Requests**: Rate limited per IP
 
 Rate limits are automatically enforced and return HTTP 429 when exceeded.
 
 ## Real-time Architecture
 
-The API is built around real-time updates using Server-Sent Events (SSE):
+The API is built around real-time updates using 1-second polling:
 
 1. **Background Operations** - All long-running tasks (interview creation/destruction) run in background
-2. **SSE Events** - Status changes trigger immediate SSE events to connected clients  
-3. **Non-blocking UI** - Users can continue working while operations run in background
-4. **Auto-reconnection** - SSE connections automatically reconnect on interruption
+2. **Polling Updates** - Clients poll `/api/interviews` every second for status changes
+3. **Server-side Merging** - Operation status is merged into interview data server-side
+4. **Non-blocking UI** - Users can continue working while operations run in background
 
 This architecture provides a responsive user experience with live status updates and detailed operation logging.
