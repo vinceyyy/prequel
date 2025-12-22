@@ -107,12 +107,17 @@ export default function ApiKeyPage() {
     return `${hours} hours`
   }
 
-  // Calculate duration from activatedAt and expiresAt
+  // Get configured duration
   const getDurationSeconds = (): number => {
-    if (!apiKey?.activatedAt || !apiKey?.expiresAt) {
-      return 4 * 3600 // Default 4 hours
+    // Use durationSeconds if available (set during creation)
+    if (apiKey?.durationSeconds) {
+      return apiKey.durationSeconds
     }
-    return Math.floor(apiKey.expiresAt - apiKey.activatedAt)
+    // Fall back to calculating from timestamps for active keys
+    if (apiKey?.activatedAt && apiKey?.expiresAt) {
+      return Math.floor(apiKey.expiresAt - apiKey.activatedAt)
+    }
+    return 4 * 3600 // Default 4 hours
   }
 
   if (isLoading) {

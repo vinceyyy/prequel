@@ -512,11 +512,13 @@ export interface ApiKeyData {
   sourceId?: string
   apiKey?: string
   accessToken?: string
+  durationSeconds?: number
   createdAt: number
   scheduledAt?: number
   activatedAt?: number
   expiresAt?: number
   expiredAt?: number
+  availableUntil?: number
 }
 
 interface UseApiKeyPollingOptions {
