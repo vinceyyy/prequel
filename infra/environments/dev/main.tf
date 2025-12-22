@@ -57,6 +57,7 @@ module "compute" {
   interviews_table_arn    = module.storage.interviews_table_arn
   operations_table_arn    = module.storage.operations_table_arn
   challenges_table_arn    = module.storage.challenges_table_arn
+  apikeys_table_arn       = module.storage.apikeys_table_arn
   terraform_state_bucket  = var.terraform_state_bucket
   enable_auth             = var.enable_auth
   auth_passcode           = var.auth_passcode

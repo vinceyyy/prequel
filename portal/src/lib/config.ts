@@ -165,6 +165,13 @@ export const database = {
   challengesTable:
     process.env.CHALLENGES_TABLE_NAME ||
     `${project.prefix}-${project.environment}-challenges`,
+
+  /**
+   * DynamoDB table name for API keys
+   */
+  apikeysTable:
+    process.env.APIKEYS_TABLE_NAME ||
+    `${project.prefix}-${project.environment}-apikeys`,
 }
 
 /**

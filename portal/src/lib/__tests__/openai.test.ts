@@ -117,6 +117,60 @@ describe('OpenAI Service', () => {
     })
   })
 
+  describe('listServiceAccounts', () => {
+    it('should return list of service accounts', async () => {
+      // Mock successful response
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: 'svc_123',
+              name: 'test-account',
+              role: 'member',
+              created_at: 1234567890,
+            },
+          ],
+        }),
+      })
+
+      const result = await openaiService.listServiceAccounts('proj_test')
+
+      expect(result.success).toBe(true)
+      expect(result.accounts).toHaveLength(1)
+      expect(result.accounts?.[0].id).toBe('svc_123')
+    })
+
+    it('should return error when API call fails', async () => {
+      // Mock failed fetch response
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: async () => 'Unauthorized',
+      })
+
+      const result = await openaiService.listServiceAccounts('invalid')
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBeDefined()
+    })
+
+    it('should handle empty list response', async () => {
+      // Mock empty list response
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: [],
+        }),
+      })
+
+      const result = await openaiService.listServiceAccounts('proj_test')
+
+      expect(result.success).toBe(true)
+      expect(result.accounts).toHaveLength(0)
+    })
+  })
+
   describe('Error handling', () => {
     it('should handle network errors gracefully', async () => {
       // Mock network error

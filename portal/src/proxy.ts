@@ -18,7 +18,10 @@ export function proxy(request: NextRequest) {
     pathname.startsWith('/api/health') ||
     // Take-home candidate pages (use token-based access)
     pathname.startsWith('/takehome/') ||
-    pathname.startsWith('/api/takehome/')
+    pathname.startsWith('/api/takehome/') ||
+    // API key candidate pages (use token-based access)
+    pathname.startsWith('/apikey/') ||
+    pathname.startsWith('/api/apikey/')
   ) {
     return NextResponse.next()
   }

@@ -425,3 +425,73 @@ resource "aws_dynamodb_table" "challenges" {
     Description = "Challenge metadata and configuration storage"
   })
 }
+
+# ============================================================================
+# DynamoDB Tables - API Keys
+# ============================================================================
+
+resource "aws_dynamodb_table" "apikeys" {
+  name                        = "${var.project_prefix}-${var.environment}-apikeys"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
+  deletion_protection_enabled = false
+
+  # Primary key: API Key ID
+  attribute {
+    name = "id"
+    type = "S"
+  }
+
+  # GSI attributes for querying by status and creation date
+  attribute {
+    name = "status"
+    type = "S"
+  }
+
+  attribute {
+    name = "createdAt"
+    type = "N"
+  }
+
+  # GSI attribute for candidate page lookups
+  attribute {
+    name = "accessToken"
+    type = "S"
+  }
+
+  # Global Secondary Index: Query keys by status and creation date
+  global_secondary_index {
+    name            = "status-createdAt-index"
+    hash_key        = "status"
+    range_key       = "createdAt"
+    projection_type = "ALL"
+  }
+
+  # Global Secondary Index: Query keys by access token (for candidate page)
+  global_secondary_index {
+    name            = "accessToken-index"
+    hash_key        = "accessToken"
+    projection_type = "ALL"
+  }
+
+  # TTL configuration - automatically delete records after expiration + 90 days
+  ttl {
+    enabled        = true
+    attribute_name = "ttl"
+  }
+
+  # Enable point-in-time recovery for data protection
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  # Server-side encryption
+  server_side_encryption {
+    enabled = true
+  }
+
+  tags = merge(var.tags, {
+    Name        = "${var.project_prefix}-${var.environment}-apikeys"
+    Description = "Standalone API key storage"
+  })
+}

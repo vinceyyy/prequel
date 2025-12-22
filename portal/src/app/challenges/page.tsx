@@ -162,7 +162,7 @@ export default function ChallengesPage() {
         <div className="flex border-b border-gray-700 mb-6">
           <button
             onClick={() => setActiveTab('list')}
-            className={`px-4 py-2 border-b-2 transition-colors ${
+            className={`px-4 py-2 border-b-2 transition-colors cursor-pointer ${
               activeTab === 'list'
                 ? 'border-blue-500 text-blue-400'
                 : 'border-transparent text-gray-400 hover:text-white'
@@ -175,7 +175,7 @@ export default function ChallengesPage() {
               setActiveTab('create')
               setSelectedChallenge(null)
             }}
-            className={`px-4 py-2 border-b-2 transition-colors ${
+            className={`px-4 py-2 border-b-2 transition-colors cursor-pointer ${
               activeTab === 'create'
                 ? 'border-blue-500 text-blue-400'
                 : 'border-transparent text-gray-400 hover:text-white'
@@ -187,7 +187,7 @@ export default function ChallengesPage() {
             <>
               <button
                 onClick={() => setActiveTab('edit')}
-                className={`px-4 py-2 border-b-2 transition-colors ${
+                className={`px-4 py-2 border-b-2 transition-colors cursor-pointer ${
                   activeTab === 'edit'
                     ? 'border-blue-500 text-blue-400'
                     : 'border-transparent text-gray-400 hover:text-white'
@@ -197,7 +197,7 @@ export default function ChallengesPage() {
               </button>
               <button
                 onClick={() => setActiveTab('files')}
-                className={`px-4 py-2 border-b-2 transition-colors ${
+                className={`px-4 py-2 border-b-2 transition-colors cursor-pointer ${
                   activeTab === 'files'
                     ? 'border-blue-500 text-blue-400'
                     : 'border-transparent text-gray-400 hover:text-white'
@@ -284,7 +284,7 @@ export default function ChallengesPage() {
                             setSelectedChallenge(challenge)
                             setActiveTab('files')
                           }}
-                          className="px-3 py-1 text-sm bg-green-600 hover:bg-green-500 rounded transition-colors"
+                          className="px-3 py-1 text-sm bg-green-600 hover:bg-green-500 rounded transition-colors cursor-pointer"
                         >
                           View Files
                         </button>
@@ -293,13 +293,13 @@ export default function ChallengesPage() {
                             setSelectedChallenge(challenge)
                             setActiveTab('edit')
                           }}
-                          className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-500 rounded transition-colors"
+                          className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-500 rounded transition-colors cursor-pointer"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(challenge.id)}
-                          className="px-3 py-1 text-sm bg-red-600 hover:bg-red-500 rounded transition-colors"
+                          className="px-3 py-1 text-sm bg-red-600 hover:bg-red-500 rounded transition-colors cursor-pointer"
                         >
                           Delete
                         </button>

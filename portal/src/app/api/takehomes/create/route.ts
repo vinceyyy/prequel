@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     try {
       const serviceAccountResult = await openaiService.createServiceAccount(
         config.services.openaiProjectId,
-        `takehome-${takeHomeId}`
+        `interview-${config.project.environment}-takehome-${takeHomeId}-${candidateName}`
       )
       if (
         serviceAccountResult.success &&

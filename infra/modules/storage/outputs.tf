@@ -58,3 +58,13 @@ output "challenges_table_arn" {
   description = "Challenges DynamoDB table ARN"
   value       = aws_dynamodb_table.challenges.arn
 }
+
+output "apikeys_table_name" {
+  description = "Name of the API keys DynamoDB table"
+  value       = aws_dynamodb_table.apikeys.name
+}
+
+output "apikeys_table_arn" {
+  description = "ARN of the API keys DynamoDB table"
+  value       = aws_dynamodb_table.apikeys.arn
+}

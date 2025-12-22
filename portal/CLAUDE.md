@@ -4,7 +4,7 @@ This file provides detailed guidance for AI developers (Claude) working on the P
 
 ## Project Overview
 
-The portal is a NextJS 16 application that provides a real-time web interface for managing coding interviews. It features 1-second polling for live updates, interview scheduling with auto-destroy, background operations management, and AWS infrastructure integration.
+The portal is a NextJS 16 application that provides a real-time web interface for managing coding interviews and API keys. It features 1-second polling for live updates, interview scheduling with auto-destroy, API key provisioning with orphan detection, background operations management, and AWS infrastructure integration.
 
 ## Architecture Details
 
@@ -36,9 +36,18 @@ portal/src/
 │   │   │   ├── route.ts          # Lists all operations
 │   │   │   └── [id]/             # Individual operation management
 │   │   ├── takehomes/            # Take-home assessment management
+│   │   ├── apikeys/              # API Key Manager endpoints
+│   │   │   ├── route.ts          # Lists all API keys (standalone + interview + take-home)
+│   │   │   ├── create/route.ts   # Creates standalone API keys
+│   │   │   └── [id]/             # Individual key management (revoke, delete)
+│   │   ├── apikey/[token]/       # Candidate-facing endpoints (public, no auth)
+│   │   │   ├── route.ts          # GET key status by access token
+│   │   │   └── activate/route.ts # POST to activate candidate key
 │   │   └── challenges/route.ts   # S3-based challenge listing
 │   ├── interviews/page.tsx       # Interview management UI
 │   ├── takehomes/page.tsx        # Take-home management UI
+│   ├── apikeys/page.tsx          # API Key Manager UI
+│   ├── apikey/[token]/page.tsx   # Candidate-facing activation page (public)
 │   ├── challenges/page.tsx       # Challenge management UI
 │   ├── layout.tsx                # Root layout with auth
 │   └── globals.css               # Global Tailwind styles
@@ -57,6 +66,9 @@ portal/src/
     ├── terraform.ts              # AWS infrastructure management
     ├── interviews.ts             # DynamoDB interview management
     ├── assessments.ts            # Take-home assessment management
+    ├── apikeys.ts                # API Key Manager DynamoDB operations
+    ├── apiKeyListService.ts      # Unified API key listing with orphan detection
+    ├── openai.ts                 # OpenAI service account management
     └── fileExtraction.ts         # File saving and extraction
 ```
 
@@ -89,6 +101,18 @@ const {
   refresh,
 } = useTakeHomePolling()
 
+// Poll API keys - includes standalone + interview + take-home keys with orphan detection
+const {
+  apiKeys, // ApiKeyData[] - all API keys from all sources
+  activeCount, // number - count of active keys
+  orphanCheckFailed, // boolean - true if OpenAI API check failed
+  hasInProgressKeys, // boolean - any scheduled/initializing keys
+  lastUpdated,
+  isLoading,
+  error,
+  refresh,
+} = useApiKeyPolling()
+
 // Poll operations for toast notifications
 const { lastOperation } = useOperationPolling({
   filterPrefix: 'INTERVIEW#', // or 'TAKEHOME#'
@@ -118,6 +142,7 @@ config.aws.deploymentContext // 'ecs' | 'local'
 // Auto-generated resource names
 config.database.interviewsTable // {prefix}-{env}-interviews
 config.database.operationsTable // {prefix}-{env}-operations
+config.database.apikeysTable // {prefix}-{env}-apikeys
 config.storage.challengeBucket // {prefix}-challenge
 config.storage.historyBucket // {prefix}-{env}-history
 ```
@@ -142,12 +167,31 @@ config.storage.historyBucket // {prefix}-{env}-history
 
 #### 5. Scheduler Service (`src/lib/scheduler.ts`)
 
-**Purpose**: Process scheduled operations and auto-destroy timeouts.
+**Purpose**: Process scheduled operations, auto-destroy timeouts, and API key lifecycle.
 
 - **30-second polling interval**: Checks for operations to process
 - **Pre-provisioning**: Starts 5 minutes before scheduled time
 - **Auto-destroy**: Processes operations with `autoDestroyAt` <= now
+- **API key lifecycle**: Activates scheduled keys, expires active keys past `expiresAt`, expires unclaimed available keys
 - **Server-side only**: Runs within NextJS server process
+
+#### 6. API Key Manager (`src/lib/apikeys.ts`)
+
+**Purpose**: DynamoDB operations for standalone API keys.
+
+- **Table**: `{prefix}-{env}-apikeys` with GSIs for status and accessToken queries
+- **Statuses**: `scheduled` | `available` | `active` | `expired` | `revoked` | `error`
+- **Activation modes**: immediate (creates key now), scheduled (creates at time), recipient (candidate activates)
+- **Duration**: Up to 7 days, configurable per key
+
+#### 7. API Key List Service (`src/lib/apiKeyListService.ts`)
+
+**Purpose**: Unified listing of all API keys with orphan detection.
+
+- **Sources**: Standalone keys, interview keys, take-home keys
+- **Orphan detection**: Compares OpenAI service accounts with DynamoDB records
+- **30-second cache**: Reduces OpenAI API calls during rapid polling
+- **Parallel fetching**: Queries all sources simultaneously for ~500ms latency
 
 ## Development Guidelines
 

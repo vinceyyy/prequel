@@ -81,6 +81,11 @@ variable "challenges_table_arn" {
   type        = string
 }
 
+variable "apikeys_table_arn" {
+  description = "API keys DynamoDB table ARN"
+  type        = string
+}
+
 variable "terraform_state_bucket" {
   description = "Terraform state S3 bucket name"
   type        = string

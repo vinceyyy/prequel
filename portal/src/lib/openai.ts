@@ -54,6 +54,25 @@ interface OpenAIDeleteResponse {
   deleted: boolean
 }
 
+/**
+ * Service account from OpenAI API list response
+ */
+export interface ServiceAccount {
+  id: string
+  name: string
+  role: string
+  created_at: number
+}
+
+/**
+ * Response from listing service accounts
+ */
+export interface ListServiceAccountsResult {
+  success: boolean
+  accounts?: ServiceAccount[]
+  error?: string
+}
+
 class OpenAIService {
   private readonly adminKey: string
   private readonly projectId: string
@@ -184,6 +203,63 @@ class OpenAIService {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
       logger.error(`Failed to delete service account: ${errorMsg}`)
+      return {
+        success: false,
+        error: errorMsg,
+      }
+    }
+  }
+
+  /**
+   * Lists all service accounts in the OpenAI project
+   *
+   * @param projectId - The OpenAI project ID
+   * @returns Result with list of service accounts
+   */
+  async listServiceAccounts(
+    projectId: string
+  ): Promise<ListServiceAccountsResult> {
+    if (!this.adminKey) {
+      return {
+        success: false,
+        error: 'OPENAI_ADMIN_KEY not configured',
+      }
+    }
+
+    try {
+      logger.info('Listing OpenAI service accounts')
+
+      const response = await fetch(
+        `${this.baseUrl}/organization/projects/${projectId}/service_accounts?limit=100`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${this.adminKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        logger.error(`OpenAI API error: ${response.status} - ${errorText}`)
+        return {
+          success: false,
+          error: `OpenAI API error: ${response.status}`,
+        }
+      }
+
+      const data = await response.json()
+
+      logger.info(`Found ${data.data?.length || 0} service accounts`)
+
+      return {
+        success: true,
+        accounts: data.data || [],
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+      logger.error(`Failed to list service accounts: ${errorMsg}`)
       return {
         success: false,
         error: errorMsg,

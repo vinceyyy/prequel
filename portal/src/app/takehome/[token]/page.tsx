@@ -172,7 +172,7 @@ export default function TakeHomePage() {
                 setError(null)
                 fetchStatus()
               }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
             >
               Retry
             </button>
@@ -276,7 +276,7 @@ export default function TakeHomePage() {
                 <button
                   onClick={handleActivate}
                   disabled={activating}
-                  className="w-full sm:w-auto px-8 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
+                  className="w-full sm:w-auto px-8 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 cursor-pointer disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
                 >
                   {activating ? (
                     <span className="flex items-center justify-center">
