@@ -13,12 +13,13 @@ Prequel is a coding interview platform that provisions on-demand VS Code instanc
 - **Auto-destroy Protection**: Mandatory resource cleanup to prevent AWS cost overruns
 - **File History Management**: Save and download candidate files with smart error handling
 - **AWS Resource Cleanup**: Comprehensive system to identify and clean up dangling resources
+- **API Key Manager**: Standalone OpenAI API key provisioning with immediate, scheduled, or candidate-activated modes
 
 ## Real-time Architecture
 
 **Polling System:**
-- 1-second interval polling for interviews and take-homes
-- `useInterviewPolling` / `useTakeHomePolling` hooks for state-based polling
+- 1-second interval polling for interviews, take-homes, and API keys
+- `useInterviewPolling` / `useTakeHomePolling` / `useApiKeyPolling` hooks for state-based polling
 - `useOperationPolling` hook for toast notifications
 - Server-side merging of operation status into interview/take-home state
 - Live status indicator in UI showing Active/Idle state
@@ -31,10 +32,10 @@ Prequel is a coding interview platform that provisions on-demand VS Code instanc
 
 **Scheduling System:**
 - Built-in scheduler running within NextJS container (no external dependencies)
-- Processes scheduled interviews and auto-destroy timeouts using DynamoDB GSI queries
+- Processes scheduled interviews, auto-destroy timeouts, and API key lifecycle using DynamoDB GSI queries
 - **Pre-provisioning**: Starts provisioning 5 minutes before scheduled time to ensure instances are ready exactly when needed
 - Mandatory auto-destroy prevents forgotten resources with duplicate prevention
-- Configurable durations: 30min, 45min, 1hr, 1.5hr, 2hr, 3hr, 4hr
+- Configurable durations: 30min, 45min, 1hr, 1.5hr, 2hr, 3hr, 4hr (interviews), up to 7 days (API keys)
 - Efficient operation lookup using DynamoDB Global Secondary Indexes
 - 30-second polling interval for reliable scheduling
 
@@ -188,7 +189,7 @@ The project uses a three-tier environment structure:
 **Environment Separation:**
 
 Each environment has completely isolated:
-- DynamoDB tables (`{PREFIX}-{ENV}-interviews`, `{PREFIX}-{ENV}-operations`, `{PREFIX}-{ENV}-challenges`)
+- DynamoDB tables (`{PREFIX}-{ENV}-interviews`, `{PREFIX}-{ENV}-operations`, `{PREFIX}-{ENV}-challenges`, `{PREFIX}-{ENV}-apikeys`)
 - S3 buckets (`{PREFIX}-{ENV}-challenge`, `{PREFIX}-{ENV}-instance`, `{PREFIX}-{ENV}-history`)
 - ECS clusters and services (`{PREFIX}-{ENV}`)
 - ALB and target groups
@@ -357,7 +358,7 @@ The portal automatically detects your deployment context and uses appropriate cr
 
 5. **OpenAI Integration (Optional):**
 
-   If you want to enable AI assistance features in interviews:
+   If you want to enable AI assistance features in interviews and the API Key Manager:
 
    1. Get an OpenAI Admin API key from https://platform.openai.com/
    2. Create a project and get the project ID
@@ -368,15 +369,21 @@ The portal automatically detects your deployment context and uses appropriate cr
       ```
 
    **How It Works:**
-   - When interview is created, a service account is created via OpenAI API
-   - Service account credentials are stored in DynamoDB interview record
-   - When interview is destroyed, the service account is automatically deleted
-   - If OpenAI is not configured, interviews work normally without AI features
+   - When interview/take-home/API key is created, a service account is created via OpenAI API
+   - Service account credentials are stored in DynamoDB (interview, take-home, or apikeys table)
+   - When resource expires or is destroyed, the service account is automatically deleted
+   - If OpenAI is not configured, interviews/take-homes work normally without AI features; API Key Manager requires OpenAI
+
+   **Service Account Naming Convention:**
+   - Format: `interview-<env>-<type>-<id>-<name>`
+   - Examples: `interview-prod-interview-abc123-Jesse`, `interview-dev-apikey-xyz789-Vincent`
 
    **Implementation:**
-   - `portal/src/lib/openai.ts` - OpenAI service account management
-   - `portal/src/app/api/interviews/create/route.ts` - Creates service accounts
-   - `portal/src/app/api/interviews/[id]/destroy/route.ts` - Deletes service accounts
+   - `portal/src/lib/openai.ts` - OpenAI service account management (create, delete, list)
+   - `portal/src/lib/apikeys.ts` - API Key Manager DynamoDB operations
+   - `portal/src/lib/apiKeyListService.ts` - Unified API key listing with orphan detection
+   - `portal/src/app/api/apikeys/` - API Key Manager endpoints
+   - `portal/src/app/apikey/[token]/` - Candidate-facing activation page
 
 **⚠️ Important: Terraform Backend Configuration**
 
@@ -557,10 +564,18 @@ The checkbox indicates features that are currently implemented.
     7. [X] User-friendly error messages for download failures
 7. [X] **Admin resource cleanup**
     1. [X] Comprehensive cleanup system for dangling AWS resources
-    2. [X] Multi-interface access: Web UI (Admin tab), REST API, CLI script  
+    2. [X] Multi-interface access: Web UI (Admin tab), REST API, CLI script
     3. [X] Safety features: dry-run preview, concurrency control, skip active interviews
     4. [X] Automatic detection of terraform workspaces without DynamoDB records
     5. [X] Graceful error handling for S3, DynamoDB, and terraform operations
+8. [X] **API Key Manager**
+    1. [X] Create standalone OpenAI API keys with configurable duration (up to 7 days)
+    2. [X] Three activation modes: immediate, scheduled, or candidate-activated (recipient shares link)
+    3. [X] Unified view of all API keys (standalone + interview + take-home keys)
+    4. [X] Orphan detection: identifies OpenAI service accounts without matching records
+    5. [X] Automatic expiration and cleanup via scheduler
+    6. [X] Rate limit info banner showing shared token quotas across all keys
+    7. [X] Copy Key button for active keys, Copy Link for candidate-activated keys
 
 ## Instance Status
 
