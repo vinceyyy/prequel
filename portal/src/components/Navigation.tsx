@@ -10,13 +10,18 @@ export default function Navigation() {
   const pathname = usePathname()
 
   // Hide navigation on public take-home pages and login page
-  if (pathname?.startsWith('/takehome/') || pathname === '/login') {
+  if (
+    pathname?.startsWith('/takehome/') ||
+    pathname?.startsWith('/apikey/') ||
+    pathname === '/login'
+  ) {
     return null
   }
 
   const navItems = [
     { href: '/interviews', label: 'Interviews' },
     { href: '/takehomes', label: 'Take-Homes' },
+    { href: '/apikeys', label: 'API Keys' },
     { href: '/challenges', label: 'Challenges' },
     { href: '/admin', label: 'Admin' },
   ]
