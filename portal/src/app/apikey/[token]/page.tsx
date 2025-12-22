@@ -332,7 +332,7 @@ export default function ApiKeyPage() {
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <h3 className="text-sm font-bold text-blue-900 mb-2">
                 Usage Instructions
               </h3>
@@ -345,6 +345,54 @@ export default function ApiKeyPage() {
                   The key will be automatically deleted after{' '}
                   {formatDuration(getDurationSeconds())}.
                 </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <h3 className="text-sm font-bold text-slate-900 mb-2">
+                Available Models & Rate Limits
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="text-sm text-slate-700 border-collapse w-full">
+                  <thead>
+                    <tr className="border-b border-slate-300">
+                      <th className="text-left pr-6 pb-1 font-medium">Model</th>
+                      <th className="text-right pb-1 font-medium">
+                        Tokens/min
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-mono text-xs">
+                    <tr>
+                      <td className="pr-6 py-0.5">gpt-5</td>
+                      <td className="text-right">25,000</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-6 py-0.5">gpt-5-mini</td>
+                      <td className="text-right">125,000</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-6 py-0.5">gpt-5-nano</td>
+                      <td className="text-right">625,000</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-6 py-0.5">gpt-4.1</td>
+                      <td className="text-right">30,000</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-6 py-0.5">gpt-4.1-mini</td>
+                      <td className="text-right">150,000</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-6 py-0.5">gpt-4.1-nano</td>
+                      <td className="text-right">600,000</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-6 py-0.5">gpt-4o-mini</td>
+                      <td className="text-right">400,000</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
