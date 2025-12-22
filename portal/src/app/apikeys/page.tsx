@@ -627,7 +627,11 @@ export default function ApiKeysPage() {
                                   setCopiedKeyId(key.id)
                                   setTimeout(() => setCopiedKeyId(null), 2000)
                                 }}
-                                className="btn-primary text-sm px-3 py-1 cursor-pointer"
+                                className={`text-sm px-3 py-1 cursor-pointer ${
+                                  copiedKeyId === key.id
+                                    ? 'border border-blue-600 text-blue-600 bg-transparent rounded'
+                                    : 'btn-primary'
+                                }`}
                               >
                                 {copiedKeyId === key.id ? 'Copied!' : 'Copy Key'}
                               </button>
@@ -642,7 +646,11 @@ export default function ApiKeysPage() {
                                     setCopiedKeyId(key.id)
                                     setTimeout(() => setCopiedKeyId(null), 2000)
                                   }}
-                                  className="btn-primary text-sm px-3 py-1 cursor-pointer"
+                                  className={`text-sm px-3 py-1 cursor-pointer ${
+                                    copiedKeyId === key.id
+                                      ? 'border border-blue-600 text-blue-600 bg-transparent rounded'
+                                      : 'btn-primary'
+                                  }`}
                                 >
                                   {copiedKeyId === key.id ? 'Copied!' : 'Copy Link'}
                                 </button>
