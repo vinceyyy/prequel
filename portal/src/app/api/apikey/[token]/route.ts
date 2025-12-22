@@ -29,8 +29,10 @@ export async function GET(
       apiKey.availableUntil < now
     ) {
       return NextResponse.json({
-        status: 'expired',
-        message: 'This API key is no longer available',
+        key: {
+          status: 'expired',
+          name: apiKey.name,
+        },
       })
     }
 
@@ -41,15 +43,18 @@ export async function GET(
     }
 
     return NextResponse.json({
-      status: apiKey.status,
-      name: apiKey.name,
-      apiKey: apiKey.status === 'active' ? apiKey.apiKey : undefined,
-      durationSeconds: apiKey.durationSeconds,
-      availableUntil: apiKey.availableUntil,
-      activatedAt: apiKey.activatedAt,
-      expiresAt: apiKey.expiresAt,
-      expiredAt: apiKey.expiredAt,
-      timeRemaining,
+      key: {
+        status: apiKey.status,
+        name: apiKey.name,
+        apiKey: apiKey.status === 'active' ? apiKey.apiKey : undefined,
+        durationSeconds: apiKey.durationSeconds,
+        availableUntil: apiKey.availableUntil,
+        activatedAt: apiKey.activatedAt,
+        expiresAt: apiKey.expiresAt,
+        expiredAt: apiKey.expiredAt,
+        scheduledAt: apiKey.scheduledAt,
+        timeRemaining,
+      },
     })
   } catch (error) {
     console.error('Error getting API key status:', error)
