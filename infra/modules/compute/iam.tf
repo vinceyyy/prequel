@@ -109,7 +109,9 @@ resource "aws_iam_role_policy" "ecs_task_dynamodb" {
         "${var.operations_table_arn}",
         "${var.operations_table_arn}/*",
         "${var.challenges_table_arn}",
-        "${var.challenges_table_arn}/*"
+        "${var.challenges_table_arn}/*",
+        "${var.apikeys_table_arn}",
+        "${var.apikeys_table_arn}/*"
       ]
     }]
   })
