@@ -475,7 +475,7 @@ export default function TakeHomesPage() {
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('active')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap cursor-pointer ${
                   activeTab === 'active'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
@@ -490,7 +490,7 @@ export default function TakeHomesPage() {
               </button>
               <button
                 onClick={() => setActiveTab('history')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap cursor-pointer ${
                   activeTab === 'history'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
