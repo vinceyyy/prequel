@@ -492,3 +492,277 @@ export function useTakeHomePolling(
     refresh,
   }
 }
+
+// API Key data structure (matching API response)
+export interface ApiKeyData {
+  id: string
+  name: string
+  description?: string
+  status:
+    | 'scheduled'
+    | 'available'
+    | 'initializing'
+    | 'active'
+    | 'expired'
+    | 'revoked'
+    | 'error'
+    | 'orphan'
+  provider: 'openai'
+  source: 'standalone' | 'interview' | 'takehome' | 'unknown'
+  sourceId?: string
+  apiKey?: string
+  accessToken?: string
+  createdAt: number
+  scheduledAt?: number
+  activatedAt?: number
+  expiresAt?: number
+  expiredAt?: number
+}
+
+interface UseApiKeyPollingOptions {
+  /** Polling interval in ms (default: 1000) */
+  interval?: number
+  /** Callback when API keys change */
+  onApiKeysChange?: (apiKeys: ApiKeyData[]) => void
+}
+
+interface UseApiKeyPollingResult {
+  /** All API keys */
+  apiKeys: ApiKeyData[]
+  /** Count of currently active keys */
+  activeCount: number
+  /** Whether orphan check failed */
+  orphanCheckFailed: boolean
+  /** Whether there are keys in progress (scheduled/available/initializing) */
+  hasInProgressKeys: boolean
+  /** Last time data was fetched */
+  lastUpdated: Date | null
+  /** Whether currently fetching */
+  isLoading: boolean
+  /** Any error that occurred */
+  error: string | null
+  /** Manually trigger a refresh */
+  refresh: () => Promise<void>
+}
+
+/**
+ * Simple polling hook for API keys.
+ * Polls /api/apikeys directly for real-time updates.
+ */
+export function useApiKeyPolling(
+  options: UseApiKeyPollingOptions = {}
+): UseApiKeyPollingResult {
+  const { interval = 1000, onApiKeysChange } = options
+
+  const [keys, setKeys] = useState<ApiKeyData[]>([])
+  const [activeCount, setActiveCount] = useState(0)
+  const [orphanCheckFailed, setOrphanCheckFailed] = useState(false)
+  const [hasInProgressKeys, setHasInProgressKeys] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [isLoading, setIsLoading] = useState(true) // Start true for initial load
+  const [error, setError] = useState<string | null>(null)
+
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const previousItemsRef = useRef<string>('')
+  const hasLoadedRef = useRef(false)
+
+  const fetchData = useCallback(async () => {
+    try {
+      // Only show loading on initial fetch, not subsequent polls
+      if (!hasLoadedRef.current) {
+        setIsLoading(true)
+      }
+      setError(null)
+
+      const timestamp = Date.now()
+      const response = await fetch(`/api/apikeys?t=${timestamp}`)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch API keys: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const items: ApiKeyData[] = data.keys || []
+
+      // Check if any keys are in progress (scheduled, available, or initializing)
+      const inProgress = items.some(
+        item =>
+          item.status === 'scheduled' ||
+          item.status === 'available' ||
+          item.status === 'initializing'
+      )
+
+      setKeys(items)
+      setActiveCount(data.activeCount || 0)
+      setOrphanCheckFailed(data.orphanCheckFailed || false)
+      setHasInProgressKeys(inProgress)
+      setLastUpdated(new Date())
+
+      // Notify callback if items changed
+      const currentJson = JSON.stringify(items)
+      if (currentJson !== previousItemsRef.current) {
+        previousItemsRef.current = currentJson
+        onApiKeysChange?.(items)
+      }
+
+      // Mark as loaded after first successful fetch
+      hasLoadedRef.current = true
+      setIsLoading(false)
+
+      return inProgress
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      console.error('API key polling error:', errorMessage)
+      // Only clear loading on error if this was initial load
+      if (!hasLoadedRef.current) {
+        setIsLoading(false)
+      }
+      return hasInProgressKeys
+    }
+  }, [onApiKeysChange, hasInProgressKeys])
+
+  const refresh = useCallback(async () => {
+    await fetchData()
+  }, [fetchData])
+
+  // Set up polling with fixed interval
+  useEffect(() => {
+    // Initial fetch
+    fetchData()
+
+    intervalRef.current = setInterval(() => {
+      fetchData()
+    }, interval)
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [fetchData, interval])
+
+  return {
+    apiKeys: keys,
+    activeCount,
+    orphanCheckFailed,
+    hasInProgressKeys,
+    lastUpdated,
+    isLoading,
+    error,
+    refresh,
+  }
+}
+
+interface UseApiKeyStatusPollingOptions {
+  /** API key access token */
+  token: string
+  /** Polling interval in ms (default: 1000) */
+  interval?: number
+  /** Callback when API key changes */
+  onApiKeyChange?: (apiKey: ApiKeyData | null) => void
+}
+
+interface UseApiKeyStatusPollingResult {
+  /** API key data */
+  apiKey: ApiKeyData | null
+  /** Last time data was fetched */
+  lastUpdated: Date | null
+  /** Whether currently fetching */
+  isLoading: boolean
+  /** Any error that occurred */
+  error: string | null
+  /** Manually trigger a refresh */
+  refresh: () => Promise<void>
+}
+
+/**
+ * Simple polling hook for a single API key status.
+ * Polls /api/apikey/[token] for real-time updates on the candidate page.
+ */
+export function useApiKeyStatusPolling(
+  options: UseApiKeyStatusPollingOptions
+): UseApiKeyStatusPollingResult {
+  const { token, interval = 1000, onApiKeyChange } = options
+
+  const [apiKey, setApiKey] = useState<ApiKeyData | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [isLoading, setIsLoading] = useState(true) // Start true for initial load
+  const [error, setError] = useState<string | null>(null)
+
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const previousItemRef = useRef<string>('')
+  const hasLoadedRef = useRef(false)
+
+  const fetchData = useCallback(async () => {
+    try {
+      // Only show loading on initial fetch, not subsequent polls
+      if (!hasLoadedRef.current) {
+        setIsLoading(true)
+      }
+      setError(null)
+
+      const timestamp = Date.now()
+      const response = await fetch(`/api/apikey/${token}?t=${timestamp}`)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch API key: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const item: ApiKeyData | null = data.key || null
+
+      setApiKey(item)
+      setLastUpdated(new Date())
+
+      // Notify callback if item changed
+      const currentJson = JSON.stringify(item)
+      if (currentJson !== previousItemRef.current) {
+        previousItemRef.current = currentJson
+        onApiKeyChange?.(item)
+      }
+
+      // Mark as loaded after first successful fetch
+      hasLoadedRef.current = true
+      setIsLoading(false)
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Unknown error occurred'
+      setError(errorMessage)
+      console.error('API key status polling error:', errorMessage)
+      // Only clear loading on error if this was initial load
+      if (!hasLoadedRef.current) {
+        setIsLoading(false)
+      }
+    }
+  }, [token, onApiKeyChange])
+
+  const refresh = useCallback(async () => {
+    await fetchData()
+  }, [fetchData])
+
+  // Set up polling with fixed interval
+  useEffect(() => {
+    // Initial fetch
+    fetchData()
+
+    intervalRef.current = setInterval(() => {
+      fetchData()
+    }, interval)
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [fetchData, interval])
+
+  return {
+    apiKey,
+    lastUpdated,
+    isLoading,
+    error,
+    refresh,
+  }
+}
