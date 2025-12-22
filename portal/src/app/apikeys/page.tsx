@@ -30,6 +30,7 @@ export default function ApiKeysPage() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null)
   const [notification, setNotification] = useState<string | null>(null)
   const [showInfoBanner, setShowInfoBanner] = useState(true)
 
@@ -623,12 +624,12 @@ export default function ApiKeysPage() {
                               <button
                                 onClick={() => {
                                   navigator.clipboard.writeText(key.apiKey!)
-                                  setNotification('API key copied!')
-                                  setTimeout(() => setNotification(null), 2000)
+                                  setCopiedKeyId(key.id)
+                                  setTimeout(() => setCopiedKeyId(null), 2000)
                                 }}
-                                className="btn-primary text-sm px-3 py-1"
+                                className="btn-primary text-sm px-3 py-1 cursor-pointer"
                               >
-                                Copy Key
+                                {copiedKeyId === key.id ? 'Copied!' : 'Copy Key'}
                               </button>
                             )}
                             {key.source === 'standalone' &&
@@ -638,15 +639,12 @@ export default function ApiKeysPage() {
                                   onClick={() => {
                                     const url = `${window.location.origin}/apikey/${key.accessToken}`
                                     navigator.clipboard.writeText(url)
-                                    setNotification('Link copied!')
-                                    setTimeout(
-                                      () => setNotification(null),
-                                      2000
-                                    )
+                                    setCopiedKeyId(key.id)
+                                    setTimeout(() => setCopiedKeyId(null), 2000)
                                   }}
-                                  className="btn-primary text-sm px-3 py-1"
+                                  className="btn-primary text-sm px-3 py-1 cursor-pointer"
                                 >
-                                  Copy Link
+                                  {copiedKeyId === key.id ? 'Copied!' : 'Copy Link'}
                                 </button>
                               )}
                             {(key.source === 'standalone' ||
@@ -654,7 +652,7 @@ export default function ApiKeysPage() {
                               <button
                                 onClick={() => handleRevoke(key)}
                                 disabled={revokingId === key.id}
-                                className="btn-danger text-sm px-3 py-1 disabled:opacity-50"
+                                className="btn-danger text-sm px-3 py-1 cursor-pointer disabled:opacity-50"
                               >
                                 {revokingId === key.id
                                   ? 'Deleting...'
