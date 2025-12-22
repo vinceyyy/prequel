@@ -251,21 +251,67 @@ export default function ApiKeysPage() {
         {showInfoBanner && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-medium text-blue-900">About API Keys</h3>
+              <div className="flex-1">
+                <h3 className="font-medium text-blue-900">
+                  Shared Rate Limits
+                </h3>
                 <p className="text-sm text-blue-800 mt-1">
-                  Create temporary OpenAI API keys for candidates or testing.
-                  All keys share the same rate limit.
+                  All API keys in this project share access to a common pool of
+                  models. These limits are shared across all keys, meaning all
+                  keys collectively consume the same tokens-per-minute quota.
                 </p>
-                <ul className="text-sm text-blue-800 mt-2 list-disc list-inside">
-                  <li>Maximum duration: 7 days</li>
-                  <li>Keys are automatically deleted when expired</li>
-                  <li>Cost limits: [placeholder]</li>
-                </ul>
+                <p className="text-sm text-blue-800 mt-1">
+                  <strong>Cost limit:</strong> Each model can consume up to $15
+                  per hour at maximum usage configured.
+                </p>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="text-sm text-blue-800 border-collapse">
+                    <thead>
+                      <tr className="border-b border-blue-200">
+                        <th className="text-left pr-6 pb-1 font-medium">
+                          Model
+                        </th>
+                        <th className="text-right pb-1 font-medium">
+                          Tokens/min
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-mono text-xs">
+                      <tr>
+                        <td className="pr-6 py-0.5">gpt-5</td>
+                        <td className="text-right">25,000</td>
+                      </tr>
+                      <tr>
+                        <td className="pr-6 py-0.5">gpt-5-mini</td>
+                        <td className="text-right">125,000</td>
+                      </tr>
+                      <tr>
+                        <td className="pr-6 py-0.5">gpt-5-nano</td>
+                        <td className="text-right">625,000</td>
+                      </tr>
+                      <tr>
+                        <td className="pr-6 py-0.5">gpt-4.1</td>
+                        <td className="text-right">30,000</td>
+                      </tr>
+                      <tr>
+                        <td className="pr-6 py-0.5">gpt-4.1-mini</td>
+                        <td className="text-right">150,000</td>
+                      </tr>
+                      <tr>
+                        <td className="pr-6 py-0.5">gpt-4.1-nano</td>
+                        <td className="text-right">600,000</td>
+                      </tr>
+                      <tr>
+                        <td className="pr-6 py-0.5">gpt-4o-mini</td>
+                        <td className="text-right">400,000</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
               <button
                 onClick={() => setShowInfoBanner(false)}
-                className="text-blue-600 hover:text-blue-800"
+                className="text-blue-600 hover:text-blue-800 ml-4"
               >
                 ✕
               </button>
