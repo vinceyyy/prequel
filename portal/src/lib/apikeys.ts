@@ -28,12 +28,13 @@ export class ApiKeyManager {
 
   /**
    * Creates a new API key record in DynamoDB
+   * @param apiKey - API key data (id is optional, will be generated if not provided)
    */
   async createApiKey(
-    apiKey: Omit<ApiKey, 'id' | 'createdAt' | 'ttl'>
+    apiKey: Omit<ApiKey, 'id' | 'createdAt' | 'ttl'> & { id?: string }
   ): Promise<ApiKey> {
     const now = Math.floor(Date.now() / 1000)
-    const id = generateId()
+    const id = apiKey.id || generateId()
     const accessToken =
       apiKey.activationMode === 'recipient' ? generateSecureString() : undefined
 

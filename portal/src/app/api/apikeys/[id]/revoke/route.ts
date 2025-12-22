@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiKeyManager } from '@/lib/apikeys'
 import { openaiService } from '@/lib/openai'
 import { config } from '@/lib/config'
+import { clearOpenAICache } from '@/lib/apiKeyListService'
 
 /**
  * POST /api/apikeys/[id]/revoke
@@ -30,6 +31,9 @@ export async function POST(
             { status: 500 }
           )
         }
+
+        // Clear cache so orphan disappears from list immediately
+        clearOpenAICache()
       }
 
       return NextResponse.json({ success: true })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useApiKeyPolling, type ApiKeyData } from '@/hooks/usePolling'
 
 const DURATION_OPTIONS = [
@@ -25,19 +25,11 @@ function formatDate(timestamp: number): string {
   return new Date(timestamp * 1000).toLocaleString()
 }
 
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  if (hours > 0) {
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
-  }
-  return `${minutes}m`
-}
-
 export default function ApiKeysPage() {
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [revokingId, setRevokingId] = useState<string | null>(null)
   const [notification, setNotification] = useState<string | null>(null)
   const [showInfoBanner, setShowInfoBanner] = useState(true)
 
@@ -56,14 +48,15 @@ export default function ApiKeysPage() {
     orphanCheckFailed,
     lastUpdated,
     isLoading: initialLoading,
+    refresh,
   } = useApiKeyPolling()
 
   // Separate keys into active and history
-  const activeKeys = apiKeys.filter(
-    k => ['scheduled', 'available', 'active', 'orphan'].includes(k.status)
+  const activeKeys = apiKeys.filter(k =>
+    ['scheduled', 'available', 'active', 'orphan'].includes(k.status)
   )
-  const historicalKeys = apiKeys.filter(
-    k => ['expired', 'revoked', 'error'].includes(k.status)
+  const historicalKeys = apiKeys.filter(k =>
+    ['expired', 'revoked', 'error'].includes(k.status)
   )
 
   const handleCreateKey = async () => {
@@ -108,7 +101,9 @@ export default function ApiKeysPage() {
       setShowCreateForm(false)
 
       if (formData.activationMode === 'immediate') {
-        setNotification(`API key created: ${result.apiKey.apiKey?.substring(0, 20)}...`)
+        setNotification(
+          `API key created: ${result.apiKey.apiKey?.substring(0, 20)}...`
+        )
       } else if (formData.activationMode === 'recipient') {
         setNotification(`Shareable API key created for "${formData.name}"`)
       } else {
@@ -116,7 +111,9 @@ export default function ApiKeysPage() {
       }
       setTimeout(() => setNotification(null), 5000)
     } catch (error) {
-      setNotification(`Failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setNotification(
+        `Failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
       setTimeout(() => setNotification(null), 5000)
     } finally {
       setLoading(false)
@@ -124,12 +121,14 @@ export default function ApiKeysPage() {
   }
 
   const handleRevoke = async (key: ApiKeyData) => {
-    const message = key.status === 'orphan'
-      ? `Delete this orphan service account (${key.name})?`
-      : `Revoke API key "${key.name}"? This will immediately delete the key from OpenAI.`
+    const message =
+      key.status === 'orphan'
+        ? `Delete this orphan service account (${key.name})?`
+        : `Revoke API key "${key.name}"? This will immediately delete the key from OpenAI.`
 
     if (!confirm(message)) return
 
+    setRevokingId(key.id)
     try {
       const response = await fetch(`/api/apikeys/${key.id}/revoke`, {
         method: 'POST',
@@ -140,11 +139,20 @@ export default function ApiKeysPage() {
         throw new Error(errorData.error || 'Failed to revoke')
       }
 
-      setNotification(key.status === 'orphan' ? 'Orphan deleted' : 'API key revoked')
+      setNotification(
+        key.status === 'orphan' ? 'Orphan deleted' : 'API key revoked'
+      )
       setTimeout(() => setNotification(null), 3000)
+
+      // Refresh the list immediately
+      await refresh()
     } catch (error) {
-      setNotification(`Failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setNotification(
+        `Failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
       setTimeout(() => setNotification(null), 5000)
+    } finally {
+      setRevokingId(null)
     }
   }
 
@@ -163,30 +171,44 @@ export default function ApiKeysPage() {
       setNotification('Deleted from history')
       setTimeout(() => setNotification(null), 3000)
     } catch (error) {
-      setNotification(`Failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setNotification(
+        `Failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
       setTimeout(() => setNotification(null), 5000)
     }
   }
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
-      case 'scheduled': return 'bg-purple-100 text-purple-800'
-      case 'available': return 'bg-blue-100 text-blue-800'
-      case 'active': return 'bg-green-100 text-green-800'
-      case 'expired': return 'bg-slate-100 text-slate-800'
-      case 'revoked': return 'bg-red-100 text-red-800'
-      case 'error': return 'bg-red-100 text-red-800'
-      case 'orphan': return 'bg-orange-100 text-orange-800'
-      default: return 'bg-slate-100 text-slate-800'
+      case 'scheduled':
+        return 'bg-purple-100 text-purple-800'
+      case 'available':
+        return 'bg-blue-100 text-blue-800'
+      case 'active':
+        return 'bg-green-100 text-green-800'
+      case 'expired':
+        return 'bg-slate-100 text-slate-800'
+      case 'revoked':
+        return 'bg-red-100 text-red-800'
+      case 'error':
+        return 'bg-red-100 text-red-800'
+      case 'orphan':
+        return 'bg-orange-100 text-orange-800'
+      default:
+        return 'bg-slate-100 text-slate-800'
     }
   }
 
   const getSourceBadgeClass = (source: string) => {
     switch (source) {
-      case 'standalone': return 'bg-slate-100 text-slate-600'
-      case 'interview': return 'bg-blue-50 text-blue-600'
-      case 'takehome': return 'bg-purple-50 text-purple-600'
-      default: return 'bg-slate-100 text-slate-600'
+      case 'standalone':
+        return 'bg-slate-100 text-slate-600'
+      case 'interview':
+        return 'bg-blue-50 text-blue-600'
+      case 'takehome':
+        return 'bg-purple-50 text-purple-600'
+      default:
+        return 'bg-slate-100 text-slate-600'
     }
   }
 
@@ -232,7 +254,8 @@ export default function ApiKeysPage() {
               <div>
                 <h3 className="font-medium text-blue-900">About API Keys</h3>
                 <p className="text-sm text-blue-800 mt-1">
-                  Create temporary OpenAI API keys for candidates or testing. All keys share the same rate limit.
+                  Create temporary OpenAI API keys for candidates or testing.
+                  All keys share the same rate limit.
                 </p>
                 <ul className="text-sm text-blue-800 mt-2 list-disc list-inside">
                   <li>Maximum duration: 7 days</li>
@@ -252,7 +275,8 @@ export default function ApiKeysPage() {
 
         {orphanCheckFailed && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 text-sm text-amber-800">
-            Could not check for orphan keys. OpenAI API may be temporarily unavailable.
+            Could not check for orphan keys. OpenAI API may be temporarily
+            unavailable.
           </div>
         )}
 
@@ -319,7 +343,9 @@ export default function ApiKeysPage() {
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    onChange={e =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     className="input-field"
                     placeholder="e.g., Test Key for John"
                   />
@@ -332,7 +358,9 @@ export default function ApiKeysPage() {
                   <input
                     type="text"
                     value={formData.description}
-                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                    onChange={e =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
                     className="input-field"
                     placeholder="Optional description"
                   />
@@ -354,10 +382,18 @@ export default function ApiKeysPage() {
                           name="activationMode"
                           value={option.value}
                           checked={formData.activationMode === option.value}
-                          onChange={e => setFormData({ ...formData, activationMode: e.target.value as typeof formData.activationMode })}
+                          onChange={e =>
+                            setFormData({
+                              ...formData,
+                              activationMode: e.target
+                                .value as typeof formData.activationMode,
+                            })
+                          }
                           className="mr-2"
                         />
-                        <span className="text-sm text-slate-700">{option.label}</span>
+                        <span className="text-sm text-slate-700">
+                          {option.label}
+                        </span>
                       </label>
                     ))}
                   </div>
@@ -371,7 +407,12 @@ export default function ApiKeysPage() {
                     <input
                       type="datetime-local"
                       value={formData.scheduledAt}
-                      onChange={e => setFormData({ ...formData, scheduledAt: e.target.value })}
+                      onChange={e =>
+                        setFormData({
+                          ...formData,
+                          scheduledAt: e.target.value,
+                        })
+                      }
                       className="input-field"
                     />
                   </div>
@@ -384,11 +425,18 @@ export default function ApiKeysPage() {
                     </label>
                     <select
                       value={formData.availableDays}
-                      onChange={e => setFormData({ ...formData, availableDays: parseInt(e.target.value) })}
+                      onChange={e =>
+                        setFormData({
+                          ...formData,
+                          availableDays: parseInt(e.target.value),
+                        })
+                      }
                       className="input-field"
                     >
                       {AVAILABLE_DAYS_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -400,11 +448,18 @@ export default function ApiKeysPage() {
                   </label>
                   <select
                     value={formData.durationSeconds}
-                    onChange={e => setFormData({ ...formData, durationSeconds: parseInt(e.target.value) })}
+                    onChange={e =>
+                      setFormData({
+                        ...formData,
+                        durationSeconds: parseInt(e.target.value),
+                      })
+                    }
                     className="input-field"
                   >
                     {DURATION_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -436,46 +491,77 @@ export default function ApiKeysPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Source</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Created</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Expires</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Source
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Created
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Expires
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-200">
                   {initialLoading ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-4 text-center text-slate-500">
+                      <td
+                        colSpan={6}
+                        className="px-6 py-4 text-center text-slate-500"
+                      >
                         Loading...
                       </td>
                     </tr>
                   ) : activeKeys.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-4 text-center text-slate-500">
+                      <td
+                        colSpan={6}
+                        className="px-6 py-4 text-center text-slate-500"
+                      >
                         No active API keys
                       </td>
                     </tr>
                   ) : (
                     activeKeys.map(key => (
-                      <tr key={key.id} className={key.status === 'orphan' ? 'bg-orange-50' : ''}>
+                      <tr
+                        key={key.id}
+                        className={
+                          key.status === 'orphan' ? 'bg-orange-50' : ''
+                        }
+                      >
                         <td className="px-6 py-4">
                           <div className="text-sm font-medium text-slate-900">
-                            {key.status === 'orphan' && <span className="mr-1">⚠️</span>}
+                            {key.status === 'orphan' && (
+                              <span className="mr-1">⚠️</span>
+                            )}
                             {key.name}
                           </div>
                           {key.description && (
-                            <div className="text-sm text-slate-500">{key.description}</div>
+                            <div className="text-sm text-slate-500">
+                              {key.description}
+                            </div>
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`status-badge ${getStatusBadgeClass(key.status)}`}>
+                          <span
+                            className={`status-badge ${getStatusBadgeClass(key.status)}`}
+                          >
                             {key.status}
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`text-xs px-2 py-1 rounded ${getSourceBadgeClass(key.source)}`}>
+                          <span
+                            className={`text-xs px-2 py-1 rounded ${getSourceBadgeClass(key.source)}`}
+                          >
                             {key.source}
                           </span>
                         </td>
@@ -487,34 +573,51 @@ export default function ApiKeysPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex gap-2">
-                            {key.source === 'standalone' && key.accessToken && key.status === 'available' && (
-                              <button
-                                onClick={() => {
-                                  const url = `${window.location.origin}/apikey/${key.accessToken}`
-                                  navigator.clipboard.writeText(url)
-                                  setNotification('Link copied!')
-                                  setTimeout(() => setNotification(null), 2000)
-                                }}
-                                className="btn-primary text-sm px-3 py-1"
-                              >
-                                Copy Link
-                              </button>
-                            )}
-                            {(key.source === 'standalone' || key.status === 'orphan') && (
+                            {key.source === 'standalone' &&
+                              key.accessToken &&
+                              key.status === 'available' && (
+                                <button
+                                  onClick={() => {
+                                    const url = `${window.location.origin}/apikey/${key.accessToken}`
+                                    navigator.clipboard.writeText(url)
+                                    setNotification('Link copied!')
+                                    setTimeout(
+                                      () => setNotification(null),
+                                      2000
+                                    )
+                                  }}
+                                  className="btn-primary text-sm px-3 py-1"
+                                >
+                                  Copy Link
+                                </button>
+                              )}
+                            {(key.source === 'standalone' ||
+                              key.status === 'orphan') && (
                               <button
                                 onClick={() => handleRevoke(key)}
-                                className="btn-danger text-sm px-3 py-1"
+                                disabled={revokingId === key.id}
+                                className="btn-danger text-sm px-3 py-1 disabled:opacity-50"
                               >
-                                {key.status === 'orphan' ? 'Delete' : 'Revoke'}
+                                {revokingId === key.id
+                                  ? 'Deleting...'
+                                  : key.status === 'orphan'
+                                    ? 'Delete'
+                                    : 'Revoke'}
                               </button>
                             )}
                             {key.source === 'interview' && key.sourceId && (
-                              <a href="/interviews" className="text-blue-600 text-sm hover:underline">
+                              <a
+                                href="/interviews"
+                                className="text-blue-600 text-sm hover:underline"
+                              >
                                 View Interview
                               </a>
                             )}
                             {key.source === 'takehome' && key.sourceId && (
-                              <a href="/takehomes" className="text-blue-600 text-sm hover:underline">
+                              <a
+                                href="/takehomes"
+                                className="text-blue-600 text-sm hover:underline"
+                              >
                                 View Take-home
                               </a>
                             )}
@@ -536,18 +639,33 @@ export default function ApiKeysPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Source</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Created</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Expired</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Source
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Created
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Expired
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-200">
                   {historicalKeys.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-4 text-center text-slate-500">
+                      <td
+                        colSpan={6}
+                        className="px-6 py-4 text-center text-slate-500"
+                      >
                         No historical API keys
                       </td>
                     </tr>
@@ -555,18 +673,26 @@ export default function ApiKeysPage() {
                     historicalKeys.map(key => (
                       <tr key={key.id}>
                         <td className="px-6 py-4">
-                          <div className="text-sm font-medium text-slate-900">{key.name}</div>
+                          <div className="text-sm font-medium text-slate-900">
+                            {key.name}
+                          </div>
                           {key.description && (
-                            <div className="text-sm text-slate-500">{key.description}</div>
+                            <div className="text-sm text-slate-500">
+                              {key.description}
+                            </div>
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`status-badge ${getStatusBadgeClass(key.status)}`}>
+                          <span
+                            className={`status-badge ${getStatusBadgeClass(key.status)}`}
+                          >
                             {key.status}
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`text-xs px-2 py-1 rounded ${getSourceBadgeClass(key.source)}`}>
+                          <span
+                            className={`text-xs px-2 py-1 rounded ${getSourceBadgeClass(key.source)}`}
+                          >
                             {key.source}
                           </span>
                         </td>

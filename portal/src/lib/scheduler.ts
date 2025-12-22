@@ -578,10 +578,13 @@ export class SchedulerService {
 
           try {
             // Create OpenAI service account
-            if (config.services.openaiProjectId && config.services.openaiAdminKey) {
+            if (
+              config.services.openaiProjectId &&
+              config.services.openaiAdminKey
+            ) {
               const result = await openaiService.createServiceAccount(
                 config.services.openaiProjectId,
-                `apikey-${key.id}`
+                `interview-${config.project.environment}-apikey-${key.id}-${key.name}`
               )
 
               if (result.success) {
@@ -606,9 +609,12 @@ export class SchedulerService {
             } else {
               // OpenAI not configured - cannot activate
               await apiKeyManager.updateStatus(key.id, 'error')
-              schedulerLogger.error('Cannot activate scheduled API key - OpenAI not configured', {
-                apiKeyId: key.id,
-              })
+              schedulerLogger.error(
+                'Cannot activate scheduled API key - OpenAI not configured',
+                {
+                  apiKeyId: key.id,
+                }
+              )
             }
           } catch (error) {
             await apiKeyManager.updateStatus(key.id, 'error')
@@ -657,7 +663,9 @@ export class SchedulerService {
             }
           }
 
-          await apiKeyManager.updateStatus(key.id, 'expired', { expiredAt: now })
+          await apiKeyManager.updateStatus(key.id, 'expired', {
+            expiredAt: now,
+          })
 
           schedulerLogger.info('API key expired', { apiKeyId: key.id })
         } catch (error) {
@@ -729,7 +737,7 @@ export class SchedulerService {
 
       const serviceAccountResult = await openaiService.createServiceAccount(
         config.services.openaiProjectId,
-        `interview-${operation.interviewId}`
+        `interview-${config.project.environment}-interview-${operation.interviewId}-${operation.candidateName}`
       )
 
       if (serviceAccountResult.success) {

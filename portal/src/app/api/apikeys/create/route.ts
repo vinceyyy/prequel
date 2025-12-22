@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiKeyManager } from '@/lib/apikeys'
 import { openaiService } from '@/lib/openai'
 import { config } from '@/lib/config'
+import { generateId } from '@/lib/idGenerator'
 import type { CreateApiKeyRequest } from '@/lib/types/apikey'
 
 /**
@@ -41,6 +42,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Generate ID upfront so we can use it in service account name
+    const apiKeyId = generateId()
     const now = Math.floor(Date.now() / 1000)
     let status: 'scheduled' | 'available' | 'active'
     let serviceAccountId: string | undefined
@@ -61,7 +64,7 @@ export async function POST(request: NextRequest) {
 
       const result = await openaiService.createServiceAccount(
         config.services.openaiProjectId,
-        `apikey-${Date.now()}`
+        `interview-${config.project.environment}-apikey-${apiKeyId}-${name.trim()}`
       )
 
       if (!result.success) {
@@ -107,6 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     const createdKey = await apiKeyManager.createApiKey({
+      id: apiKeyId,
       name: name.trim(),
       description: description?.trim(),
       status,

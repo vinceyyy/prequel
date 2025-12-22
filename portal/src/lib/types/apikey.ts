@@ -6,12 +6,12 @@
  * Status of an API key in its lifecycle
  */
 export type ApiKeyStatus =
-  | 'scheduled'  // Waiting for scheduled start time
-  | 'available'  // Recipient can activate (shareable mode)
-  | 'active'     // Key is provisioned and usable
-  | 'expired'    // Key was deleted after duration ended
-  | 'revoked'    // Manually deleted before expiration
-  | 'error'      // Something went wrong
+  | 'scheduled' // Waiting for scheduled start time
+  | 'available' // Recipient can activate (shareable mode)
+  | 'active' // Key is provisioned and usable
+  | 'expired' // Key was deleted after duration ended
+  | 'revoked' // Manually deleted before expiration
+  | 'error' // Something went wrong
 
 /**
  * Source of an API key

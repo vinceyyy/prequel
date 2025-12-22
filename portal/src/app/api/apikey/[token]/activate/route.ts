@@ -76,7 +76,7 @@ export async function POST(
     // Create OpenAI service account
     const result = await openaiService.createServiceAccount(
       config.services.openaiProjectId,
-      `apikey-${apiKey.id}`
+      `interview-${config.project.environment}-apikey-${apiKey.id}-${apiKey.name}`
     )
 
     if (!result.success) {

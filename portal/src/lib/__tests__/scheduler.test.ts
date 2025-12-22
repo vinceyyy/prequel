@@ -58,6 +58,17 @@ jest.mock('../interviews', () => ({
   },
 }))
 
+// Mock API key manager
+jest.mock('../apikeys', () => ({
+  apiKeyManager: {
+    listApiKeys: jest.fn().mockResolvedValue([]),
+    getApiKey: jest.fn().mockResolvedValue(null),
+    createApiKey: jest.fn(),
+    updateApiKey: jest.fn(),
+    deleteApiKey: jest.fn(),
+  },
+}))
+
 import { SchedulerService } from '../scheduler'
 import { schedulerLogger } from '../logger'
 

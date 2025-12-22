@@ -8,7 +8,11 @@ export default function ApiKeyPage() {
   const params = useParams()
   const token = params.token as string
 
-  const { apiKey, isLoading, error: fetchError } = useApiKeyStatusPolling({
+  const {
+    apiKey,
+    isLoading,
+    error: fetchError,
+  } = useApiKeyStatusPolling({
     token,
   })
 
@@ -150,9 +154,7 @@ export default function ApiKeyPage() {
           <h1 className="text-3xl font-bold text-slate-900 mb-2">
             OpenAI API Key Access
           </h1>
-          {apiKey.name && (
-            <p className="text-slate-600">Key: {apiKey.name}</p>
-          )}
+          {apiKey.name && <p className="text-slate-600">Key: {apiKey.name}</p>}
         </div>
 
         {/* Status: Scheduled */}
@@ -194,7 +196,8 @@ export default function ApiKeyPage() {
                 <p>Once activated:</p>
                 <ul className="list-disc list-inside ml-2 space-y-1">
                   <li>
-                    The key will be valid for {formatDuration(getDurationSeconds())}
+                    The key will be valid for{' '}
+                    {formatDuration(getDurationSeconds())}
                   </li>
                   <li>It will be automatically deleted when expired</li>
                   <li>You can use it with any OpenAI-compatible tool</li>
@@ -393,9 +396,7 @@ export default function ApiKeyPage() {
           <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
             <div className="text-center">
               <div className="text-red-600 text-5xl mb-4">⚠️</div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                Error
-              </h2>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">Error</h2>
               <p className="text-slate-600 mb-4">
                 There was an error with this API key. Please contact support.
               </p>

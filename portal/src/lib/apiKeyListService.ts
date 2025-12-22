@@ -14,8 +14,6 @@ import type {
   ApiKeyListResponse,
   ApiKeyStatus,
 } from './types/apikey'
-import type { Interview } from './interviews'
-import type { TakeHome } from './types/assessment'
 
 // Cache for OpenAI service accounts (30 second TTL)
 let openaiAccountsCache: {
@@ -73,7 +71,10 @@ async function getOpenAIAccounts(): Promise<{
   const now = Date.now()
 
   // Return cached if still valid
-  if (openaiAccountsCache && now - openaiAccountsCache.timestamp < CACHE_TTL_MS) {
+  if (
+    openaiAccountsCache &&
+    now - openaiAccountsCache.timestamp < CACHE_TTL_MS
+  ) {
     return { accounts: openaiAccountsCache.accounts, success: true }
   }
 
@@ -215,7 +216,7 @@ export async function listAllApiKeys(): Promise<ApiKeyListResponse> {
     })
 
     // Count active keys
-    const activeCount = keys.filter((k) => k.status === 'active').length
+    const activeCount = keys.filter(k => k.status === 'active').length
 
     return { keys, activeCount, orphanCheckFailed }
   } catch (error) {

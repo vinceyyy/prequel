@@ -230,7 +230,7 @@ export async function POST(request: NextRequest) {
 
           const serviceAccountResult = await openaiService.createServiceAccount(
             config.services.openaiProjectId,
-            `interview-${interviewId}`
+            `interview-${config.project.environment}-interview-${interviewId}-${candidateName}`
           )
 
           if (serviceAccountResult.success) {
