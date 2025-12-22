@@ -619,6 +619,18 @@ export default function ApiKeysPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex gap-2">
+                            {key.apiKey && key.status === 'active' && (
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(key.apiKey!)
+                                  setNotification('API key copied!')
+                                  setTimeout(() => setNotification(null), 2000)
+                                }}
+                                className="btn-primary text-sm px-3 py-1"
+                              >
+                                Copy Key
+                              </button>
+                            )}
                             {key.source === 'standalone' &&
                               key.accessToken &&
                               key.status === 'available' && (
