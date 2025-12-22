@@ -312,7 +312,7 @@ export default function ApiKeysPage() {
               </div>
               <button
                 onClick={() => setShowInfoBanner(false)}
-                className="text-blue-600 hover:text-blue-800 ml-4"
+                className="text-blue-600 hover:text-blue-800 ml-4 cursor-pointer"
               >
                 ✕
               </button>
@@ -330,7 +330,7 @@ export default function ApiKeysPage() {
         <div className="mb-6">
           <button
             onClick={() => setShowCreateForm(true)}
-            className="btn-primary"
+            className="btn-primary cursor-pointer"
           >
             Create New API Key
           </button>
@@ -342,7 +342,7 @@ export default function ApiKeysPage() {
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('active')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm cursor-pointer ${
                   activeTab === 'active'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -357,7 +357,7 @@ export default function ApiKeysPage() {
               </button>
               <button
                 onClick={() => setActiveTab('history')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm cursor-pointer ${
                   activeTab === 'history'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -516,13 +516,13 @@ export default function ApiKeysPage() {
                 <button
                   onClick={handleCreateKey}
                   disabled={!formData.name.trim() || loading}
-                  className="flex-1 btn-primary disabled:opacity-50"
+                  className="flex-1 btn-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Creating...' : 'Create API Key'}
                 </button>
                 <button
                   onClick={() => setShowCreateForm(false)}
-                  className="flex-1 btn-outline"
+                  className="flex-1 btn-outline cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -770,7 +770,7 @@ export default function ApiKeysPage() {
                           {key.source === 'standalone' && (
                             <button
                               onClick={() => handleDelete(key)}
-                              className="btn-outline text-sm px-3 py-1"
+                              className="btn-outline text-sm px-3 py-1 cursor-pointer"
                             >
                               Delete
                             </button>

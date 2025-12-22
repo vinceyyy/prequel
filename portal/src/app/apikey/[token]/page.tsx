@@ -225,7 +225,7 @@ export default function ApiKeyPage() {
             <button
               onClick={handleActivate}
               disabled={activating}
-              className="w-full px-8 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
+              className="w-full px-8 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-blue-300 cursor-pointer disabled:cursor-not-allowed transition-colors"
             >
               {activating ? (
                 <span className="flex items-center justify-center">
