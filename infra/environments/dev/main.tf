@@ -65,6 +65,8 @@ module "compute" {
   openai_project_id       = var.openai_project_id
   log_level               = var.log_level
   tags                    = local.tags
+  portal_cpu              = 256
+  portal_memory           = 512
 }
 
 # DNS module (Route53, ACM)
