@@ -1,0 +1,25 @@
+{
+  "name": "prequel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "On-demand browser VS Code interview platform — pnpm workspace (Hono backend + Vite React SPA)",
+  "scripts": {
+    "dev": "vp run -r dev",
+    "dev:frontend": "vp run --filter @prequel/frontend dev",
+    "dev:backend": "vp run --filter @prequel/backend dev",
+    "build": "vp run -r build",
+    "check": "vp run -r check",
+    "typecheck": "vp run -r typecheck",
+    "lint": "vp run -r lint",
+    "fmt": "vp run -r fmt",
+    "test": "vp run -r test"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vite-plus": "^0.1.23"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.0.9"
+}

@@ -65,7 +65,7 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_eip" "nat" {
-  count = var.availability_zone_count
+  count = var.nat_gateway_count
 
   domain     = "vpc"
   depends_on = [aws_internet_gateway.main]
@@ -76,7 +76,7 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "main" {
-  count = var.availability_zone_count
+  count = var.nat_gateway_count
 
   allocation_id = aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.public[count.index].id
@@ -95,7 +95,7 @@ resource "aws_route_table" "private" {
 
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main[count.index].id
+    nat_gateway_id = aws_nat_gateway.main[count.index % var.nat_gateway_count].id
   }
 
   tags = merge(var.tags, {

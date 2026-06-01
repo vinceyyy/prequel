@@ -1,0 +1,32 @@
+name: release-please
+
+# Watches main for conventional-commit prefixes (feat:, fix:, …) and opens a
+# release PR with version bumps + a CHANGELOG entry. Merging that PR creates the
+# git tag + GitHub Release.
+#
+# This uses the default GITHUB_TOKEN (no GitHub App needed) — prequel is a
+# standard repo without an enterprise policy blocking default-token writes.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: main

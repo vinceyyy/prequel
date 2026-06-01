@@ -1,0 +1,58 @@
+version: 2
+updates:
+  # pnpm workspace (covers frontend + backend via the root lockfile).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/New_York
+    open-pull-requests-limit: 10
+    target-branch: dev
+    labels: [dependencies]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      production-dependencies:
+        dependency-type: production
+        patterns: ["*"]
+      development-dependencies:
+        dependency-type: development
+        patterns: ["*"]
+
+  # GitHub Actions versions — one grouped PR.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    labels: [dependencies, github-actions]
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # Docker base images.
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    labels: [dependencies, docker]
+    commit-message:
+      prefix: chore
+
+  - package-ecosystem: docker
+    directory: /instance
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    labels: [dependencies, docker]
+    commit-message:
+      prefix: chore
