@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/vinceyyy/prequel/compare/v1.0.0...v1.0.1) (2026-06-01)
+
+
+### Bug Fixes
+
+* reliable-length id/secret generation + harden release-please workflow ([#27](https://github.com/vinceyyy/prequel/issues/27)) ([7f01751](https://github.com/vinceyyy/prequel/commit/7f01751ff4c807094852e7e17c96c586b08e60c2))
+
 ## [1.0.0](https://github.com/vinceyyy/prequel/compare/v0.1.0...v1.0.0) (2026-06-01)
 
 
