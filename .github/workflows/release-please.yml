@@ -32,7 +32,7 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: .release-please-config.json
@@ -40,7 +40,7 @@ jobs:
           target-branch: main
 
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: main
           fetch-depth: 0
