@@ -11,12 +11,6 @@ variable "availability_zone_count" {
   default     = 3
 }
 
-variable "nat_gateway_count" {
-  description = "Number of NAT gateways to provision. Use 1 to cut cost (single AZ failure domain for outbound traffic) or match availability_zone_count for full HA."
-  type        = number
-  default     = 3
-}
-
 variable "name_prefix" {
   description = "Prefix for resource names"
   type        = string

@@ -33,7 +33,6 @@ module "networking" {
 
   vpc_cidr                = var.vpc_cidr
   availability_zone_count = 3
-  nat_gateway_count       = 1
   name_prefix             = local.name_prefix
   tags                    = local.tags
 }
