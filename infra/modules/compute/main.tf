@@ -28,6 +28,7 @@ resource "aws_ecs_cluster_capacity_providers" "main" {
 resource "aws_ecr_repository" "portal" {
   name                 = "${var.name_prefix}-portal"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = false
@@ -58,6 +59,7 @@ resource "aws_ecr_lifecycle_policy" "portal" {
 resource "aws_ecr_repository" "code_server" {
   name                 = "${var.name_prefix}-code-server"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = false
