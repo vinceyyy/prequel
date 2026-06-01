@@ -1,63 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import OperationDashboard from '@/components/OperationDashboard'
-import {
-  useTakeHomePolling,
-  useOperationPolling,
-  type TakeHomeData,
-  type OperationData,
-} from '@/hooks/usePolling'
-
-// Use the shared TakeHomeData type from usePolling
-type TakeHome = TakeHomeData
-
-/**
- * Formats a duration in milliseconds to human-readable format.
- * Examples: "2h 30m", "45m", "1h 5m"
- */
-function formatDuration(durationMs: number): string {
-  const hours = Math.floor(durationMs / (1000 * 60 * 60))
-  const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60))
-
-  if (hours > 0 && minutes > 0) {
-    return `${hours}h ${minutes}m`
-  } else if (hours > 0) {
-    return `${hours}h`
-  } else if (minutes > 0) {
-    return `${minutes}m`
-  } else {
-    return '<1m'
-  }
-}
-
-/**
- * Calculates the duration the candidate had active access to the instance.
- * Returns formatted duration string or null if not calculable.
- */
-function calculateTakeHomeDuration(takeHome: TakeHome): string | null {
-  if (!takeHome.activatedAt) {
-    return null
-  }
-
-  const activatedTime = new Date(takeHome.activatedAt).getTime()
-
-  // Use destroyedAt if available (actual destruction time)
-  // Otherwise use autoDestroyAt (scheduled destruction time)
-  let endTime: number
-  if (takeHome.destroyedAt) {
-    endTime = new Date(takeHome.destroyedAt).getTime()
-  } else if (takeHome.autoDestroyAt) {
-    endTime = new Date(takeHome.autoDestroyAt).getTime()
-  } else {
-    return null
-  }
-
-  // Only calculate if end time is after activation
-  if (endTime > activatedTime) {
-    return formatDuration(endTime - activatedTime)
-  }
-
-  return null
-}
+import { useTakeHomePolling, useOperationPolling, type OperationData } from '@/hooks/usePolling'
+import { type Challenge } from '@/components/takehomes/types'
+import CreateTakeHomeModal from '@/components/takehomes/CreateTakeHomeModal'
+import ActiveTakeHomesTable from '@/components/takehomes/ActiveTakeHomesTable'
+import HistoryTakeHomesTable from '@/components/takehomes/HistoryTakeHomesTable'
+import TakeHomeLogsModal from '@/components/takehomes/TakeHomeLogsModal'
 
 export default function TakeHomesPage() {
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active')
@@ -88,22 +35,7 @@ export default function TakeHomesPage() {
     filterPrefix: 'TAKEHOME#',
   })
 
-  const [challenges, setChallenges] = useState<
-    Array<{
-      id: string
-      name: string
-      description: string
-      ecsConfig: {
-        cpu: number
-        cpuCores: number
-        memory: number
-        storage: number
-      }
-      usageCount: number
-      createdAt: string
-      lastUsedAt?: string
-    }>
-  >([])
+  const [challenges, setChallenges] = useState<Challenge[]>([])
 
   const loadChallenges = useCallback(async () => {
     try {
@@ -470,520 +402,54 @@ export default function TakeHomesPage() {
         </div>
 
         {showCreateForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="card p-4 sm:p-6 w-full max-w-md fade-in">
-              <h2 className="text-xl font-semibold mb-4 text-slate-900">Create New Take-Home</h2>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Candidate Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.candidateName}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        candidateName: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                    placeholder="Enter candidate name"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Candidate Email (optional)
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.candidateEmail}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        candidateEmail: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                    placeholder="candidate@example.com"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-2">Challenge</label>
-                  <div className="space-y-3 max-h-64 overflow-y-auto">
-                    {challenges.length === 0 ? (
-                      <div className="text-slate-500 text-sm p-3 border border-slate-200 rounded-lg">
-                        No challenges available. Create challenges first.
-                      </div>
-                    ) : (
-                      challenges.map((challenge) => (
-                        <div key={challenge.id}>
-                          <label className="flex items-start space-x-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="challenge"
-                              value={challenge.id}
-                              checked={formData.challenge === challenge.id}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  challenge: e.target.value,
-                                })
-                              }
-                              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-medium text-slate-900">
-                                  {challenge.name}
-                                </h4>
-                              </div>
-                              <p className="text-sm text-slate-600 mt-1">{challenge.description}</p>
-                              <div className="mt-2 text-xs text-slate-600">
-                                {challenge.ecsConfig.cpuCores} CPU{' '}
-                                {challenge.ecsConfig.cpuCores === 1 ? 'core' : 'cores'} /{' '}
-                                {challenge.ecsConfig.memory / 1024}GB RAM /{' '}
-                                {challenge.ecsConfig.storage}GB Storage
-                              </div>
-                            </div>
-                          </label>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Available For (days)
-                  </label>
-                  <select
-                    value={formData.availableDays}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        availableDays: parseInt(e.target.value),
-                      })
-                    }
-                    className="input-field"
-                  >
-                    <option value={1}>1 day</option>
-                    <option value={3}>3 days</option>
-                    <option value={7}>7 days</option>
-                    <option value={14}>14 days</option>
-                    <option value={30}>30 days</option>
-                  </select>
-                  <p className="text-xs text-slate-500 mt-1">
-                    How long the candidate has to activate the take-home
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Duration (hours)
-                  </label>
-                  <select
-                    value={formData.durationHours}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        durationHours: parseInt(e.target.value),
-                      })
-                    }
-                    className="input-field"
-                  >
-                    <option value={1}>1 hour</option>
-                    <option value={2}>2 hours</option>
-                    <option value={3}>3 hours</option>
-                    <option value={4}>4 hours</option>
-                    <option value={6}>6 hours</option>
-                    <option value={8}>8 hours</option>
-                  </select>
-                  <p className="text-xs text-slate-500 mt-1">Time limit once candidate activates</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Additional Instructions (optional)
-                  </label>
-                  <textarea
-                    value={formData.additionalInstructions}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        additionalInstructions: e.target.value,
-                      })
-                    }
-                    className="input-field"
-                    rows={4}
-                    placeholder="Any specific instructions or requirements for the candidate..."
-                  />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Custom instructions that will be shown to the candidate
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={handleCreateTakeHome}
-                  disabled={!formData.candidateName.trim() || !formData.challenge || loading}
-                  className="flex-1 btn-primary"
-                >
-                  {loading ? 'Creating...' : 'Create Take-Home'}
-                </button>
-                <button onClick={() => setShowCreateForm(false)} className="flex-1 btn-outline">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
+          <CreateTakeHomeModal
+            formData={formData}
+            setFormData={setFormData}
+            challenges={challenges}
+            loading={loading}
+            onCreate={handleCreateTakeHome}
+            onCancel={() => setShowCreateForm(false)}
+          />
         )}
 
         {/* Active Tab */}
         {activeTab === 'active' && (
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Candidate
-                    </th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Challenge
-                    </th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Schedule
-                    </th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Access Link
-                    </th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-slate-200">
-                  {initialLoading ? (
-                    <tr>
-                      <td colSpan={6} className="px-3 sm:px-6 py-4 text-center text-slate-500">
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                          <span>Loading take-homes...</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : activeTakeHomes.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-3 sm:px-6 py-4 text-center text-slate-500">
-                        No active take-homes
-                      </td>
-                    </tr>
-                  ) : (
-                    activeTakeHomes.map((takeHome) => (
-                      <tr key={takeHome.id}>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-slate-900">
-                            {takeHome.candidateName || 'Unknown'}
-                          </div>
-                          {takeHome.candidateEmail && (
-                            <div className="text-sm text-slate-500">{takeHome.candidateEmail}</div>
-                          )}
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                          {challenges.find((c) => c.id === takeHome.challengeId)?.name}
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                          <div className="space-y-1">
-                            <div>
-                              <div className="text-xs text-slate-500 mb-1">Session:</div>
-                              <span
-                                className={`status-badge ${
-                                  takeHome.sessionStatus === 'available'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : takeHome.sessionStatus === 'activated'
-                                      ? 'bg-green-100 text-green-800'
-                                      : takeHome.sessionStatus === 'revoked'
-                                        ? 'bg-red-100 text-red-800'
-                                        : 'bg-slate-100 text-slate-800'
-                                }`}
-                              >
-                                {takeHome.sessionStatus}
-                              </span>
-                            </div>
-                            {takeHome.sessionStatus === 'activated' && (
-                              <div>
-                                <div className="text-xs text-slate-500 mb-1">Instance:</div>
-                                <span className={`status-badge status-${takeHome.instanceStatus}`}>
-                                  {takeHome.instanceStatus}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                          <div>
-                            <div className="text-xs text-slate-500">Available until:</div>
-                            <div className="text-sm">
-                              {new Date(takeHome.availableUntil).toLocaleString()}
-                            </div>
-                          </div>
-                          {takeHome.activatedAt && takeHome.autoDestroyAt && (
-                            <div className="bg-amber-50 p-1 rounded-md border border-amber-200 mt-1">
-                              <div className="text-xs text-amber-700">Auto-destroy:</div>
-                              <div className="text-xs font-medium text-amber-900">
-                                {new Date(takeHome.autoDestroyAt).toLocaleString()}
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 text-sm text-slate-900">
-                          <div className="space-y-2">
-                            {/* Candidate-facing page URL - always shown */}
-                            <div className="text-sm">
-                              <div className="text-xs text-slate-500 mb-1">Candidate Page:</div>
-                              <a
-                                href={`${window.location.protocol}//${window.location.host}/takehome/${takeHome.accessToken}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-700 underline break-all"
-                              >
-                                {`${window.location.protocol}//${window.location.host}/takehome/${takeHome.accessToken}`}
-                              </a>
-                            </div>
-
-                            {/* Instance access URL - shown only when activated and active */}
-                            {takeHome.sessionStatus === 'activated' &&
-                              takeHome.instanceStatus === 'active' &&
-                              takeHome.url && (
-                                <div className="text-sm pt-2 border-t border-slate-200">
-                                  <div className="text-xs text-slate-500 mb-1">
-                                    Instance Access:
-                                  </div>
-                                  <a
-                                    className="text-blue-600 underline cursor-pointer break-all hover:text-blue-700 transition-colors"
-                                    href={takeHome.url}
-                                    target="_blank"
-                                  >
-                                    {takeHome.url}
-                                  </a>
-                                  <div className="text-slate-500 break-all mt-1">
-                                    Password: {takeHome.password}
-                                  </div>
-                                </div>
-                              )}
-                          </div>
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 text-sm font-medium">
-                          <div className="flex flex-wrap gap-2 items-center">
-                            <button
-                              onClick={() => handleRevokeTakeHome(takeHome.id)}
-                              disabled={takeHome.instanceStatus === 'destroying'}
-                              className="btn-danger text-sm px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {takeHome.instanceStatus === 'destroying'
-                                ? 'Destroying...'
-                                : 'Revoke'}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedTakeHomeForLogs(takeHome.id)
-                                setShowLogsModal(true)
-                              }}
-                              className="btn-primary text-sm px-3 py-1"
-                            >
-                              Logs
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <ActiveTakeHomesTable
+            takeHomes={activeTakeHomes}
+            challenges={challenges}
+            initialLoading={initialLoading}
+            onRevoke={handleRevokeTakeHome}
+            onShowLogs={(takeHomeId) => {
+              setSelectedTakeHomeForLogs(takeHomeId)
+              setShowLogsModal(true)
+            }}
+          />
         )}
 
         {/* History Tab */}
         {activeTab === 'history' && (
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Candidate
-                    </th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Challenge
-                    </th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Created
-                    </th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Activated
-                    </th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Duration
-                    </th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-slate-200">
-                  {initialLoading ? (
-                    <tr>
-                      <td colSpan={7} className="px-3 sm:px-6 py-4 text-center text-slate-500">
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                          <span>Loading history...</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : historicalTakeHomes.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-3 sm:px-6 py-4 text-center text-slate-500">
-                        No historical take-homes found
-                      </td>
-                    </tr>
-                  ) : (
-                    historicalTakeHomes.map((takeHome) => (
-                      <tr key={takeHome.id}>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-slate-900">
-                            {takeHome.candidateName || 'Unknown'}
-                          </div>
-                          {takeHome.candidateEmail && (
-                            <div className="text-sm text-slate-500">{takeHome.candidateEmail}</div>
-                          )}
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                          {challenges.find((c) => c.id === takeHome.challengeId)?.name}
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`status-badge ${
-                              takeHome.sessionStatus === 'completed'
-                                ? 'bg-green-100 text-green-800'
-                                : takeHome.sessionStatus === 'revoked'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-amber-100 text-amber-800'
-                            }`}
-                          >
-                            {takeHome.sessionStatus}
-                          </span>
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                          <div>{new Date(takeHome.createdAt).toLocaleDateString()}</div>
-                          <div className="text-slate-500">
-                            {new Date(takeHome.createdAt).toLocaleTimeString()}
-                          </div>
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                          {takeHome.activatedAt ? (
-                            <div>
-                              <div>{new Date(takeHome.activatedAt).toLocaleDateString()}</div>
-                              <div className="text-slate-500">
-                                {new Date(takeHome.activatedAt).toLocaleTimeString()}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-slate-400">Not activated</span>
-                          )}
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                          {(() => {
-                            const duration = calculateTakeHomeDuration(takeHome)
-                            return duration ? (
-                              <span className="text-slate-900">{duration}</span>
-                            ) : (
-                              <span className="text-slate-400">-</span>
-                            )
-                          })()}
-                        </td>
-                        <td className="px-3 sm:px-6 py-4 text-sm font-medium">
-                          <div className="flex flex-wrap gap-2 items-center">
-                            {takeHome.saveFiles && (
-                              <button
-                                onClick={() => handleDownloadFiles(takeHome.id)}
-                                className="btn-primary text-sm px-3 py-1"
-                              >
-                                Download
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleDeleteTakeHome(takeHome.id)}
-                              className="btn-outline text-sm px-3 py-1"
-                            >
-                              Delete
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedTakeHomeForLogs(takeHome.id)
-                                setShowLogsModal(true)
-                              }}
-                              className="btn-primary text-sm px-3 py-1"
-                            >
-                              Logs
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <HistoryTakeHomesTable
+            takeHomes={historicalTakeHomes}
+            challenges={challenges}
+            initialLoading={initialLoading}
+            onDownloadFiles={handleDownloadFiles}
+            onDelete={handleDeleteTakeHome}
+            onShowLogs={(takeHomeId) => {
+              setSelectedTakeHomeForLogs(takeHomeId)
+              setShowLogsModal(true)
+            }}
+          />
         )}
 
         {/* Logs Modal */}
         {showLogsModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="card p-4 sm:p-6 w-full max-w-6xl h-5/6 max-h-screen overflow-hidden fade-in">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-slate-900">
-                  Operation Logs
-                  {selectedTakeHomeForLogs ? ` - Take-Home ${selectedTakeHomeForLogs}` : ''}
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowLogsModal(false)
-                    setSelectedTakeHomeForLogs(null)
-                  }}
-                  className="text-slate-500 hover:text-slate-700 cursor-pointer transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <OperationDashboard interviewFilter={selectedTakeHomeForLogs} />
-
-              <div className="flex justify-end mt-4">
-                <button
-                  onClick={() => {
-                    setShowLogsModal(false)
-                    setSelectedTakeHomeForLogs(null)
-                  }}
-                  className="btn-outline"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
+          <TakeHomeLogsModal
+            selectedTakeHomeForLogs={selectedTakeHomeForLogs}
+            onClose={() => {
+              setShowLogsModal(false)
+              setSelectedTakeHomeForLogs(null)
+            }}
+          />
         )}
       </div>
     </div>
