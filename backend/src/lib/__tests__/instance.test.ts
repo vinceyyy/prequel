@@ -64,9 +64,7 @@ describe('Instance Management', () => {
       historyS3Key: 'history/test-123.tar.gz',
     }
 
-    ;(terraformManager.destroyInterviewStreaming as Mock).mockResolvedValue(
-      mockTerraformResult,
-    )
+    ;(terraformManager.destroyInterviewStreaming as Mock).mockResolvedValue(mockTerraformResult)
 
     const result = await destroyInstance('test-123', {
       saveFiles: true,
