@@ -14,13 +14,14 @@ Always-on engineering rules live in `.claude/rules/` and are imported here:
 @.claude/rules/documentation.md
 @.claude/rules/github-rulesets.md
 
-> **⚠️ Architecture migration in progress.** The project is moving off Next.js to a
-> pnpm workspace: **`backend/` (Hono API + scheduler) + `frontend/` (Vite React SPA)**,
-> on the vite-plus / oxlint / oxfmt / Vitest toolchain. Much of the "Architecture" and
-> "Development Commands" prose below still describes the old Next.js `portal/` and is
-> being rewritten. For current commands use `pnpm run dev | build | check | test` at the
-> root. See `docs/working/ai-modernization-plan.md`. The `portal/` directory is retained
-> only as reference until cutover.
+> **⚠️ Architecture migrated off Next.js.** The app is now a pnpm workspace:
+> **`backend/` (Hono API + scheduler) + `frontend/` (Vite React SPA)**, on the
+> vite-plus / oxlint / oxfmt / Vitest toolchain. The old Next.js `portal/` has been
+> removed. Much of the "Architecture" and "Development Commands" prose below still
+> describes the old layout and is being rewritten — for current commands use
+> `pnpm run dev | build | check | test` at the root, and `./scripts/build-push-deploy.sh
+> dev` to ship. The image is built from `backend/Dockerfile` (multi-stage: builds the SPA,
+> serves it from Hono). See `docs/working/ai-modernization-plan.md`.
 
 ## Project Overview
 
