@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import AuthGate from './components/AuthGate'
 import Navigation from './components/Navigation'
 import AdminPage from './pages/AdminPage'
 import ApiKeyActivatePage from './pages/ApiKeyActivatePage'
@@ -11,7 +12,7 @@ import TakeHomesPage from './pages/TakeHomesPage'
 
 function App() {
   return (
-    <>
+    <AuthGate>
       <Navigation />
       <Routes>
         <Route path="/" element={<Navigate to="/interviews" replace />} />
@@ -24,7 +25,7 @@ function App() {
         <Route path="/apikey/:token" element={<ApiKeyActivatePage />} />
         <Route path="/takehome/:token" element={<TakeHomeActivatePage />} />
       </Routes>
-    </>
+    </AuthGate>
   )
 }
 

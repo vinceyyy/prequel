@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
-import { setCookie } from 'hono/cookie'
-import { createSessionToken, validatePasscode } from '../lib/auth'
+import { getCookie, setCookie } from 'hono/cookie'
+import { createSessionToken, validatePasscode, validateSessionToken } from '../lib/auth'
+import { config } from '../lib/config'
 import { authLogger } from '../lib/logger'
 import { AUTH_COOKIE } from '../middleware/auth'
 
@@ -56,6 +57,20 @@ authRouter.post('/login', async (c) => {
     })
     return c.json({ error: 'Internal server error' }, 500)
   }
+})
+
+/**
+ * GET /api/auth/me — report whether auth is enabled and whether this request
+ * carries a valid session. Public (no gate) so the SPA can decide, on load,
+ * whether to route the user to /login. The cookie is httpOnly, so the client
+ * can't inspect it directly — it asks the server instead.
+ */
+authRouter.get('/me', (c) => {
+  const token = getCookie(c, AUTH_COOKIE)
+  return c.json({
+    authEnabled: config.auth.enabled,
+    authenticated: !!token && validateSessionToken(token),
+  })
 })
 
 /**
