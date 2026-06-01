@@ -837,7 +837,7 @@ challengesRouter.get('/manage/:id/download', async (c) => {
       `[API] Generated ZIP for challenge: ${challengeId} (${zipBuffer.length} bytes)`
     )
 
-    return c.body(zipBuffer, 200, {
+    return c.body(new Uint8Array(zipBuffer), 200, {
       'Content-Type': 'application/zip',
       'Content-Disposition': `attachment; filename="${sanitizedName}.zip"`,
       'Content-Length': zipBuffer.length.toString(),

@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
-import { logger } from 'hono/logger'
+import { logger as honoLogger } from 'hono/logger'
 import { authMiddleware } from './middleware/auth'
 import { apiRoutes } from './routes/index'
 import { logger } from './lib/logger'
@@ -25,7 +25,7 @@ app.onError((err, c) => {
   return c.json({ error: 'Internal server error' }, 500)
 })
 
-app.use('*', logger())
+app.use('*', honoLogger())
 
 // Liveness probe (also exposed under /api/health for the ALB target group).
 app.get('/health', (c) => c.text('ok'))

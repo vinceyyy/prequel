@@ -6,7 +6,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsup src/server.ts --format esm --target node24 --out-dir dist --clean",
+    "build": "tsup",
     "start": "node dist/server.js",
     "check": "vp check",
     "typecheck": "tsc -p tsconfig.json --noEmit",

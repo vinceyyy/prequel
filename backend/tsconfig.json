@@ -5,8 +5,11 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
     "types": ["node"],
-    "lib": ["ES2024"],
-    "verbatimModuleSyntax": false
+    "lib": ["ES2024", "DOM"],
+    "verbatimModuleSyntax": false,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/__tests__/**", "src/**/*.test.ts", "src/**/__mocks__/**"]
 }
