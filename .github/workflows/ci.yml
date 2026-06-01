@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, format, typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: pnpm run check (oxfmt + oxlint + tsc, all packages)
+        run: pnpm run check
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build backend (tsup) + frontend (vite)
+        run: pnpm run build
+      - name: Upload frontend dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 3
+          if-no-files-found: error
+
+  unit:
+    name: Unit tests (non-blocking until Jest→Vitest port)
+    runs-on: ubuntu-latest
+    # NOTE: backend/src/lib/__tests__ are still Jest-style and excluded from
+    # typecheck; their Vitest port is tracked separately. This job runs the
+    # suite but does not gate merges yet, so the gap stays visible rather than
+    # silently dropped. Flip continue-on-error to false once the port lands.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run Vitest across packages
+        run: pnpm run test
+
+  terraform:
+    name: Terraform fmt + validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive infra
+      - name: terraform validate (modules)
+        run: |
+          set -e
+          for dir in infra/modules/*/; do
+            echo "== validate $dir =="
+            terraform -chdir="$dir" init -backend=false -input=false >/dev/null
+            terraform -chdir="$dir" validate
+          done
+
+  e2e:
+    name: Playwright E2E (disabled — needs live AWS)
+    runs-on: ubuntu-latest
+    # prequel's Playwright specs boot the app against real AWS (DynamoDB/ECS/
+    # terraform), so e2e can't run in CI without provisioning credentials and
+    # infra. Kept here documented; enable once a hermetic test env exists.
+    if: false
+    steps:
+      - run: echo "e2e disabled in CI"
