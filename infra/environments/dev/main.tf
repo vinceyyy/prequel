@@ -49,9 +49,11 @@ module "environment" {
   private_subnet_ids    = data.terraform_remote_state.shared.outputs.private_subnet_ids
   alb_security_group_id = data.terraform_remote_state.shared.outputs.alb_security_group_id
 
-  # Development sizing: 0.25 vCPU, 0.5 GB memory
-  portal_cpu    = 256
-  portal_memory = 512
+  # Development sizing: 0.5 vCPU, 1 GB memory.
+  # 512 MB OOM-kills the in-container terraform plan during interview provisioning,
+  # so dev needs at least 1 GB to actually create instances.
+  portal_cpu    = 512
+  portal_memory = 1024
 }
 
 moved {
