@@ -1,0 +1,763 @@
+import { v4 as uuidv4 } from 'uuid'
+import {
+  DynamoDBClient,
+  GetItemCommand,
+  PutItemCommand,
+  UpdateItemCommand,
+  QueryCommand,
+  ScanCommand,
+} from '@aws-sdk/client-dynamodb'
+import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
+import { operationsLogger } from './logger'
+import { config } from './config'
+import type { Operation, OperationEvent } from './types/operation'
+import { OperationEventBus } from './operationEvents'
+import { operationToDynamoItem, dynamoItemToOperation } from './operationMarshalling'
+
+// Re-export operation types so existing importers (e.g. '../operations') keep working.
+export type { Operation, OperationEvent } from './types/operation'
+
+/**
+ * DynamoDB-backed operation manager with persistent storage and event emission.
+ *
+ * This class leverages DynamoDB features for efficient operation management:
+ * - **Persistent Storage**: Operations survive container restarts
+ * - **Efficient Queries**: Uses GSI for fast lookups by status, interview, type
+ * - **Auto-cleanup**: TTL automatically removes old operations after 24 hours
+ * - **Atomic Updates**: DynamoDB handles concurrent operation updates
+ * - **Event Emission**: Real-time SSE events for UI updates
+ *
+ * DynamoDB Table Schema:
+ * - **Primary Key**: id (string) - Unique operation identifier
+ * - **GSI 1**: status-scheduledAt-index - Query operations by status and scheduledAt
+ * - **GSI 2**: status-autoDestroyAt-index - Query operations by status and autoDestroyAt
+ * - **GSI 3**: interviewId-type-index - Query operations by interviewId and type
+ * - **TTL**: Automatic cleanup after 24 hours using ttl attribute
+ *
+ * Key DynamoDB optimizations:
+ * - Query operations by status for scheduled/auto-destroy lookups
+ * - Query operations by interviewId to prevent duplicate destroys
+ * - Batch operations for efficient bulk updates
+ * - TTL for automatic cleanup without manual maintenance
+ *
+ * @example
+ * ```typescript
+ * // Create a new operation
+ * const opId = await operationManager.createOperation('create', 'interview-123', 'John Doe', 'javascript')
+ *
+ * // Update operation status (triggers SSE event)
+ * await operationManager.updateOperationStatus(opId, 'running')
+ *
+ * // Add execution logs
+ * await operationManager.addOperationLog(opId, 'Starting Terraform...')
+ *
+ * // Complete the operation (triggers SSE event)
+ * await operationManager.setOperationResult(opId, { success: true, accessUrl: 'https://...' })
+ * ```
+ */
+class OperationManager {
+  private dynamoClient: DynamoDBClient
+  private tableName: string
+  private events = new OperationEventBus()
+
+  /**
+   * Creates a new OperationManager instance with DynamoDB client.
+   *
+   * Uses centralized configuration system for AWS credentials and table names.
+   * Table name is auto-generated as: {PROJECT_PREFIX}-{ENVIRONMENT}-operations
+   */
+  constructor() {
+    this.dynamoClient = new DynamoDBClient(config.aws.getCredentials())
+    this.tableName = config.database.operationsTable
+
+    // Debug logging for server environment
+    if (typeof window === 'undefined') {
+      operationsLogger.debug('OperationManager initialized', {
+        tableName: this.tableName,
+        region: process.env.AWS_REGION || 'us-east-1',
+      })
+    }
+  }
+
+  /**
+   * Adds an event listener for operation state changes.
+   * @param listener - Function to call when operations change state
+   */
+  addEventListener(listener: (event: OperationEvent) => void) {
+    this.events.addEventListener(listener)
+  }
+
+  /**
+   * Removes an event listener.
+   * @param listener - The listener function to remove
+   */
+  removeEventListener(listener: (event: OperationEvent) => void) {
+    this.events.removeEventListener(listener)
+  }
+
+  /**
+   * Creates a new operation to track a background task.
+   *
+   * @param type - Type of operation ('create' or 'destroy')
+   * @param interviewId - Interview ID this operation belongs to
+   * @param candidateName - Optional candidate name for display
+   * @param challenge - Optional challenge name for display
+   * @param scheduledAt - Optional scheduled execution time
+   * @param autoDestroyAt - Optional auto-destroy timeout
+   * @returns The generated operation ID for tracking
+   *
+   * @example
+   * ```typescript
+   * // Create immediate operation
+   * const opId = await operationManager.createOperation('create', 'interview-123', 'John Doe', 'javascript')
+   *
+   * // Create scheduled operation
+   * const scheduledOpId = await operationManager.createOperation(
+   *   'create', 'interview-456', 'Jane Smith', 'python',
+   *   new Date('2025-01-15T10:00:00Z'),
+   *   new Date('2025-01-15T11:00:00Z')
+   * )
+   * ```
+   */
+  async createOperation(
+    type: 'create' | 'destroy' | 'revoke_takehome',
+    interviewId: string,
+    candidateName?: string,
+    challenge?: string,
+    scheduledAt?: Date,
+    autoDestroyAt?: Date,
+    saveFiles?: boolean,
+  ): Promise<string> {
+    const operationId = uuidv4()
+
+    const operation: Operation = {
+      id: operationId,
+      type,
+      status: scheduledAt ? 'scheduled' : 'pending',
+      interviewId,
+      candidateName,
+      challenge,
+      saveFiles,
+      createdAt: new Date(),
+      scheduledAt,
+      autoDestroyAt,
+      logs: [],
+    }
+
+    const item = operationToDynamoItem(operation)
+
+    try {
+      await this.dynamoClient.send(
+        new PutItemCommand({
+          TableName: this.tableName,
+          Item: marshall(item, { removeUndefinedValues: true }),
+        }),
+      )
+
+      this.events.emit(operation)
+      return operationId
+    } catch (error) {
+      operationsLogger.error('Error creating operation in DynamoDB', {
+        tableName: this.tableName,
+        operationId: operationId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Retrieves a single operation by ID.
+   */
+  async getOperation(operationId: string): Promise<Operation | undefined> {
+    const response = await this.dynamoClient.send(
+      new GetItemCommand({
+        TableName: this.tableName,
+        Key: marshall({ id: operationId }),
+      }),
+    )
+
+    if (!response.Item) {
+      return undefined
+    }
+
+    const item = unmarshall(response.Item)
+    return dynamoItemToOperation(item)
+  }
+
+  /**
+   * Retrieves all operations, sorted by creation time (newest first).
+   * Uses Scan operation - should be used sparingly for large datasets.
+   */
+  async getAllOperations(): Promise<Operation[]> {
+    const response = await this.dynamoClient.send(
+      new ScanCommand({
+        TableName: this.tableName,
+      }),
+    )
+
+    const operations = (response.Items || [])
+      .map((item) => dynamoItemToOperation(unmarshall(item)))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+
+    return operations
+  }
+
+  /**
+   * Retrieves active operations (pending + running + scheduled) using efficient GSI queries.
+   * Much more efficient than getAllOperations() when you only need active operations.
+   * Perfect for polling status updates and real-time monitoring.
+   *
+   * @returns Promise<Operation[]> - Array of active operations (pending + running + scheduled)
+   */
+  async getActiveOperations(): Promise<Operation[]> {
+    const [pendingOps, runningOps, scheduledOps] = await Promise.all([
+      this.getOperationsByStatus('pending'),
+      this.getOperationsByStatus('running'),
+      this.getOperationsByStatus('scheduled'),
+    ])
+
+    // Combine and sort by creation time (newest first)
+    const activeOperations = [...pendingOps, ...runningOps, ...scheduledOps].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    )
+
+    return activeOperations
+  }
+
+  /**
+   * Retrieves operations by status using GSI query (much more efficient than scan).
+   * Uses the 'status-scheduledAt-index' GSI for efficient querying.
+   *
+   * @param status - The operation status to query for
+   * @returns Promise<Operation[]> - Array of operations with the specified status
+   */
+  private async getOperationsByStatus(status: Operation['status']): Promise<Operation[]> {
+    const response = await this.dynamoClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'status-scheduledAt-index',
+        KeyConditionExpression: '#status = :status',
+        ExpressionAttributeNames: {
+          '#status': 'status',
+        },
+        ExpressionAttributeValues: marshall({
+          ':status': status,
+        }),
+      }),
+    )
+
+    const operations = (response.Items || [])
+      .map((item) => dynamoItemToOperation(unmarshall(item)))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+
+    return operations
+  }
+
+  /**
+   * Retrieves all operations for a specific interview using GSI.
+   * Much more efficient than scanning all operations.
+   */
+  async getOperationsByInterview(interviewId: string): Promise<Operation[]> {
+    const response = await this.dynamoClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'interviewId-type-index',
+        KeyConditionExpression: 'interviewId = :interviewId',
+        ExpressionAttributeValues: marshall({
+          ':interviewId': interviewId,
+        }),
+      }),
+    )
+
+    const operations = (response.Items || [])
+      .map((item) => dynamoItemToOperation(unmarshall(item)))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+
+    return operations
+  }
+
+  /**
+   * Updates operation status and automatically sets execution/completion timestamps.
+   */
+  async updateOperationStatus(operationId: string, status: Operation['status']): Promise<void> {
+    const now = Math.floor(Date.now() / 1000)
+    let updateExpression = 'SET #status = :status'
+    const expressionAttributeNames: Record<string, string> = {
+      '#status': 'status',
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const expressionAttributeValues: Record<string, any> = {
+      ':status': status,
+    }
+
+    // Mark execution start time when operation starts running
+    if (status === 'running') {
+      updateExpression += ', executionStartedAt = :executionStartedAt'
+      expressionAttributeValues[':executionStartedAt'] = now
+    }
+
+    // Mark completion time when operation finishes
+    if (status === 'completed' || status === 'failed') {
+      updateExpression += ', completedAt = :completedAt'
+      expressionAttributeValues[':completedAt'] = now
+    }
+
+    await this.dynamoClient.send(
+      new UpdateItemCommand({
+        TableName: this.tableName,
+        Key: marshall({ id: operationId }),
+        UpdateExpression: updateExpression,
+        ExpressionAttributeNames: expressionAttributeNames,
+        ExpressionAttributeValues: marshall(expressionAttributeValues, {
+          removeUndefinedValues: true,
+        }),
+      }),
+    )
+
+    // Fetch updated operation and emit event
+    const operation = await this.getOperation(operationId)
+    if (operation) {
+      this.events.emit(operation)
+    }
+  }
+
+  /**
+   * Retrieves scheduled operations that need to be executed using GSI.
+   *
+   * Uses the 'status-scheduledAt-index' GSI for efficient querying of operations
+   * with 'scheduled' status. Much more efficient than scanning all operations.
+   *
+   * @returns Promise<Operation[]> - Array of scheduled operations sorted by scheduledAt
+   */
+  async getScheduledOperations(): Promise<Operation[]> {
+    const response = await this.dynamoClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'status-scheduledAt-index',
+        KeyConditionExpression: '#status = :status',
+        ExpressionAttributeNames: {
+          '#status': 'status',
+        },
+        ExpressionAttributeValues: marshall({
+          ':status': 'scheduled',
+        }),
+      }),
+    )
+
+    const operations = (response.Items || [])
+      .map((item) => dynamoItemToOperation(unmarshall(item)))
+      .sort((a, b) => (a.scheduledAt?.getTime() || 0) - (b.scheduledAt?.getTime() || 0))
+
+    return operations
+  }
+
+  /**
+   * Retrieves operations eligible for auto-destroy using GSI and additional filtering.
+   *
+   * Strategy:
+   * 1. Query all completed operations using 'status-autoDestroyAt-index' GSI
+   * 2. Filter for create operations with auto-destroy times that have elapsed
+   * 3. Check if destroy operation already exists for each interview using 'interviewId-type-index' GSI
+   *
+   * This approach uses efficient DynamoDB GSI queries instead of scanning all operations,
+   * making it highly scalable and preventing duplicate destroy operations.
+   *
+   * @returns Promise<Operation[]> - Array of operations eligible for auto-destroy
+   */
+  async getOperationsForAutoDestroy(): Promise<Operation[]> {
+    const now = Math.floor(Date.now() / 1000)
+
+    // Query all completed operations
+    const response = await this.dynamoClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'status-autoDestroyAt-index',
+        KeyConditionExpression: '#status = :status AND autoDestroyAt <= :now',
+        ExpressionAttributeNames: {
+          '#status': 'status',
+        },
+        ExpressionAttributeValues: marshall({
+          ':status': 'completed',
+          ':now': now,
+        }),
+      }),
+    )
+
+    const completedOps = (response.Items || [])
+      .map((item) => dynamoItemToOperation(unmarshall(item)))
+      .filter(
+        (op) =>
+          op.type === 'create' &&
+          op.result?.success &&
+          op.autoDestroyAt &&
+          op.autoDestroyAt <= new Date(),
+      )
+
+    // Filter out operations that already have destroy operations
+    const eligibleOps: Operation[] = []
+
+    for (const op of completedOps) {
+      const hasDestroy = await this.hasDestroyOperationForInterview(op.interviewId)
+      if (!hasDestroy) {
+        eligibleOps.push(op)
+      }
+    }
+
+    return eligibleOps
+  }
+
+  /**
+   * Checks if there's already a destroy operation for a given interview using GSI.
+   * Much more efficient than scanning all operations.
+   */
+  async hasDestroyOperationForInterview(interviewId: string): Promise<boolean> {
+    const response = await this.dynamoClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'interviewId-type-index',
+        KeyConditionExpression: 'interviewId = :interviewId AND #type = :type',
+        ExpressionAttributeNames: {
+          '#type': 'type',
+        },
+        ExpressionAttributeValues: marshall({
+          ':interviewId': interviewId,
+          ':type': 'destroy',
+        }),
+        Limit: 1, // We only need to know if one exists
+      }),
+    )
+
+    return (response.Items?.length || 0) > 0
+  }
+
+  /**
+   * Adds a log entry to an operation with batching to reduce DynamoDB writes.
+   */
+  private logBatch: Map<string, string[]> = new Map()
+  private logBatchTimeout: NodeJS.Timeout | null = null
+
+  async addOperationLog(operationId: string, logEntry: string): Promise<void> {
+    const timestamp = new Date().toISOString()
+    const logWithTimestamp = `[${timestamp}] ${logEntry}`
+
+    // Add to batch
+    if (!this.logBatch.has(operationId)) {
+      this.logBatch.set(operationId, [])
+    }
+    this.logBatch.get(operationId)!.push(logWithTimestamp)
+
+    // Schedule batch flush if not already scheduled
+    if (!this.logBatchTimeout) {
+      this.logBatchTimeout = setTimeout(() => {
+        this.flushLogBatch()
+      }, 2000) // Batch logs for 2 seconds
+    }
+  }
+
+  private async flushLogBatch(): Promise<void> {
+    if (this.logBatch.size === 0) return
+
+    const batchOperations = Array.from(this.logBatch.entries())
+    this.logBatch.clear()
+    this.logBatchTimeout = null
+
+    // Process each operation's logs
+    for (const [operationId, logs] of batchOperations) {
+      try {
+        await this.dynamoClient.send(
+          new UpdateItemCommand({
+            TableName: this.tableName,
+            Key: marshall({ id: operationId }),
+            UpdateExpression: 'SET logs = list_append(if_not_exists(logs, :empty_list), :logs)',
+            ExpressionAttributeValues: marshall({
+              ':logs': logs,
+              ':empty_list': [],
+            }),
+          }),
+        )
+
+        // Emit SSE event for log updates - enables real-time log streaming
+        this.events.emitLogUpdate(operationId, logs)
+      } catch (error) {
+        operationsLogger.error('Error flushing logs for operation', {
+          operationId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
+    }
+  }
+
+  /**
+   * Sets the final result of an operation and updates status accordingly.
+   */
+  async setOperationResult(operationId: string, result: Operation['result']): Promise<void> {
+    const now = Math.floor(Date.now() / 1000)
+    const status = result?.success ? 'completed' : 'failed'
+
+    operationsLogger.info('Setting operation result', {
+      operationId,
+      status,
+      success: result?.success,
+      hasError: !!result?.error,
+    })
+
+    await this.dynamoClient.send(
+      new UpdateItemCommand({
+        TableName: this.tableName,
+        Key: marshall({ id: operationId }),
+        UpdateExpression: 'SET #result = :result, #status = :status, completedAt = :completedAt',
+        ExpressionAttributeNames: {
+          '#result': 'result',
+          '#status': 'status',
+        },
+        ExpressionAttributeValues: marshall(
+          {
+            ':result': result,
+            ':status': status,
+            ':completedAt': now,
+          },
+          { removeUndefinedValues: true },
+        ),
+      }),
+    )
+
+    operationsLogger.info('Operation result set in DynamoDB', {
+      operationId,
+      status,
+    })
+
+    // Fetch updated operation and emit event
+    const operation = await this.getOperation(operationId)
+    if (operation) {
+      this.events.emit(operation)
+    }
+  }
+
+  /**
+   * Updates an operation to mark infrastructure as ready while health check is still pending.
+   */
+  async updateOperationInfrastructureReady(
+    operationId: string,
+    accessUrl?: string,
+    password?: string,
+  ): Promise<void> {
+    const operation = await this.getOperation(operationId)
+    if (!operation) return
+
+    const updatedResult = {
+      ...operation.result,
+      success: true,
+      infrastructureReady: true,
+      healthCheckPassed: false,
+      ...(accessUrl && { accessUrl }),
+      ...(password && { password }),
+    }
+
+    await this.dynamoClient.send(
+      new UpdateItemCommand({
+        TableName: this.tableName,
+        Key: marshall({ id: operationId }),
+        UpdateExpression: 'SET #result = :result',
+        ExpressionAttributeNames: {
+          '#result': 'result',
+        },
+        ExpressionAttributeValues: marshall(
+          {
+            ':result': updatedResult,
+          },
+          { removeUndefinedValues: true },
+        ),
+      }),
+    )
+
+    // Fetch updated operation and emit event
+    const updatedOperation = await this.getOperation(operationId)
+    if (updatedOperation) {
+      this.events.emit(updatedOperation)
+    }
+  }
+
+  /**
+   * Updates credentials (URL and password) for a scheduled interview without changing operation status.
+   * Used to store credentials immediately when an interview is scheduled.
+   */
+  async updateScheduledInterviewCredentials(
+    operationId: string,
+    accessUrl: string,
+    password: string,
+  ): Promise<void> {
+    const operation = await this.getOperation(operationId)
+    if (!operation) return
+
+    const updatedResult = {
+      ...operation.result,
+      accessUrl,
+      password,
+    }
+
+    await this.dynamoClient.send(
+      new UpdateItemCommand({
+        TableName: this.tableName,
+        Key: marshall({ id: operationId }),
+        UpdateExpression: 'SET #result = :result',
+        ExpressionAttributeNames: {
+          '#result': 'result',
+        },
+        ExpressionAttributeValues: marshall(
+          {
+            ':result': updatedResult,
+          },
+          { removeUndefinedValues: true },
+        ),
+      }),
+    )
+
+    // Fetch updated operation and emit event
+    const updatedOperation = await this.getOperation(operationId)
+    if (updatedOperation) {
+      this.events.emit(updatedOperation)
+    }
+  }
+
+  /**
+   * Cancels an operation that is pending, running, or scheduled.
+   */
+  async cancelOperation(operationId: string): Promise<boolean> {
+    const operation = await this.getOperation(operationId)
+    if (!operation || !['pending', 'running', 'scheduled'].includes(operation.status)) {
+      return false
+    }
+
+    const now = Math.floor(Date.now() / 1000)
+
+    await this.dynamoClient.send(
+      new UpdateItemCommand({
+        TableName: this.tableName,
+        Key: marshall({ id: operationId }),
+        UpdateExpression: 'SET #status = :status, completedAt = :completedAt, #result = :result',
+        ExpressionAttributeNames: {
+          '#status': 'status',
+          '#result': 'result',
+        },
+        ExpressionAttributeValues: marshall(
+          {
+            ':status': 'cancelled',
+            ':completedAt': now,
+            ':result': {
+              success: false,
+              error: 'Operation cancelled by user',
+            },
+          },
+          { removeUndefinedValues: true },
+        ),
+      }),
+    )
+
+    await this.addOperationLog(operationId, 'Operation cancelled by user')
+
+    // Fetch updated operation and emit event
+    const updatedOperation = await this.getOperation(operationId)
+    if (updatedOperation) {
+      this.events.emit(updatedOperation)
+    }
+
+    return true
+  }
+
+  /**
+   * Cancels all scheduled operations for a specific interview.
+   * Used when an interview is manually destroyed before scheduled operations execute.
+   */
+  async cancelScheduledOperationsForInterview(interviewId: string): Promise<number> {
+    // Query all operations for this interview
+    const operations = await this.getOperationsByInterview(interviewId)
+    const scheduledOps = operations.filter((op) => op.status === 'scheduled')
+
+    if (scheduledOps.length === 0) {
+      return 0
+    }
+
+    const now = Math.floor(Date.now() / 1000)
+
+    // Cancel each scheduled operation
+    for (const op of scheduledOps) {
+      await this.dynamoClient.send(
+        new UpdateItemCommand({
+          TableName: this.tableName,
+          Key: marshall({ id: op.id }),
+          UpdateExpression: 'SET #status = :status, completedAt = :completedAt, #result = :result',
+          ExpressionAttributeNames: {
+            '#status': 'status',
+            '#result': 'result',
+          },
+          ExpressionAttributeValues: marshall(
+            {
+              ':status': 'cancelled',
+              ':completedAt': now,
+              ':result': {
+                success: false,
+                error: 'Operation cancelled due to manual interview destruction',
+              },
+            },
+            { removeUndefinedValues: true },
+          ),
+        }),
+      )
+
+      await this.addOperationLog(op.id, 'Operation cancelled due to manual interview destruction')
+
+      // Fetch updated operation and emit event
+      const updatedOperation = await this.getOperation(op.id)
+      if (updatedOperation) {
+        this.events.emit(updatedOperation)
+      }
+    }
+
+    return scheduledOps.length
+  }
+
+  /**
+   * Gets logs for a specific operation.
+   */
+  async getOperationLogs(operationId: string): Promise<string[]> {
+    const operation = await this.getOperation(operationId)
+    return operation?.logs || []
+  }
+
+  /**
+   * Cleans up old operations (not needed with DynamoDB TTL, but kept for compatibility).
+   *
+   * DynamoDB TTL automatically removes operations after 24 hours using the 'ttl' attribute.
+   * This is more efficient than manual cleanup and requires no maintenance.
+   *
+   * TTL Configuration:
+   * - Set on each operation during creation (24 hours from now)
+   * - DynamoDB handles deletion automatically
+   * - No manual intervention required
+   */
+  async cleanup(): Promise<void> {
+    // With DynamoDB TTL, this is handled automatically
+    // This method is kept for compatibility but does nothing
+    operationsLogger.info('Cleanup not needed - DynamoDB TTL handles automatic cleanup')
+  }
+}
+
+export const operationManager = new OperationManager()
+
+// Note: Cleanup interval not needed with DynamoDB TTL
+// TTL will automatically clean up operations after 24 hours
+
+// Initialize scheduler if in server environment
+if (typeof window === 'undefined') {
+  // Import and initialize scheduler on server-side only
+  import('./scheduler')
+    .then(() => {
+      operationsLogger.info('Scheduler initialized')
+    })
+    .catch((error) => {
+      operationsLogger.error('Failed to initialize scheduler', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    })
+}

@@ -31,6 +31,12 @@ node_modules/
 coverage/
 next-env.d.ts
 tsconfig.tsbuildinfo
+dist/
+*.tsbuildinfo
+
+# Errored terraform state dumps
+errored.tfstate
+*.errored.tfstate
 
 # Python
 __pycache__/
