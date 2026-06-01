@@ -14,7 +14,9 @@ FROM node:26-bullseye-slim AS build
 # initializes an HTTPS client at startup and aborts if the system CA store is empty.
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-RUN corepack enable
+# Install pnpm directly. (Node 26 dropped the bundled corepack, so `corepack
+# enable` no longer works; pin pnpm to match packageManager in package.json.)
+RUN npm install -g pnpm@11.0.9
 WORKDIR /repo
 
 # Install deps first (cache-friendly): copy manifests + lockfile only.
