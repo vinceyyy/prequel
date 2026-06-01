@@ -11,115 +11,142 @@ describe('OperationManager', () => {
     }
   })
 
-  // SKIP: pre-migration test rot — written against an old synchronous in-memory
-  // OperationManager; current source is async DynamoDB-backed. Needs rewrite.
-  describe.skip('cancelScheduledOperationsForInterview', () => {
-    it('should cancel scheduled operations for a specific interview', () => {
+  // cancelScheduledOperationsForInterview is now async + DynamoDB-backed. It:
+  //   1. Queries getOperationsByInterview (interviewId-type-index GSI)
+  //   2. Filters for status === 'scheduled'
+  //   3. Issues an UpdateItemCommand per scheduled op (status -> cancelled)
+  //   4. Re-reads each op via GetItem and returns the count cancelled
+  // We mock the DynamoDB client's send() the same way the passing test below
+  // does (swap operationManager.dynamoClient for a stub), returning marshalled
+  // DynamoDB-JSON items.
+  describe('cancelScheduledOperationsForInterview', () => {
+    let mockSend: Mock
+    let originalClient: unknown
+
+    // Builds a marshalled DynamoDB item for an operation.
+    const op = (id: string, status: string, interviewId: string, type = 'create') => ({
+      id: { S: id },
+      type: { S: type },
+      status: { S: status },
+      interviewId: { S: interviewId },
+      candidateName: { S: 'Test Candidate' },
+      challenge: { S: 'javascript' },
+      createdAt: { N: String(Math.floor(Date.now() / 1000)) },
+      logs: { L: [] },
+    })
+
+    beforeEach(() => {
+      mockSend = vi.fn()
+      originalClient = (operationManager as unknown as { dynamoClient: unknown }).dynamoClient
+      ;(operationManager as unknown as { dynamoClient: { send: Mock } }).dynamoClient = {
+        send: mockSend,
+      }
+    })
+
+    afterEach(() => {
+      ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient = originalClient
+    })
+
+    it('should cancel only scheduled operations for a specific interview', async () => {
       const interviewId = 'test-interview-123'
 
-      // Create some operations
-      const scheduleOpId = operationManager.createOperation(
-        'create',
-        interviewId,
-        'Test Candidate',
-        'javascript',
-        new Date(Date.now() + 60000), // scheduled for 1 minute in future
-      )
+      mockSend.mockImplementation((command: { input?: Record<string, unknown> }) => {
+        const ctor = command.constructor.name
+        if (ctor === 'QueryCommand') {
+          // getOperationsByInterview -> one scheduled, one running
+          return Promise.resolve({
+            Items: [
+              op('op-scheduled', 'scheduled', interviewId),
+              op('op-running', 'running', interviewId),
+            ],
+          })
+        }
+        if (ctor === 'UpdateItemCommand') {
+          return Promise.resolve({})
+        }
+        if (ctor === 'GetItemCommand') {
+          // Re-read after cancel: reflect the new cancelled status
+          return Promise.resolve({
+            Item: {
+              ...op('op-scheduled', 'cancelled', interviewId),
+              result: {
+                M: {
+                  success: { BOOL: false },
+                  error: { S: 'Operation cancelled due to manual interview destruction' },
+                },
+              },
+            },
+          })
+        }
+        return Promise.resolve({})
+      })
 
-      const regularOpId = operationManager.createOperation(
-        'create',
-        'other-interview',
-        'Other Candidate',
-        'python',
-      )
+      const cancelledCount =
+        await operationManager.cancelScheduledOperationsForInterview(interviewId)
 
-      // Verify initial state
-      expect(operationManager.getOperation(scheduleOpId)?.status).toBe('scheduled')
-      expect(operationManager.getOperation(regularOpId)?.status).toBe('pending')
-
-      // Cancel scheduled operations for the interview
-      const cancelledCount = operationManager.cancelScheduledOperationsForInterview(interviewId)
-
-      // Verify results
       expect(cancelledCount).toBe(1)
-      expect(operationManager.getOperation(scheduleOpId)?.status).toBe('cancelled')
-      expect(operationManager.getOperation(scheduleOpId)?.result?.error).toBe(
+
+      // Only the scheduled op should have been updated to cancelled.
+      const updateCalls = mockSend.mock.calls.filter(
+        (c) => c[0].constructor.name === 'UpdateItemCommand',
+      )
+      expect(updateCalls).toHaveLength(1)
+      const updateInput = updateCalls[0][0].input
+      expect(updateInput.Key.id.S).toBe('op-scheduled')
+      expect(updateInput.ExpressionAttributeValues[':status'].S).toBe('cancelled')
+      expect(updateInput.ExpressionAttributeValues[':result'].M.error.S).toBe(
         'Operation cancelled due to manual interview destruction',
       )
-      expect(operationManager.getOperation(regularOpId)?.status).toBe('pending') // should be unchanged
     })
 
-    it('should handle multiple scheduled operations for the same interview', () => {
+    it('should cancel multiple scheduled operations for the same interview', async () => {
       const interviewId = 'test-interview-123'
 
-      // Create multiple scheduled operations for the same interview
-      const scheduleOpId1 = operationManager.createOperation(
-        'create',
-        interviewId,
-        'Test Candidate',
-        'javascript',
-        new Date(Date.now() + 60000),
-      )
+      mockSend.mockImplementation((command: { input?: Record<string, unknown> }) => {
+        const ctor = command.constructor.name
+        if (ctor === 'QueryCommand') {
+          return Promise.resolve({
+            Items: [
+              op('op-1', 'scheduled', interviewId, 'create'),
+              op('op-2', 'scheduled', interviewId, 'destroy'),
+            ],
+          })
+        }
+        if (ctor === 'GetItemCommand') {
+          return Promise.resolve({ Item: op('op-1', 'cancelled', interviewId) })
+        }
+        return Promise.resolve({})
+      })
 
-      const scheduleOpId2 = operationManager.createOperation(
-        'destroy',
-        interviewId,
-        'Test Candidate',
-        'javascript',
-        new Date(Date.now() + 120000),
-      )
+      const cancelledCount =
+        await operationManager.cancelScheduledOperationsForInterview(interviewId)
 
-      // Cancel scheduled operations for the interview
-      const cancelledCount = operationManager.cancelScheduledOperationsForInterview(interviewId)
-
-      // Verify results
       expect(cancelledCount).toBe(2)
-      expect(operationManager.getOperation(scheduleOpId1)?.status).toBe('cancelled')
-      expect(operationManager.getOperation(scheduleOpId2)?.status).toBe('cancelled')
+      const updateCalls = mockSend.mock.calls.filter(
+        (c) => c[0].constructor.name === 'UpdateItemCommand',
+      )
+      expect(updateCalls).toHaveLength(2)
     })
 
-    it('should return 0 when no scheduled operations exist for the interview', () => {
-      const interviewId = 'nonexistent-interview'
+    it('should return 0 when no scheduled operations exist for the interview', async () => {
+      mockSend.mockImplementation((command: { input?: Record<string, unknown> }) => {
+        const ctor = command.constructor.name
+        if (ctor === 'QueryCommand') {
+          // Only a pending op exists, nothing scheduled
+          return Promise.resolve({ Items: [op('op-pending', 'pending', 'other-interview')] })
+        }
+        return Promise.resolve({})
+      })
 
-      // Create an operation for a different interview
-      operationManager.createOperation('create', 'other-interview', 'Other Candidate', 'python')
+      const cancelledCount =
+        await operationManager.cancelScheduledOperationsForInterview('nonexistent-interview')
 
-      // Try to cancel scheduled operations for non-existent interview
-      const cancelledCount = operationManager.cancelScheduledOperationsForInterview(interviewId)
-
-      // Verify results
       expect(cancelledCount).toBe(0)
-    })
-
-    it('should only cancel scheduled operations, not other statuses', () => {
-      const interviewId = 'test-interview-123'
-
-      // Create operations with different statuses
-      const scheduleOpId = operationManager.createOperation(
-        'create',
-        interviewId,
-        'Test Candidate',
-        'javascript',
-        new Date(Date.now() + 60000),
+      // No update should be issued when nothing is scheduled.
+      const updateCalls = mockSend.mock.calls.filter(
+        (c) => c[0].constructor.name === 'UpdateItemCommand',
       )
-
-      const pendingOpId = operationManager.createOperation(
-        'create',
-        interviewId,
-        'Test Candidate',
-        'javascript',
-      )
-
-      // Change pending operation to running
-      operationManager.updateOperationStatus(pendingOpId, 'running')
-
-      // Cancel scheduled operations for the interview
-      const cancelledCount = operationManager.cancelScheduledOperationsForInterview(interviewId)
-
-      // Verify results
-      expect(cancelledCount).toBe(1)
-      expect(operationManager.getOperation(scheduleOpId)?.status).toBe('cancelled')
-      expect(operationManager.getOperation(pendingOpId)?.status).toBe('running') // should be unchanged
+      expect(updateCalls).toHaveLength(0)
     })
   })
 
@@ -192,113 +219,101 @@ describe('OperationManager', () => {
     ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient = originalClient
   })
 
-  // SKIP: pre-migration test rot — assumes sync in-memory operations; current
-  // source is async DynamoDB-backed. Needs rewrite.
-  describe.skip('getActiveOperations', () => {
-    it('should return only running and scheduled operations', async () => {
-      // Mock DynamoDB client to avoid actual DB calls in unit tests
-      const mockSend = vi.fn()
+  // getActiveOperations is async + DynamoDB-backed. It runs three GSI queries in
+  // parallel (pending, running, scheduled) via getOperationsByStatus, then merges
+  // and sorts the results by createdAt (newest first). We mock the DynamoDB send()
+  // per status, matching the same client-swap pattern used by the passing test.
+  describe('getActiveOperations', () => {
+    let mockSend: Mock
+    let originalClient: unknown
 
-      // Store original client to restore later
-      const originalClient = (operationManager as unknown as { dynamoClient: unknown }).dynamoClient
+    const item = (
+      id: string,
+      status: string,
+      interviewId: string,
+      candidateName: string,
+      createdAt: string,
+    ) => ({
+      id: { S: id },
+      type: { S: 'create' },
+      status: { S: status },
+      interviewId: { S: interviewId },
+      candidateName: { S: candidateName },
+      createdAt: { N: createdAt },
+      logs: { L: [] },
+    })
+
+    // Routes each QueryCommand to a response based on the queried status.
+    const respondByStatus = (responses: Record<string, unknown[]>) => {
+      mockSend.mockImplementation((command: { input: Record<string, never> }) => {
+        const status = (command.input.ExpressionAttributeValues as { ':status': { S: string } })[
+          ':status'
+        ].S
+        return Promise.resolve({ Items: responses[status] || [] })
+      })
+    }
+
+    beforeEach(() => {
+      mockSend = vi.fn()
+      originalClient = (operationManager as unknown as { dynamoClient: unknown }).dynamoClient
       ;(operationManager as unknown as { dynamoClient: { send: Mock } }).dynamoClient = {
         send: mockSend,
       }
+    })
 
-      // Mock responses for running and scheduled operations
-      mockSend
-        .mockResolvedValueOnce({
-          // Response for getOperationsByStatus('running')
-          Items: [
-            {
-              id: { S: 'op-running-1' },
-              type: { S: 'create' },
-              status: { S: 'running' },
-              interviewId: { S: 'int-1' },
-              candidateName: { S: 'Running Candidate' },
-              createdAt: { N: '1640995200' }, // 2022-01-01 timestamp
-            },
-          ],
-        })
-        .mockResolvedValueOnce({
-          // Response for getOperationsByStatus('scheduled')
-          Items: [
-            {
-              id: { S: 'op-scheduled-1' },
-              type: { S: 'create' },
-              status: { S: 'scheduled' },
-              interviewId: { S: 'int-2' },
-              candidateName: { S: 'Scheduled Candidate' },
-              createdAt: { N: '1640995300' }, // 2022-01-01 timestamp
-            },
-          ],
-        })
+    afterEach(() => {
+      ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient = originalClient
+    })
+
+    it('should return pending, running and scheduled operations sorted by createdAt desc', async () => {
+      respondByStatus({
+        pending: [item('op-pending-1', 'pending', 'int-0', 'Pending Candidate', '1640995100')],
+        running: [item('op-running-1', 'running', 'int-1', 'Running Candidate', '1640995200')],
+        scheduled: [
+          item('op-scheduled-1', 'scheduled', 'int-2', 'Scheduled Candidate', '1640995300'),
+        ],
+      })
 
       const activeOperations = await operationManager.getActiveOperations()
 
-      expect(activeOperations).toHaveLength(2)
+      // All three statuses are included.
+      expect(activeOperations).toHaveLength(3)
+      // Sorted newest-first by createdAt: scheduled (300) > running (200) > pending (100).
+      expect(activeOperations.map((o) => o.id)).toEqual([
+        'op-scheduled-1',
+        'op-running-1',
+        'op-pending-1',
+      ])
       expect(activeOperations[0]).toMatchObject({
         id: 'op-scheduled-1',
         status: 'scheduled',
         candidateName: 'Scheduled Candidate',
       })
-      expect(activeOperations[1]).toMatchObject({
-        id: 'op-running-1',
-        status: 'running',
-        candidateName: 'Running Candidate',
-      })
 
-      // Verify the correct GSI queries were made
-      expect(mockSend).toHaveBeenCalledTimes(2)
-      expect(mockSend).toHaveBeenCalledWith(
-        expect.objectContaining({
-          input: expect.objectContaining({
-            IndexName: 'status-scheduledAt-index',
-            KeyConditionExpression: '#status = :status',
-            ExpressionAttributeValues: expect.objectContaining({
-              ':status': { S: 'running' },
+      // Three GSI queries (one per active status) on the status-scheduledAt-index.
+      expect(mockSend).toHaveBeenCalledTimes(3)
+      for (const status of ['pending', 'running', 'scheduled']) {
+        expect(mockSend).toHaveBeenCalledWith(
+          expect.objectContaining({
+            input: expect.objectContaining({
+              IndexName: 'status-scheduledAt-index',
+              KeyConditionExpression: '#status = :status',
+              ExpressionAttributeValues: expect.objectContaining({
+                ':status': { S: status },
+              }),
             }),
           }),
-        }),
-      )
-      expect(mockSend).toHaveBeenCalledWith(
-        expect.objectContaining({
-          input: expect.objectContaining({
-            IndexName: 'status-scheduledAt-index',
-            KeyConditionExpression: '#status = :status',
-            ExpressionAttributeValues: expect.objectContaining({
-              ':status': { S: 'scheduled' },
-            }),
-          }),
-        }),
-      )
-
-      // Restore original client
-      ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient = originalClient
+        )
+      }
     })
 
     it('should return empty array when no active operations exist', async () => {
-      // Mock DynamoDB client
-      const mockSend = vi.fn()
-
-      // Store original client to restore later
-      const originalClient = (operationManager as unknown as { dynamoClient: unknown }).dynamoClient
-      ;(operationManager as unknown as { dynamoClient: { send: Mock } }).dynamoClient = {
-        send: mockSend,
-      }
-
-      // Mock empty responses
-      mockSend
-        .mockResolvedValueOnce({ Items: [] }) // running operations
-        .mockResolvedValueOnce({ Items: [] }) // scheduled operations
+      respondByStatus({ pending: [], running: [], scheduled: [] })
 
       const activeOperations = await operationManager.getActiveOperations()
 
       expect(activeOperations).toHaveLength(0)
-      expect(mockSend).toHaveBeenCalledTimes(2)
-
-      // Restore original client
-      ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient = originalClient
+      expect(mockSend).toHaveBeenCalledTimes(3)
     })
   })
 })

@@ -72,7 +72,7 @@ import { schedulerLogger } from '../logger'
 
 // Type to access private methods for testing
 type SchedulerServicePrivate = SchedulerService & {
-  processExpiredTakeHomes: () => Promise<void>
+  processTakeHomes: () => Promise<void>
 }
 
 describe('SchedulerService - Take-Home Expiration', () => {
@@ -90,9 +90,11 @@ describe('SchedulerService - Take-Home Expiration', () => {
     vi.restoreAllMocks()
   })
 
-  // SKIP: pre-migration test rot — calls scheduler.processExpiredTakeHomes(), which
-  // no longer exists (merged into processTakeHomes()). Needs rewrite (see task list).
-  describe.skip('processExpiredTakeHomes', () => {
+  // Take-home expiration is now handled by the private processTakeHomes() method,
+  // which expires any take-home with sessionStatus === 'available' whose
+  // availableUntil has elapsed. We exercise it via bracket access to the private
+  // method (mirroring SchedulerServicePrivate usage elsewhere in the suite).
+  describe('processTakeHomes - expiration', () => {
     test('successfully expires take-homes past availableUntil', async () => {
       const expiredTakeHome: TakeHome = {
         PK: 'TAKEHOME#th-123',
@@ -120,7 +122,7 @@ describe('SchedulerService - Take-Home Expiration', () => {
       mockUpdateSessionStatus.mockResolvedValue(undefined)
 
       // Call the private method through the scheduler instance
-      await (scheduler as SchedulerServicePrivate).processExpiredTakeHomes()
+      await (scheduler as SchedulerServicePrivate).processTakeHomes()
 
       expect(mockListTakeHomes).toHaveBeenCalledTimes(1)
       expect(mockUpdateSessionStatus).toHaveBeenCalledWith('th-123', 'takehome', 'expired')
@@ -159,16 +161,15 @@ describe('SchedulerService - Take-Home Expiration', () => {
 
       mockListTakeHomes.mockResolvedValue([activatedTakeHome])
 
-      await (scheduler as SchedulerServicePrivate).processExpiredTakeHomes()
+      await (scheduler as SchedulerServicePrivate).processTakeHomes()
 
+      // Activated take-homes are not in the 'available' state, so the expiration
+      // branch is skipped. With no autoDestroyAt set, the auto-destroy branch is
+      // skipped too — so the session status is never updated.
+      // NOTE: dropped legacy assertion on the 'Skipping take-home - already
+      // activated' debug log; processTakeHomes() no longer emits that message.
       expect(mockListTakeHomes).toHaveBeenCalledTimes(1)
       expect(mockUpdateSessionStatus).not.toHaveBeenCalled()
-      expect(schedulerLogger.debug).toHaveBeenCalledWith(
-        'Skipping take-home - already activated',
-        expect.objectContaining({
-          takeHomeId: 'th-456',
-        }),
-      )
     })
 
     test('skips take-homes that are already expired', async () => {
@@ -196,7 +197,7 @@ describe('SchedulerService - Take-Home Expiration', () => {
 
       mockListTakeHomes.mockResolvedValue([alreadyExpiredTakeHome])
 
-      await (scheduler as SchedulerServicePrivate).processExpiredTakeHomes()
+      await (scheduler as SchedulerServicePrivate).processTakeHomes()
 
       expect(mockListTakeHomes).toHaveBeenCalledTimes(1)
       expect(mockUpdateSessionStatus).not.toHaveBeenCalled()
@@ -237,7 +238,7 @@ describe('SchedulerService - Take-Home Expiration', () => {
         deleted: true,
       })
 
-      await (scheduler as SchedulerServicePrivate).processExpiredTakeHomes()
+      await (scheduler as SchedulerServicePrivate).processTakeHomes()
 
       expect(mockDeleteServiceAccount).toHaveBeenCalledWith('test-project-id', 'sa-123')
       expect(schedulerLogger.info).toHaveBeenCalledWith(
@@ -284,7 +285,7 @@ describe('SchedulerService - Take-Home Expiration', () => {
         error: 'OpenAI API error',
       })
 
-      await (scheduler as SchedulerServicePrivate).processExpiredTakeHomes()
+      await (scheduler as SchedulerServicePrivate).processTakeHomes()
 
       expect(schedulerLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('OpenAI service account deletion failed'),
@@ -299,10 +300,10 @@ describe('SchedulerService - Take-Home Expiration', () => {
     test('handles DynamoDB errors gracefully', async () => {
       mockListTakeHomes.mockRejectedValue(new Error('DynamoDB error'))
 
-      await (scheduler as SchedulerServicePrivate).processExpiredTakeHomes()
+      await (scheduler as SchedulerServicePrivate).processTakeHomes()
 
       expect(schedulerLogger.error).toHaveBeenCalledWith(
-        'Error in processExpiredTakeHomes',
+        'Error in processTakeHomes',
         expect.objectContaining({
           error: 'DynamoDB error',
         }),
@@ -334,7 +335,7 @@ describe('SchedulerService - Take-Home Expiration', () => {
 
       mockListTakeHomes.mockResolvedValue([notYetExpiredTakeHome])
 
-      await (scheduler as SchedulerServicePrivate).processExpiredTakeHomes()
+      await (scheduler as SchedulerServicePrivate).processTakeHomes()
 
       expect(mockListTakeHomes).toHaveBeenCalledTimes(1)
       expect(mockUpdateSessionStatus).not.toHaveBeenCalled()
@@ -380,7 +381,7 @@ describe('SchedulerService - Take-Home Expiration', () => {
       mockListTakeHomes.mockResolvedValue([expiredTakeHome1, expiredTakeHome2])
       mockUpdateSessionStatus.mockResolvedValue(undefined)
 
-      await (scheduler as SchedulerServicePrivate).processExpiredTakeHomes()
+      await (scheduler as SchedulerServicePrivate).processTakeHomes()
 
       expect(mockUpdateSessionStatus).toHaveBeenCalledTimes(2)
       expect(mockUpdateSessionStatus).toHaveBeenCalledWith('th-multi-1', 'takehome', 'expired')

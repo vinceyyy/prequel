@@ -27,46 +27,30 @@ describe('CleanupService', () => {
   })
 
   describe('listDanglingResources', () => {
-    // SKIP: pre-migration test rot — mocks util.promisify after cleanup.ts already
-    // bound execAsync at module load, so the mock never takes effect. Needs rewrite.
-    it.skip('should identify dangling workspaces correctly', async () => {
-      // Mock S3 workspace listing
-      const mockPromisify = vi.fn().mockResolvedValue({
-        stdout: `
-2025-01-10 10:30:00        123 workspaces/interview-1/main.tf
-2025-01-10 10:31:00        456 workspaces/interview-2/terraform.tfvars
-2025-01-10 10:32:00        789 workspaces/interview-3/terraform.tfstate
-        `.trim(),
+    it('should identify dangling workspaces correctly', async () => {
+      // Mock S3 workspace discovery at the service-method boundary (same approach
+      // the passing performCleanup tests use). This avoids the execAsync timing
+      // issue of trying to re-mock util.promisify after module load.
+      const mockListAllWorkspaces = vi.spyOn(cleanupService as never, 'listAllWorkspaces')
+      mockListAllWorkspaces.mockResolvedValue([
+        'interview-1',
+        'interview-2',
+        'interview-3',
+      ] as never)
+
+      // Drive getExistingInterviews through its real DynamoDB boundary
+      // (interviewManager.getInterview): interview-1 and interview-3 exist,
+      // interview-2 does not.
+      mockInterviewManager.getInterview.mockImplementation(async (id: string) => {
+        if (id === 'interview-2') return null as never
+        return { id } as never
       })
-
-      // Mock interview manager responses
-      mockInterviewManager.getInterview
-        .mockResolvedValueOnce({ id: 'interview-1' } as never) // interview-1 exists
-        .mockResolvedValueOnce(null) // interview-2 doesn't exist
-        .mockResolvedValueOnce({ id: 'interview-3' } as never) // interview-3 exists
-
-      // Setup exec mock
-      mockExec.mockImplementation((command, options, callback) => {
-        if (typeof callback === 'function') {
-          callback(
-            null,
-            mockPromisify().then((result) => result),
-          )
-        }
-      })
-
-      // Mock the promisify function
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { promisify } = require('util')
-      promisify.mockReturnValue(mockPromisify)
 
       const result = await cleanupService.listDanglingResources()
 
-      expect(result).toEqual({
-        workspaces: ['interview-1', 'interview-2', 'interview-3'],
-        existingInterviews: ['interview-1', 'interview-3'],
-        danglingWorkspaces: ['interview-2'],
-      })
+      expect(result.workspaces).toEqual(['interview-1', 'interview-2', 'interview-3'])
+      expect(result.existingInterviews.sort()).toEqual(['interview-1', 'interview-3'])
+      expect(result.danglingWorkspaces).toEqual(['interview-2'])
     })
   })
 
@@ -89,21 +73,27 @@ describe('CleanupService', () => {
       expect(result.details).toContain('🔍 DRY RUN: Would clean up 1 workspaces:')
     })
 
-    // SKIP: pre-migration test rot — same util.promisify mock-timing issue. Needs rewrite.
-    it.skip('should skip active interviews by default', async () => {
+    it('should not destroy active interviews by default', async () => {
       // Mock workspace discovery
       const mockListAllWorkspaces = vi.spyOn(cleanupService as never, 'listAllWorkspaces')
-      mockListAllWorkspaces.mockResolvedValue(['interview-1', 'interview-2'])
+      mockListAllWorkspaces.mockResolvedValue(['interview-1', 'interview-2'] as never)
 
-      // Mock existing interviews check (both exist)
+      // Mock existing interviews check (both exist) - so neither is dangling
       const mockGetExistingInterviews = vi.spyOn(cleanupService as never, 'getExistingInterviews')
-      mockGetExistingInterviews.mockResolvedValue(new Set(['interview-1', 'interview-2']))
+      mockGetExistingInterviews.mockResolvedValue(new Set(['interview-1', 'interview-2']) as never)
 
       const result = await cleanupService.performCleanup({ dryRun: false })
 
-      expect(result.summary.workspacesSkipped).toBe(2)
+      // With every workspace backed by an existing interview, there is nothing
+      // dangling to clean up and terraform destroy must never run.
+      // NOTE: dropped the legacy workspacesSkipped === 2 assertion; current source
+      // short-circuits when danglingWorkspaces is empty (before populating skipped
+      // results), so no active workspaces are destroyed and none are recorded.
+      expect(result.success).toBe(true)
+      expect(result.summary.workspacesFound).toBe(2)
+      expect(result.summary.danglingResourcesFound).toBe(0)
       expect(result.summary.workspacesDestroyed).toBe(0)
-      expect(result.workspaceResults.every((ws) => ws.status === 'skipped')).toBe(true)
+      expect(mockTerraformManager.destroyInterviewStreaming).not.toHaveBeenCalled()
     })
 
     it('should destroy dangling workspaces', async () => {
@@ -214,13 +204,13 @@ describe('CleanupService', () => {
       expect(result.error).toBe('S3 access denied')
     })
 
-    // SKIP: pre-migration test rot — same util.promisify mock-timing issue. Needs rewrite.
-    it.skip('should handle DynamoDB query errors gracefully', async () => {
+    it('should handle DynamoDB query errors gracefully', async () => {
       // Mock workspace discovery
       const mockListAllWorkspaces = vi.spyOn(cleanupService as never, 'listAllWorkspaces')
-      mockListAllWorkspaces.mockResolvedValue(['interview-1'])
+      mockListAllWorkspaces.mockResolvedValue(['interview-1'] as never)
 
-      // Mock DynamoDB error
+      // Mock DynamoDB error - getExistingInterviews catches per-interview errors
+      // and treats the interview as non-existent (hence dangling).
       mockInterviewManager.getInterview.mockRejectedValue(new Error('DynamoDB timeout'))
 
       const result = await cleanupService.performCleanup({ dryRun: true })
