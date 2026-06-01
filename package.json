@@ -1,6 +1,6 @@
 {
   "name": "prequel",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "On-demand browser VS Code interview platform — pnpm workspace (Hono backend + Vite React SPA)",
   "scripts": {
