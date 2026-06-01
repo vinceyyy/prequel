@@ -45,13 +45,10 @@ interviewsRouter.get('/', async (c) => {
 
     // Merge interviews with preference for DynamoDB data over operations
     const allInterviews = [...dynamoInterviews, ...operationInterviews]
-    const mergedInterviews = mergeAndDeduplicateInterviews(
-      allInterviews,
-      operations
-    )
+    const mergedInterviews = mergeAndDeduplicateInterviews(allInterviews, operations)
 
     console.log(
-      `[DEBUG] Retrieved ${activeInterviews.length} interviews from DynamoDB, ${operationInterviews.length} from operations`
+      `[DEBUG] Retrieved ${activeInterviews.length} interviews from DynamoDB, ${operationInterviews.length} from operations`,
     )
 
     return c.json({ interviews: mergedInterviews })
@@ -73,19 +70,10 @@ interviewsRouter.get('/', async (c) => {
 interviewsRouter.post('/create', async (c) => {
   try {
     const body = await c.req.json()
-    const {
-      candidateName,
-      challenge,
-      scheduledAt,
-      autoDestroyMinutes,
-      saveFiles = true,
-    } = body
+    const { candidateName, challenge, scheduledAt, autoDestroyMinutes, saveFiles = true } = body
 
     if (!candidateName || !challenge) {
-      return c.json(
-        { error: 'candidateName and challenge are required' },
-        400
-      )
+      return c.json({ error: 'candidateName and challenge are required' }, 400)
     }
 
     // Parse scheduled time if provided
@@ -104,29 +92,23 @@ interviewsRouter.post('/create', async (c) => {
             error: 'scheduledAt must be in the future',
             details: `Scheduled: ${scheduledDate.toISOString()}, Now: ${now.toISOString()}`,
           },
-          400
+          400,
         )
       }
     }
 
     // Auto-destroy is required for all interviews
-    if (
-      !autoDestroyMinutes ||
-      typeof autoDestroyMinutes !== 'number' ||
-      autoDestroyMinutes <= 0
-    ) {
+    if (!autoDestroyMinutes || typeof autoDestroyMinutes !== 'number' || autoDestroyMinutes <= 0) {
       return c.json(
         {
           error: 'autoDestroyMinutes is required and must be a positive number',
         },
-        400
+        400,
       )
     }
 
     const baseTime = scheduledDate || new Date()
-    const autoDestroyDate = new Date(
-      baseTime.getTime() + autoDestroyMinutes * 60 * 1000
-    )
+    const autoDestroyDate = new Date(baseTime.getTime() + autoDestroyMinutes * 60 * 1000)
 
     const interviewId = generateId()
     const password = generateSecureString()
@@ -139,7 +121,7 @@ interviewsRouter.post('/create', async (c) => {
       challenge,
       scheduledDate,
       autoDestroyDate,
-      saveFiles
+      saveFiles,
     )
 
     // Track challenge usage - increment usage count when interview is created
@@ -152,12 +134,12 @@ interviewsRouter.post('/create', async (c) => {
         await challengeService.incrementUsage(challengeRecord.id)
         await operationManager.addOperationLog(
           operationId,
-          `📊 Challenge usage tracked: ${challengeRecord.name}`
+          `📊 Challenge usage tracked: ${challengeRecord.name}`,
         )
       } else {
         await operationManager.addOperationLog(
           operationId,
-          `⚠️ Challenge not found in registry: ${challenge}`
+          `⚠️ Challenge not found in registry: ${challenge}`,
         )
       }
     } catch (error) {
@@ -167,7 +149,7 @@ interviewsRouter.post('/create', async (c) => {
         operationId,
         `⚠️ Could not track challenge usage: ${
           error instanceof Error ? error.message : 'Unknown error'
-        }`
+        }`,
       )
     }
 
@@ -175,12 +157,12 @@ interviewsRouter.post('/create', async (c) => {
     if (scheduledDate) {
       await operationManager.addOperationLog(
         operationId,
-        `Interview scheduled for ${scheduledDate.toLocaleString()}`
+        `Interview scheduled for ${scheduledDate.toLocaleString()}`,
       )
       if (autoDestroyDate) {
         await operationManager.addOperationLog(
           operationId,
-          `Auto-destroy scheduled for ${autoDestroyDate.toLocaleString()}`
+          `Auto-destroy scheduled for ${autoDestroyDate.toLocaleString()}`,
         )
       }
 
@@ -191,11 +173,7 @@ interviewsRouter.post('/create', async (c) => {
         : `http://localhost:8443/` // Fallback for local development
 
       // Store credentials in operation result without changing status
-      await operationManager.updateScheduledInterviewCredentials(
-        operationId,
-        accessUrl,
-        password
-      )
+      await operationManager.updateScheduledInterviewCredentials(operationId, accessUrl, password)
 
       return c.json({
         operationId,
@@ -216,16 +194,10 @@ interviewsRouter.post('/create', async (c) => {
         await operationManager.updateOperationStatus(operationId, 'running')
         await operationManager.addOperationLog(
           operationId,
-          `Starting interview creation for ${candidateName}`
+          `Starting interview creation for ${candidateName}`,
         )
-        await operationManager.addOperationLog(
-          operationId,
-          `Interview ID: ${interviewId}`
-        )
-        await operationManager.addOperationLog(
-          operationId,
-          `Challenge: ${challenge}`
-        )
+        await operationManager.addOperationLog(operationId, `Interview ID: ${interviewId}`)
+        await operationManager.addOperationLog(operationId, `Challenge: ${challenge}`)
 
         // Create OpenAI service account if configured
         let serviceAccountId: string | undefined
@@ -234,12 +206,12 @@ interviewsRouter.post('/create', async (c) => {
         if (config.services.openaiProjectId && config.services.openaiAdminKey) {
           await operationManager.addOperationLog(
             operationId,
-            '🤖 Creating OpenAI service account...'
+            '🤖 Creating OpenAI service account...',
           )
 
           const serviceAccountResult = await openaiService.createServiceAccount(
             config.services.openaiProjectId,
-            `interview-${config.project.environment}-interview-${interviewId}-${candidateName}`
+            `interview-${config.project.environment}-interview-${interviewId}-${candidateName}`,
           )
 
           if (serviceAccountResult.success) {
@@ -247,12 +219,12 @@ interviewsRouter.post('/create', async (c) => {
             openaiApiKey = serviceAccountResult.apiKey
             await operationManager.addOperationLog(
               operationId,
-              `✅ OpenAI service account created: ${serviceAccountId}`
+              `✅ OpenAI service account created: ${serviceAccountId}`,
             )
           } else {
             await operationManager.addOperationLog(
               operationId,
-              `❌ OpenAI service account creation failed: ${serviceAccountResult.error}`
+              `❌ OpenAI service account creation failed: ${serviceAccountResult.error}`,
             )
             await operationManager.setOperationResult(operationId, {
               success: false,
@@ -279,9 +251,7 @@ interviewsRouter.post('/create', async (c) => {
             lines.forEach((line) => {
               // Note: We can't await here since this is a streaming callback
               // Logs will be added asynchronously without blocking the stream
-              operationManager
-                .addOperationLog(operationId, line)
-                .catch(console.error)
+              operationManager.addOperationLog(operationId, line).catch(console.error)
             })
           },
           (accessUrl: string) => {
@@ -289,34 +259,21 @@ interviewsRouter.post('/create', async (c) => {
             // Note: We can't await here since this is a streaming callback
             // Updates will be done asynchronously without blocking the stream
             operationManager
-              .updateOperationInfrastructureReady(
-                operationId,
-                accessUrl,
-                password
-              )
+              .updateOperationInfrastructureReady(operationId, accessUrl, password)
               .catch(console.error)
             operationManager
-              .addOperationLog(
-                operationId,
-                '🔧 Infrastructure ready, ECS service starting up...'
-              )
+              .addOperationLog(operationId, '🔧 Infrastructure ready, ECS service starting up...')
               .catch(console.error)
           },
           scheduledDate,
           autoDestroyDate,
           saveFiles,
-          serviceAccountId
+          serviceAccountId,
         )
 
         if (result.success) {
-          await operationManager.addOperationLog(
-            operationId,
-            '✅ Interview created successfully!'
-          )
-          await operationManager.addOperationLog(
-            operationId,
-            `Access URL: ${result.accessUrl}`
-          )
+          await operationManager.addOperationLog(operationId, '✅ Interview created successfully!')
+          await operationManager.addOperationLog(operationId, `Access URL: ${result.accessUrl}`)
 
           await operationManager.setOperationResult(operationId, {
             success: true,
@@ -327,14 +284,8 @@ interviewsRouter.post('/create', async (c) => {
             infrastructureReady: result.infrastructureReady,
           })
         } else {
-          await operationManager.addOperationLog(
-            operationId,
-            '❌ Interview creation failed'
-          )
-          await operationManager.addOperationLog(
-            operationId,
-            `Error: ${result.error}`
-          )
+          await operationManager.addOperationLog(operationId, '❌ Interview creation failed')
+          await operationManager.addOperationLog(operationId, `Error: ${result.error}`)
 
           await operationManager.setOperationResult(operationId, {
             success: false,
@@ -343,12 +294,8 @@ interviewsRouter.post('/create', async (c) => {
           })
         }
       } catch (error) {
-        const errorMsg =
-          error instanceof Error ? error.message : 'Unknown error'
-        await operationManager.addOperationLog(
-          operationId,
-          `❌ Error: ${errorMsg}`
-        )
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+        await operationManager.addOperationLog(operationId, `❌ Error: ${errorMsg}`)
         await operationManager.setOperationResult(operationId, {
           success: false,
           error: errorMsg,
@@ -382,7 +329,7 @@ interviewsRouter.post('/create', async (c) => {
         error: 'Failed to start interview creation',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -413,19 +360,14 @@ interviewsRouter.get('/history', async (c) => {
 
     if (candidateParam) {
       // Search by candidate name if provided
-      historicalInterviews = await interviewManager.searchByCandidate(
-        candidateParam,
-        limit
-      )
+      historicalInterviews = await interviewManager.searchByCandidate(candidateParam, limit)
       // Filter to only historical statuses
       historicalInterviews = historicalInterviews.filter(
-        (interview) =>
-          interview.status === 'destroyed' || interview.status === 'error'
+        (interview) => interview.status === 'destroyed' || interview.status === 'error',
       )
     } else {
       // Get all historical interviews
-      historicalInterviews =
-        await interviewManager.getHistoricalInterviews(limit)
+      historicalInterviews = await interviewManager.getHistoricalInterviews(limit)
     }
 
     // Convert to API format
@@ -447,7 +389,7 @@ interviewsRouter.get('/history', async (c) => {
 
     console.log(
       `[DEBUG] Retrieved ${historicalInterviews.length} historical interviews from DynamoDB` +
-        (candidateParam ? ` for candidate: ${candidateParam}` : '')
+        (candidateParam ? ` for candidate: ${candidateParam}` : ''),
     )
 
     return c.json({
@@ -464,7 +406,7 @@ interviewsRouter.get('/history', async (c) => {
         error: 'Failed to retrieve historical interviews',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -485,7 +427,7 @@ interviewsRouter.get('/:id', async (c) => {
           error: 'Interview not found or failed to get status',
           details: status.error,
         },
-        404
+        404,
       )
     }
 
@@ -507,7 +449,7 @@ interviewsRouter.get('/:id', async (c) => {
         error: 'Failed to get interview status',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -528,7 +470,7 @@ interviewsRouter.delete('/:id', async (c) => {
     try {
       const operations = await operationManager.getOperationsByInterview(id)
       const createOperation = operations.find(
-        (op) => op.type === 'create' && op.status === 'completed'
+        (op) => op.type === 'create' && op.status === 'completed',
       )
 
       if (createOperation) {
@@ -537,10 +479,7 @@ interviewsRouter.delete('/:id', async (c) => {
         saveFiles = createOperation.saveFiles
       }
     } catch (error) {
-      console.log(
-        'Could not retrieve create operation details for direct destroy:',
-        error
-      )
+      console.log('Could not retrieve create operation details for direct destroy:', error)
     }
 
     const result = await terraformManager.destroyInterviewStreaming(
@@ -548,7 +487,7 @@ interviewsRouter.delete('/:id', async (c) => {
       undefined, // No streaming callback for direct destroy
       candidateName,
       challenge,
-      saveFiles
+      saveFiles,
     )
 
     if (!result.success) {
@@ -558,7 +497,7 @@ interviewsRouter.delete('/:id', async (c) => {
           details: result.error,
           terraformOutput: result.output,
         },
-        500
+        500,
       )
     }
 
@@ -572,7 +511,7 @@ interviewsRouter.delete('/:id', async (c) => {
         error: 'Failed to destroy interview',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -598,10 +537,9 @@ interviewsRouter.on(['DELETE', 'POST'], '/:id/destroy', async (c) => {
       let saveFiles: boolean | undefined
 
       try {
-        const operations =
-          await operationManager.getOperationsByInterview(interviewId)
+        const operations = await operationManager.getOperationsByInterview(interviewId)
         const createOperation = operations.find(
-          (op) => op.type === 'create' && op.status === 'completed'
+          (op) => op.type === 'create' && op.status === 'completed',
         )
 
         if (createOperation) {
@@ -610,10 +548,7 @@ interviewsRouter.on(['DELETE', 'POST'], '/:id/destroy', async (c) => {
           saveFiles = createOperation.saveFiles
         }
       } catch (error) {
-        console.log(
-          'Could not retrieve create operation details for streaming destroy:',
-          error
-        )
+        console.log('Could not retrieve create operation details for streaming destroy:', error)
       }
 
       // Send initial metadata
@@ -634,13 +569,11 @@ interviewsRouter.on(['DELETE', 'POST'], '/:id/destroy', async (c) => {
               type: 'output',
               data: data,
             }
-            stream
-              .writeSSE({ data: JSON.stringify(streamData) })
-              .catch(console.error)
+            stream.writeSSE({ data: JSON.stringify(streamData) }).catch(console.error)
           },
           candidateName,
           challenge,
-          saveFiles
+          saveFiles,
         )
         .then(async (result) => {
           // Send final result
@@ -682,10 +615,9 @@ interviewsRouter.on(['DELETE', 'POST'], '/:id/destroy', async (c) => {
 
     // Try to get interview details from the original create operation
     try {
-      const operations =
-        await operationManager.getOperationsByInterview(interviewId)
+      const operations = await operationManager.getOperationsByInterview(interviewId)
       const createOperation = operations.find(
-        (op) => op.type === 'create' && op.status === 'completed'
+        (op) => op.type === 'create' && op.status === 'completed',
       )
 
       if (createOperation) {
@@ -698,12 +630,9 @@ interviewsRouter.on(['DELETE', 'POST'], '/:id/destroy', async (c) => {
     }
 
     // Cancel any scheduled operations for this interview
-    const cancelledCount =
-      await operationManager.cancelScheduledOperationsForInterview(interviewId)
+    const cancelledCount = await operationManager.cancelScheduledOperationsForInterview(interviewId)
     if (cancelledCount > 0) {
-      console.log(
-        `Cancelled ${cancelledCount} scheduled operations for interview ${interviewId}`
-      )
+      console.log(`Cancelled ${cancelledCount} scheduled operations for interview ${interviewId}`)
     }
 
     // Create operation to track progress
@@ -711,7 +640,7 @@ interviewsRouter.on(['DELETE', 'POST'], '/:id/destroy', async (c) => {
       'destroy',
       interviewId,
       candidateName,
-      challenge
+      challenge,
     )
 
     // Start background operation
@@ -720,13 +649,13 @@ interviewsRouter.on(['DELETE', 'POST'], '/:id/destroy', async (c) => {
         await operationManager.updateOperationStatus(operationId, 'running')
         await operationManager.addOperationLog(
           operationId,
-          `Starting interview destruction for ${interviewId}`
+          `Starting interview destruction for ${interviewId}`,
         )
 
         if (cancelledCount > 0) {
           await operationManager.addOperationLog(
             operationId,
-            `Cancelled ${cancelledCount} scheduled operation(s) for this interview`
+            `Cancelled ${cancelledCount} scheduled operation(s) for this interview`,
           )
         }
 
@@ -735,67 +664,61 @@ interviewsRouter.on(['DELETE', 'POST'], '/:id/destroy', async (c) => {
         try {
           interview = await interviewManager.getInterview(interviewId)
         } catch (error) {
-          console.log(
-            'Could not fetch interview record for OpenAI cleanup:',
-            error
-          )
+          console.log('Could not fetch interview record for OpenAI cleanup:', error)
         }
 
         // Delete OpenAI service account first (before destroying infrastructure)
         if (interview?.openaiServiceAccountId) {
           await operationManager.addOperationLog(
             operationId,
-            '🤖 Deleting OpenAI service account...'
+            '🤖 Deleting OpenAI service account...',
           )
 
           const deleteResult = await openaiService.deleteServiceAccount(
             config.services.openaiProjectId,
-            interview?.openaiServiceAccountId
+            interview?.openaiServiceAccountId,
           )
 
           if (deleteResult.success) {
             await operationManager.addOperationLog(
               operationId,
-              `✅ OpenAI service account deleted: ${interview?.openaiServiceAccountId}`
+              `✅ OpenAI service account deleted: ${interview?.openaiServiceAccountId}`,
             )
           } else {
             await operationManager.addOperationLog(
               operationId,
-              `⚠️ OpenAI service account deletion failed: ${deleteResult.error}`
+              `⚠️ OpenAI service account deletion failed: ${deleteResult.error}`,
             )
             // Don't fail the entire destruction - continue with infrastructure cleanup
           }
         }
 
         // Now destroy the infrastructure
-        const result =
-          await interviewManager.destroyInterviewWithInfrastructure(
-            interviewId,
-            (data: string) => {
-              // Add each line to operation logs
-              const lines = data.split('\n').filter((line) => line.trim())
-              lines.forEach((line) => {
-                // Note: We can't await here since this is a streaming callback
-                // Logs will be added asynchronously without blocking the stream
-                operationManager
-                  .addOperationLog(operationId, line)
-                  .catch(console.error)
-              })
-            },
-            candidateName,
-            challenge,
-            saveFiles
-          )
+        const result = await interviewManager.destroyInterviewWithInfrastructure(
+          interviewId,
+          (data: string) => {
+            // Add each line to operation logs
+            const lines = data.split('\n').filter((line) => line.trim())
+            lines.forEach((line) => {
+              // Note: We can't await here since this is a streaming callback
+              // Logs will be added asynchronously without blocking the stream
+              operationManager.addOperationLog(operationId, line).catch(console.error)
+            })
+          },
+          candidateName,
+          challenge,
+          saveFiles,
+        )
 
         if (result.success) {
           await operationManager.addOperationLog(
             operationId,
-            '✅ Infrastructure destroyed successfully'
+            '✅ Infrastructure destroyed successfully',
           )
 
           await operationManager.addOperationLog(
             operationId,
-            '✅ Interview destroyed successfully!'
+            '✅ Interview destroyed successfully!',
           )
 
           await operationManager.setOperationResult(operationId, {
@@ -804,14 +727,8 @@ interviewsRouter.on(['DELETE', 'POST'], '/:id/destroy', async (c) => {
             historyS3Key: result.historyS3Key,
           })
         } else {
-          await operationManager.addOperationLog(
-            operationId,
-            '❌ Interview destruction failed'
-          )
-          await operationManager.addOperationLog(
-            operationId,
-            `Error: ${result.error}`
-          )
+          await operationManager.addOperationLog(operationId, '❌ Interview destruction failed')
+          await operationManager.addOperationLog(operationId, `Error: ${result.error}`)
 
           await operationManager.setOperationResult(operationId, {
             success: false,
@@ -820,12 +737,8 @@ interviewsRouter.on(['DELETE', 'POST'], '/:id/destroy', async (c) => {
           })
         }
       } catch (error) {
-        const errorMsg =
-          error instanceof Error ? error.message : 'Unknown error'
-        await operationManager.addOperationLog(
-          operationId,
-          `❌ Error: ${errorMsg}`
-        )
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+        await operationManager.addOperationLog(operationId, `❌ Error: ${errorMsg}`)
         await operationManager.setOperationResult(operationId, {
           success: false,
           error: errorMsg,
@@ -844,7 +757,7 @@ interviewsRouter.on(['DELETE', 'POST'], '/:id/destroy', async (c) => {
         error: 'Failed to start interview destruction',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -875,10 +788,9 @@ interviewsRouter.delete('/:id/delete', async (c) => {
       return c.json(
         {
           error: 'Cannot delete active interview',
-          details:
-            'Only completed interviews (destroyed or error) can be deleted',
+          details: 'Only completed interviews (destroyed or error) can be deleted',
         },
-        400
+        400,
       )
     }
 
@@ -897,12 +809,10 @@ interviewsRouter.delete('/:id/delete', async (c) => {
           {
             env: process.env as NodeJS.ProcessEnv,
             timeout: 30000,
-          }
+          },
         )
 
-        logger.info(
-          `[API] Successfully deleted history files: ${interview.historyS3Key}`
-        )
+        logger.info(`[API] Successfully deleted history files: ${interview.historyS3Key}`)
       } catch (s3Error) {
         logger.warn(`[API] Failed to delete history files: ${s3Error}`)
         // Continue with DynamoDB deletion even if S3 cleanup fails
@@ -921,7 +831,7 @@ interviewsRouter.delete('/:id/delete', async (c) => {
     })
   } catch (error) {
     logger.error(
-      `[API] Error deleting interview: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[API] Error deleting interview: ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
 
     return c.json(
@@ -929,7 +839,7 @@ interviewsRouter.delete('/:id/delete', async (c) => {
         error: 'Failed to delete interview',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -960,7 +870,7 @@ interviewsRouter.get('/:id/files', async (c) => {
           error: 'Files were not saved for this interview',
           details: 'File saving was disabled when the interview was created',
         },
-        400
+        400,
       )
     }
 
@@ -971,7 +881,7 @@ interviewsRouter.get('/:id/files', async (c) => {
           details:
             'Files may still be processing or the extraction failed during interview destruction',
         },
-        404
+        404,
       )
     }
 
@@ -1010,17 +920,12 @@ interviewsRouter.get('/:id/files', async (c) => {
       // Get challenge name from challenge ID
       let challengeName = 'Unknown_Challenge'
       try {
-        const challenge = await challengeService.getChallenge(
-          interview.challenge
-        )
+        const challenge = await challengeService.getChallenge(interview.challenge)
         if (challenge) {
           challengeName = challenge.name
         }
       } catch (error) {
-        console.warn(
-          `Failed to get challenge name for ${interview.challenge}:`,
-          error
-        )
+        console.warn(`Failed to get challenge name for ${interview.challenge}:`, error)
       }
 
       // Generate filename with date, candidate name, and challenge name
@@ -1054,10 +959,9 @@ interviewsRouter.get('/:id/files', async (c) => {
         return c.json(
           {
             error: 'Saved files not found',
-            details:
-              'The saved files may have been automatically cleaned up or corrupted',
+            details: 'The saved files may have been automatically cleaned up or corrupted',
           },
-          404
+          404,
         )
       }
 
@@ -1066,7 +970,7 @@ interviewsRouter.get('/:id/files', async (c) => {
           error: 'Failed to download saved files',
           details: 'An error occurred while retrieving files from storage',
         },
-        500
+        500,
       )
     }
   } catch (error: unknown) {
@@ -1077,7 +981,7 @@ interviewsRouter.get('/:id/files', async (c) => {
         error: 'Failed to process file download request',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -1095,25 +999,15 @@ interviewsRouter.post('/:id/health-check', async (c) => {
     }
 
     // Find the create operation for this interview
-    const operations =
-      await operationManager.getOperationsByInterview(interviewId)
+    const operations = await operationManager.getOperationsByInterview(interviewId)
     const createOperation = operations.find((op) => op.type === 'create')
 
     if (!createOperation) {
-      return c.json(
-        { error: 'No create operation found for this interview' },
-        404
-      )
+      return c.json({ error: 'No create operation found for this interview' }, 404)
     }
 
-    if (
-      createOperation.status !== 'completed' ||
-      !createOperation.result?.success
-    ) {
-      return c.json(
-        { error: 'Interview creation is not completed successfully' },
-        400
-      )
+    if (createOperation.status !== 'completed' || !createOperation.result?.success) {
+      return c.json({ error: 'Interview creation is not completed successfully' }, 400)
     }
 
     // Create a new operation to track the health check retry
@@ -1121,7 +1015,7 @@ interviewsRouter.post('/:id/health-check', async (c) => {
       'create',
       interviewId,
       createOperation.candidateName,
-      createOperation.challenge
+      createOperation.challenge,
     )
 
     // Start background health check retry
@@ -1130,37 +1024,26 @@ interviewsRouter.post('/:id/health-check', async (c) => {
         await operationManager.updateOperationStatus(operationId, 'running')
         await operationManager.addOperationLog(
           operationId,
-          `Retrying health check for interview ${interviewId}`
+          `Retrying health check for interview ${interviewId}`,
         )
 
-        const result = await terraformManager.retryHealthCheck(
-          interviewId,
-          (data: string) => {
-            const lines = data.split('\n').filter((line) => line.trim())
-            lines.forEach((line) => {
-              // Note: We can't await here since this is a streaming callback
-              // Logs will be added asynchronously without blocking the stream
-              operationManager
-                .addOperationLog(operationId, line)
-                .catch(console.error)
-            })
-          }
-        )
+        const result = await terraformManager.retryHealthCheck(interviewId, (data: string) => {
+          const lines = data.split('\n').filter((line) => line.trim())
+          lines.forEach((line) => {
+            // Note: We can't await here since this is a streaming callback
+            // Logs will be added asynchronously without blocking the stream
+            operationManager.addOperationLog(operationId, line).catch(console.error)
+          })
+        })
 
         if (result.success) {
-          await operationManager.addOperationLog(
-            operationId,
-            '✅ Health check retry successful!'
-          )
+          await operationManager.addOperationLog(operationId, '✅ Health check retry successful!')
 
           // Update the original operation's result to mark health check as passed
           const originalResult = createOperation.result
           if (originalResult) {
             originalResult.healthCheckPassed = true
-            await operationManager.setOperationResult(
-              createOperation.id,
-              originalResult
-            )
+            await operationManager.setOperationResult(createOperation.id, originalResult)
           }
 
           await operationManager.setOperationResult(operationId, {
@@ -1170,14 +1053,8 @@ interviewsRouter.post('/:id/health-check', async (c) => {
             healthCheckPassed: true,
           })
         } else {
-          await operationManager.addOperationLog(
-            operationId,
-            '❌ Health check retry failed'
-          )
-          await operationManager.addOperationLog(
-            operationId,
-            `Error: ${result.error}`
-          )
+          await operationManager.addOperationLog(operationId, '❌ Health check retry failed')
+          await operationManager.addOperationLog(operationId, `Error: ${result.error}`)
 
           await operationManager.setOperationResult(operationId, {
             success: false,
@@ -1186,12 +1063,8 @@ interviewsRouter.post('/:id/health-check', async (c) => {
           })
         }
       } catch (error) {
-        const errorMsg =
-          error instanceof Error ? error.message : 'Unknown error'
-        await operationManager.addOperationLog(
-          operationId,
-          `❌ Error: ${errorMsg}`
-        )
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+        await operationManager.addOperationLog(operationId, `❌ Error: ${errorMsg}`)
         await operationManager.setOperationResult(operationId, {
           success: false,
           error: errorMsg,
@@ -1211,7 +1084,7 @@ interviewsRouter.post('/:id/health-check', async (c) => {
         error: 'Failed to start health check retry',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -1247,7 +1120,7 @@ function getOperationInterviews(
       infrastructureReady?: boolean
     }
     createdAt: Date
-  }>
+  }>,
 ) {
   return operations
     .filter((op) => op.type === 'create')
@@ -1310,7 +1183,7 @@ function mergeAndDeduplicateInterviews(
       healthCheckPassed?: boolean
     }
     createdAt: Date
-  }>
+  }>,
 ) {
   // Build map of latest destroy operations by interview ID
   const destroyOperationUpdates = new Map()
@@ -1335,11 +1208,7 @@ function mergeAndDeduplicateInterviews(
     }
 
     // Prefer active status over non-active
-    if (
-      existing &&
-      existing.status === 'active' &&
-      interview.status !== 'active'
-    ) {
+    if (existing && existing.status === 'active' && interview.status !== 'active') {
       return // Keep the active one
     }
 
@@ -1370,8 +1239,5 @@ function mergeAndDeduplicateInterviews(
   // Filter out destroyed interviews and sort by creation time
   return Array.from(interviewMap.values())
     .filter((interview) => interview.status !== 'destroyed')
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }

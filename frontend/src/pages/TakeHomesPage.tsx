@@ -64,9 +64,7 @@ export default function TakeHomesPage() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showLogsModal, setShowLogsModal] = useState(false)
-  const [selectedTakeHomeForLogs, setSelectedTakeHomeForLogs] = useState<
-    string | null
-  >(null)
+  const [selectedTakeHomeForLogs, setSelectedTakeHomeForLogs] = useState<string | null>(null)
   const [notification, setNotification] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     candidateName: '',
@@ -117,7 +115,7 @@ export default function TakeHomesPage() {
           setChallenges(data.challenges)
           // Set first challenge as default if no challenge selected
           if (data.challenges.length > 0 && !formData.challenge) {
-            setFormData(prev => ({ ...prev, challenge: data.challenges[0].id }))
+            setFormData((prev) => ({ ...prev, challenge: data.challenges[0].id }))
           }
         }
       } else {
@@ -145,10 +143,7 @@ export default function TakeHomesPage() {
     const prevOperation = previousOperationRef.current
 
     // Only show toast for status transitions we haven't seen
-    if (
-      prevOperation?.id === operation.id &&
-      prevOperation?.status === operation.status
-    ) {
+    if (prevOperation?.id === operation.id && prevOperation?.status === operation.status) {
       return
     }
     previousOperationRef.current = operation
@@ -156,36 +151,27 @@ export default function TakeHomesPage() {
     // Show toast for completed operations
     if (operation.status === 'completed' && operation.type === 'create') {
       if (operation.result?.success) {
-        setNotification(
-          `Take-home ready for ${operation.candidateName || 'candidate'}`
-        )
+        setNotification(`Take-home ready for ${operation.candidateName || 'candidate'}`)
         setTimeout(() => setNotification(null), 5000)
       } else {
-        setNotification(
-          `Take-home creation failed for ${operation.candidateName || 'candidate'}`
-        )
+        setNotification(`Take-home creation failed for ${operation.candidateName || 'candidate'}`)
         setTimeout(() => setNotification(null), 5000)
       }
-    } else if (
-      operation.status === 'completed' &&
-      operation.type === 'destroy'
-    ) {
+    } else if (operation.status === 'completed' && operation.type === 'destroy') {
       if (operation.result?.success) {
-        setNotification(
-          `Take-home destroyed for ${operation.candidateName || 'candidate'}`
-        )
+        setNotification(`Take-home destroyed for ${operation.candidateName || 'candidate'}`)
         setTimeout(() => setNotification(null), 5000)
       }
     } else if (operation.status === 'failed') {
       setNotification(
-        `Operation failed for ${operation.candidateName || 'candidate'}: ${operation.result?.error || 'Unknown error'}`
+        `Operation failed for ${operation.candidateName || 'candidate'}: ${operation.result?.error || 'Unknown error'}`,
       )
       setTimeout(() => setNotification(null), 7000)
     }
   }, [lastOperation])
 
   const handleDeleteTakeHome = async (takeHomeId: string) => {
-    const takeHome = takeHomes.find(th => th.id === takeHomeId)
+    const takeHome = takeHomes.find((th) => th.id === takeHomeId)
     if (!takeHome) return
 
     console.log('[DEBUG] Delete take-home requested', {
@@ -201,10 +187,7 @@ export default function TakeHomesPage() {
     }
 
     try {
-      console.log(
-        '[DEBUG] Sending DELETE request to:',
-        `/api/takehomes/${takeHomeId}/delete`
-      )
+      console.log('[DEBUG] Sending DELETE request to:', `/api/takehomes/${takeHomeId}/delete`)
       const response = await fetch(`/api/takehomes/${takeHomeId}/delete`, {
         method: 'POST',
       })
@@ -221,15 +204,13 @@ export default function TakeHomesPage() {
     } catch (error) {
       console.error('Error deleting take-home:', error)
       alert(
-        `Failed to delete take-home: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
+        `Failed to delete take-home: ${error instanceof Error ? error.message : 'Unknown error'}`,
       )
     }
   }
 
   const handleRevokeTakeHome = async (takeHomeId: string) => {
-    const takeHome = takeHomes.find(th => th.id === takeHomeId)
+    const takeHome = takeHomes.find((th) => th.id === takeHomeId)
     if (!takeHome) return
 
     console.log('[DEBUG] Revoke take-home requested', {
@@ -245,10 +226,7 @@ export default function TakeHomesPage() {
     }
 
     try {
-      console.log(
-        '[DEBUG] Sending POST request to:',
-        `/api/takehomes/${takeHomeId}/revoke`
-      )
+      console.log('[DEBUG] Sending POST request to:', `/api/takehomes/${takeHomeId}/revoke`)
       const response = await fetch(`/api/takehomes/${takeHomeId}/revoke`, {
         method: 'POST',
       })
@@ -261,9 +239,7 @@ export default function TakeHomesPage() {
       const result = await response.json()
 
       if (result.operationId) {
-        setNotification(
-          'Take-home revocation initiated - check logs for progress'
-        )
+        setNotification('Take-home revocation initiated - check logs for progress')
       } else {
         setNotification('Take-home revoked successfully')
       }
@@ -274,9 +250,7 @@ export default function TakeHomesPage() {
     } catch (error) {
       console.error('Error revoking take-home:', error)
       alert(
-        `Failed to revoke take-home: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
+        `Failed to revoke take-home: ${error instanceof Error ? error.message : 'Unknown error'}`,
       )
     }
   }
@@ -345,8 +319,7 @@ export default function TakeHomesPage() {
         challengeId: formData.challenge,
         availableDays: formData.availableDays,
         durationHours: formData.durationHours,
-        additionalInstructions:
-          formData.additionalInstructions.trim() || undefined,
+        additionalInstructions: formData.additionalInstructions.trim() || undefined,
       }
 
       const response = await fetch('/api/takehomes/create', {
@@ -383,9 +356,7 @@ export default function TakeHomesPage() {
     } catch (error) {
       console.error('Error creating take-home:', error)
       alert(
-        `Failed to create take-home: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
+        `Failed to create take-home: ${error instanceof Error ? error.message : 'Unknown error'}`,
       )
     } finally {
       setLoading(false)
@@ -394,7 +365,7 @@ export default function TakeHomesPage() {
 
   // Separate take-homes into active and history
   // Active: not completed/expired, OR revoked but still destroying
-  const activeTakeHomes = takeHomes.filter(th => {
+  const activeTakeHomes = takeHomes.filter((th) => {
     if (th.sessionStatus === 'completed' || th.sessionStatus === 'expired') {
       return false
     }
@@ -406,10 +377,10 @@ export default function TakeHomesPage() {
 
   // History: completed, expired, or revoked AND not destroying
   const historicalTakeHomes = takeHomes.filter(
-    th =>
+    (th) =>
       th.sessionStatus === 'completed' ||
       th.sessionStatus === 'expired' ||
-      (th.sessionStatus === 'revoked' && th.instanceStatus !== 'destroying')
+      (th.sessionStatus === 'revoked' && th.instanceStatus !== 'destroying'),
   )
 
   return (
@@ -434,16 +405,12 @@ export default function TakeHomesPage() {
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold text-slate-900">Take-Homes</h1>
-              <p className="text-slate-600 mt-2">
-                Create and manage take-home assessments
-              </p>
+              <p className="text-slate-600 mt-2">Create and manage take-home assessments</p>
             </div>
             <div className="flex items-center space-x-2">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  hasInProgressTakeHomes
-                    ? 'bg-blue-500 animate-pulse'
-                    : 'bg-green-500'
+                  hasInProgressTakeHomes ? 'bg-blue-500 animate-pulse' : 'bg-green-500'
                 }`}
               ></div>
               <span className="text-sm text-slate-600">
@@ -459,10 +426,7 @@ export default function TakeHomesPage() {
         </header>
 
         <div className="mb-6 flex flex-wrap gap-3 items-center">
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="btn-primary"
-          >
+          <button onClick={() => setShowCreateForm(true)} className="btn-primary">
             Create New Take-Home
           </button>
         </div>
@@ -508,9 +472,7 @@ export default function TakeHomesPage() {
         {showCreateForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="card p-4 sm:p-6 w-full max-w-md fade-in">
-              <h2 className="text-xl font-semibold mb-4 text-slate-900">
-                Create New Take-Home
-              </h2>
+              <h2 className="text-xl font-semibold mb-4 text-slate-900">Create New Take-Home</h2>
 
               <div className="space-y-4">
                 <div>
@@ -520,7 +482,7 @@ export default function TakeHomesPage() {
                   <input
                     type="text"
                     value={formData.candidateName}
-                    onChange={e =>
+                    onChange={(e) =>
                       setFormData({
                         ...formData,
                         candidateName: e.target.value,
@@ -538,7 +500,7 @@ export default function TakeHomesPage() {
                   <input
                     type="email"
                     value={formData.candidateEmail}
-                    onChange={e =>
+                    onChange={(e) =>
                       setFormData({
                         ...formData,
                         candidateEmail: e.target.value,
@@ -550,16 +512,14 @@ export default function TakeHomesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-2">
-                    Challenge
-                  </label>
+                  <label className="block text-sm font-medium text-slate-900 mb-2">Challenge</label>
                   <div className="space-y-3 max-h-64 overflow-y-auto">
                     {challenges.length === 0 ? (
                       <div className="text-slate-500 text-sm p-3 border border-slate-200 rounded-lg">
                         No challenges available. Create challenges first.
                       </div>
                     ) : (
-                      challenges.map(challenge => (
+                      challenges.map((challenge) => (
                         <div key={challenge.id}>
                           <label className="flex items-start space-x-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
                             <input
@@ -567,7 +527,7 @@ export default function TakeHomesPage() {
                               name="challenge"
                               value={challenge.id}
                               checked={formData.challenge === challenge.id}
-                              onChange={e =>
+                              onChange={(e) =>
                                 setFormData({
                                   ...formData,
                                   challenge: e.target.value,
@@ -581,15 +541,11 @@ export default function TakeHomesPage() {
                                   {challenge.name}
                                 </h4>
                               </div>
-                              <p className="text-sm text-slate-600 mt-1">
-                                {challenge.description}
-                              </p>
+                              <p className="text-sm text-slate-600 mt-1">{challenge.description}</p>
                               <div className="mt-2 text-xs text-slate-600">
                                 {challenge.ecsConfig.cpuCores} CPU{' '}
-                                {challenge.ecsConfig.cpuCores === 1
-                                  ? 'core'
-                                  : 'cores'}{' '}
-                                / {challenge.ecsConfig.memory / 1024}GB RAM /{' '}
+                                {challenge.ecsConfig.cpuCores === 1 ? 'core' : 'cores'} /{' '}
+                                {challenge.ecsConfig.memory / 1024}GB RAM /{' '}
                                 {challenge.ecsConfig.storage}GB Storage
                               </div>
                             </div>
@@ -606,7 +562,7 @@ export default function TakeHomesPage() {
                   </label>
                   <select
                     value={formData.availableDays}
-                    onChange={e =>
+                    onChange={(e) =>
                       setFormData({
                         ...formData,
                         availableDays: parseInt(e.target.value),
@@ -631,7 +587,7 @@ export default function TakeHomesPage() {
                   </label>
                   <select
                     value={formData.durationHours}
-                    onChange={e =>
+                    onChange={(e) =>
                       setFormData({
                         ...formData,
                         durationHours: parseInt(e.target.value),
@@ -646,9 +602,7 @@ export default function TakeHomesPage() {
                     <option value={6}>6 hours</option>
                     <option value={8}>8 hours</option>
                   </select>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Time limit once candidate activates
-                  </p>
+                  <p className="text-xs text-slate-500 mt-1">Time limit once candidate activates</p>
                 </div>
 
                 <div>
@@ -657,7 +611,7 @@ export default function TakeHomesPage() {
                   </label>
                   <textarea
                     value={formData.additionalInstructions}
-                    onChange={e =>
+                    onChange={(e) =>
                       setFormData({
                         ...formData,
                         additionalInstructions: e.target.value,
@@ -676,19 +630,12 @@ export default function TakeHomesPage() {
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={handleCreateTakeHome}
-                  disabled={
-                    !formData.candidateName.trim() ||
-                    !formData.challenge ||
-                    loading
-                  }
+                  disabled={!formData.candidateName.trim() || !formData.challenge || loading}
                   className="flex-1 btn-primary"
                 >
                   {loading ? 'Creating...' : 'Create Take-Home'}
                 </button>
-                <button
-                  onClick={() => setShowCreateForm(false)}
-                  className="flex-1 btn-outline"
-                >
+                <button onClick={() => setShowCreateForm(false)} className="flex-1 btn-outline">
                   Cancel
                 </button>
               </div>
@@ -726,10 +673,7 @@ export default function TakeHomesPage() {
                 <tbody className="bg-white divide-y divide-slate-200">
                   {initialLoading ? (
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="px-3 sm:px-6 py-4 text-center text-slate-500"
-                      >
+                      <td colSpan={6} className="px-3 sm:px-6 py-4 text-center text-slate-500">
                         <div className="flex items-center justify-center space-x-2">
                           <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                           <span>Loading take-homes...</span>
@@ -738,38 +682,28 @@ export default function TakeHomesPage() {
                     </tr>
                   ) : activeTakeHomes.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="px-3 sm:px-6 py-4 text-center text-slate-500"
-                      >
+                      <td colSpan={6} className="px-3 sm:px-6 py-4 text-center text-slate-500">
                         No active take-homes
                       </td>
                     </tr>
                   ) : (
-                    activeTakeHomes.map(takeHome => (
+                    activeTakeHomes.map((takeHome) => (
                       <tr key={takeHome.id}>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-slate-900">
                             {takeHome.candidateName || 'Unknown'}
                           </div>
                           {takeHome.candidateEmail && (
-                            <div className="text-sm text-slate-500">
-                              {takeHome.candidateEmail}
-                            </div>
+                            <div className="text-sm text-slate-500">{takeHome.candidateEmail}</div>
                           )}
                         </td>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                          {
-                            challenges.find(c => c.id === takeHome.challengeId)
-                              ?.name
-                          }
+                          {challenges.find((c) => c.id === takeHome.challengeId)?.name}
                         </td>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                           <div className="space-y-1">
                             <div>
-                              <div className="text-xs text-slate-500 mb-1">
-                                Session:
-                              </div>
+                              <div className="text-xs text-slate-500 mb-1">Session:</div>
                               <span
                                 className={`status-badge ${
                                   takeHome.sessionStatus === 'available'
@@ -786,12 +720,8 @@ export default function TakeHomesPage() {
                             </div>
                             {takeHome.sessionStatus === 'activated' && (
                               <div>
-                                <div className="text-xs text-slate-500 mb-1">
-                                  Instance:
-                                </div>
-                                <span
-                                  className={`status-badge status-${takeHome.instanceStatus}`}
-                                >
+                                <div className="text-xs text-slate-500 mb-1">Instance:</div>
+                                <span className={`status-badge status-${takeHome.instanceStatus}`}>
                                   {takeHome.instanceStatus}
                                 </span>
                               </div>
@@ -800,24 +730,16 @@ export default function TakeHomesPage() {
                         </td>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                           <div>
-                            <div className="text-xs text-slate-500">
-                              Available until:
-                            </div>
+                            <div className="text-xs text-slate-500">Available until:</div>
                             <div className="text-sm">
-                              {new Date(
-                                takeHome.availableUntil
-                              ).toLocaleString()}
+                              {new Date(takeHome.availableUntil).toLocaleString()}
                             </div>
                           </div>
                           {takeHome.activatedAt && takeHome.autoDestroyAt && (
                             <div className="bg-amber-50 p-1 rounded-md border border-amber-200 mt-1">
-                              <div className="text-xs text-amber-700">
-                                Auto-destroy:
-                              </div>
+                              <div className="text-xs text-amber-700">Auto-destroy:</div>
                               <div className="text-xs font-medium text-amber-900">
-                                {new Date(
-                                  takeHome.autoDestroyAt
-                                ).toLocaleString()}
+                                {new Date(takeHome.autoDestroyAt).toLocaleString()}
                               </div>
                             </div>
                           )}
@@ -826,9 +748,7 @@ export default function TakeHomesPage() {
                           <div className="space-y-2">
                             {/* Candidate-facing page URL - always shown */}
                             <div className="text-sm">
-                              <div className="text-xs text-slate-500 mb-1">
-                                Candidate Page:
-                              </div>
+                              <div className="text-xs text-slate-500 mb-1">Candidate Page:</div>
                               <a
                                 href={`${window.location.protocol}//${window.location.host}/takehome/${takeHome.accessToken}`}
                                 target="_blank"
@@ -865,9 +785,7 @@ export default function TakeHomesPage() {
                           <div className="flex flex-wrap gap-2 items-center">
                             <button
                               onClick={() => handleRevokeTakeHome(takeHome.id)}
-                              disabled={
-                                takeHome.instanceStatus === 'destroying'
-                              }
+                              disabled={takeHome.instanceStatus === 'destroying'}
                               className="btn-danger text-sm px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {takeHome.instanceStatus === 'destroying'
@@ -927,10 +845,7 @@ export default function TakeHomesPage() {
                 <tbody className="bg-white divide-y divide-slate-200">
                   {initialLoading ? (
                     <tr>
-                      <td
-                        colSpan={7}
-                        className="px-3 sm:px-6 py-4 text-center text-slate-500"
-                      >
+                      <td colSpan={7} className="px-3 sm:px-6 py-4 text-center text-slate-500">
                         <div className="flex items-center justify-center space-x-2">
                           <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                           <span>Loading history...</span>
@@ -939,31 +854,23 @@ export default function TakeHomesPage() {
                     </tr>
                   ) : historicalTakeHomes.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={7}
-                        className="px-3 sm:px-6 py-4 text-center text-slate-500"
-                      >
+                      <td colSpan={7} className="px-3 sm:px-6 py-4 text-center text-slate-500">
                         No historical take-homes found
                       </td>
                     </tr>
                   ) : (
-                    historicalTakeHomes.map(takeHome => (
+                    historicalTakeHomes.map((takeHome) => (
                       <tr key={takeHome.id}>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-slate-900">
                             {takeHome.candidateName || 'Unknown'}
                           </div>
                           {takeHome.candidateEmail && (
-                            <div className="text-sm text-slate-500">
-                              {takeHome.candidateEmail}
-                            </div>
+                            <div className="text-sm text-slate-500">{takeHome.candidateEmail}</div>
                           )}
                         </td>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                          {
-                            challenges.find(c => c.id === takeHome.challengeId)
-                              ?.name
-                          }
+                          {challenges.find((c) => c.id === takeHome.challengeId)?.name}
                         </td>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                           <span
@@ -979,9 +886,7 @@ export default function TakeHomesPage() {
                           </span>
                         </td>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                          <div>
-                            {new Date(takeHome.createdAt).toLocaleDateString()}
-                          </div>
+                          <div>{new Date(takeHome.createdAt).toLocaleDateString()}</div>
                           <div className="text-slate-500">
                             {new Date(takeHome.createdAt).toLocaleTimeString()}
                           </div>
@@ -989,21 +894,13 @@ export default function TakeHomesPage() {
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                           {takeHome.activatedAt ? (
                             <div>
-                              <div>
-                                {new Date(
-                                  takeHome.activatedAt
-                                ).toLocaleDateString()}
-                              </div>
+                              <div>{new Date(takeHome.activatedAt).toLocaleDateString()}</div>
                               <div className="text-slate-500">
-                                {new Date(
-                                  takeHome.activatedAt
-                                ).toLocaleTimeString()}
+                                {new Date(takeHome.activatedAt).toLocaleTimeString()}
                               </div>
                             </div>
                           ) : (
-                            <span className="text-slate-400">
-                              Not activated
-                            </span>
+                            <span className="text-slate-400">Not activated</span>
                           )}
                         </td>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-slate-900">
@@ -1059,9 +956,7 @@ export default function TakeHomesPage() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-slate-900">
                   Operation Logs
-                  {selectedTakeHomeForLogs
-                    ? ` - Take-Home ${selectedTakeHomeForLogs}`
-                    : ''}
+                  {selectedTakeHomeForLogs ? ` - Take-Home ${selectedTakeHomeForLogs}` : ''}
                 </h2>
                 <button
                   onClick={() => {

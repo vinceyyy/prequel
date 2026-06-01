@@ -30,13 +30,9 @@ export default function OperationDashboard({
   className = '',
 }: OperationDashboardProps) {
   const [operations, setOperations] = useState<Operation[]>([])
-  const [selectedOperation, setSelectedOperation] = useState<string | null>(
-    null
-  )
+  const [selectedOperation, setSelectedOperation] = useState<string | null>(null)
   const [logs, setLogs] = useState<string[]>([])
-  const [cancellingOperations, setCancellingOperations] = useState<Set<string>>(
-    new Set()
-  )
+  const [cancellingOperations, setCancellingOperations] = useState<Set<string>>(new Set())
   const terminalRef = useRef<HTMLDivElement>(null)
   const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null)
   const logsPollInterval = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -64,7 +60,7 @@ export default function OperationDashboard({
         const newLogs = data.logs || []
 
         // Use functional update to avoid dependency issues
-        setLogs(currentLogs => {
+        setLogs((currentLogs) => {
           // Only update if logs actually changed to prevent flickering
           if (JSON.stringify(newLogs) !== JSON.stringify(currentLogs)) {
             return newLogs
@@ -78,7 +74,7 @@ export default function OperationDashboard({
   }, [])
 
   const cancelOperation = async (operationId: string) => {
-    setCancellingOperations(prev => new Set(prev).add(operationId))
+    setCancellingOperations((prev) => new Set(prev).add(operationId))
     try {
       const response = await fetch(`/api/operations/${operationId}/cancel`, {
         method: 'POST',
@@ -96,7 +92,7 @@ export default function OperationDashboard({
       console.error('Error cancelling operation:', error)
       alert('Error cancelling operation')
     } finally {
-      setCancellingOperations(prev => {
+      setCancellingOperations((prev) => {
         const newSet = new Set(prev)
         newSet.delete(operationId)
         return newSet
@@ -111,19 +107,17 @@ export default function OperationDashboard({
   // Only poll when there are running or pending operations
   useEffect(() => {
     const hasActiveOperations = operations.some(
-      op => op.status === 'running' || op.status === 'pending'
+      (op) => op.status === 'running' || op.status === 'pending',
     )
 
     if (hasActiveOperations) {
       console.log(
-        '[DEBUG] OperationDashboard: Active operations detected, starting operations polling...'
+        '[DEBUG] OperationDashboard: Active operations detected, starting operations polling...',
       )
       pollInterval.current = setInterval(loadOperations, 3000)
     } else {
       if (pollInterval.current) {
-        console.log(
-          '[DEBUG] OperationDashboard: No active operations, stopping polling'
-        )
+        console.log('[DEBUG] OperationDashboard: No active operations, stopping polling')
         clearInterval(pollInterval.current)
         pollInterval.current = null
       }
@@ -153,22 +147,15 @@ export default function OperationDashboard({
   // Poll logs for active operations
   useEffect(() => {
     if (selectedOperation) {
-      const operation = operations.find(op => op.id === selectedOperation)
-      if (
-        operation &&
-        (operation.status === 'running' || operation.status === 'pending')
-      ) {
-        console.log(
-          `[DEBUG] Starting log polling for active operation: ${selectedOperation}`
-        )
+      const operation = operations.find((op) => op.id === selectedOperation)
+      if (operation && (operation.status === 'running' || operation.status === 'pending')) {
+        console.log(`[DEBUG] Starting log polling for active operation: ${selectedOperation}`)
         logsPollInterval.current = setInterval(() => {
           loadOperationLogs(selectedOperation)
         }, 3000) // Poll every 3 seconds for active operations
       } else {
         if (logsPollInterval.current) {
-          console.log(
-            `[DEBUG] Stopping log polling for completed operation: ${selectedOperation}`
-          )
+          console.log(`[DEBUG] Stopping log polling for completed operation: ${selectedOperation}`)
           clearInterval(logsPollInterval.current)
           logsPollInterval.current = null
         }
@@ -189,8 +176,7 @@ export default function OperationDashboard({
       const element = terminalRef.current
       // Check if user is near the bottom (within 100px) - if so, auto-scroll
       // This prevents auto-scroll if user is scrolling up to read previous logs
-      const isNearBottom =
-        element.scrollHeight - element.scrollTop - element.clientHeight < 100
+      const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 100
 
       if (isNearBottom) {
         element.scrollTop = element.scrollHeight
@@ -270,25 +256,17 @@ export default function OperationDashboard({
     const duration = Math.floor((end.getTime() - start.getTime()) / 1000)
 
     if (duration < 60) return `${duration}s`
-    if (duration < 3600)
-      return `${Math.floor(duration / 60)}m ${duration % 60}s`
-    return `${Math.floor(duration / 3600)}h ${Math.floor(
-      (duration % 3600) / 60
-    )}m`
+    if (duration < 3600) return `${Math.floor(duration / 60)}m ${duration % 60}s`
+    return `${Math.floor(duration / 3600)}h ${Math.floor((duration % 3600) / 60)}m`
   }
 
   return (
     <div className={`card ${className}`}>
       <div className="p-6 border-b border-slate-200 flex justify-between items-center">
         <h2 className="text-xl font-semibold text-slate-900">
-          {interviewFilter
-            ? `Operations for Interview ${interviewFilter}`
-            : 'All Operations'}
+          {interviewFilter ? `Operations for Interview ${interviewFilter}` : 'All Operations'}
         </h2>
-        <button
-          onClick={loadOperations}
-          className="btn-secondary text-sm px-3 py-1"
-        >
+        <button onClick={loadOperations} className="btn-secondary text-sm px-3 py-1">
           Refresh
         </button>
       </div>
@@ -297,12 +275,10 @@ export default function OperationDashboard({
         {/* Operations List */}
         <div className="w-1/4 border-r border-slate-200 overflow-y-auto">
           {operations.length === 0 ? (
-            <div className="p-4 text-slate-500 text-center">
-              No operations found
-            </div>
+            <div className="p-4 text-slate-500 text-center">No operations found</div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {operations.map(operation => (
+              {operations.map((operation) => (
                 <div
                   key={operation.id}
                   className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors ${
@@ -314,12 +290,9 @@ export default function OperationDashboard({
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <span className="text-lg">
-                        {getStatusIcon(operation.status)}
-                      </span>
+                      <span className="text-lg">{getStatusIcon(operation.status)}</span>
                       <span className="font-medium text-slate-900">
-                        {operation.type === 'create' ? 'Create' : 'Destroy'}{' '}
-                        Interview
+                        {operation.type === 'create' ? 'Create' : 'Destroy'} Interview
                       </span>
                     </div>
                     <span className={`status-badge status-${operation.status}`}>
@@ -329,32 +302,19 @@ export default function OperationDashboard({
 
                   <div className="text-sm text-slate-600 space-y-1">
                     <div>Interview ID: {operation.interviewId}</div>
-                    {operation.candidateName && (
-                      <div>Candidate: {operation.candidateName}</div>
-                    )}
-                    {operation.challenge && (
-                      <div>Challenge: {operation.challenge}</div>
-                    )}
+                    {operation.candidateName && <div>Candidate: {operation.candidateName}</div>}
+                    {operation.challenge && <div>Challenge: {operation.challenge}</div>}
                     <div>
                       Created:{' '}
                       {formatTime(
-                        operation.createdAt ||
-                          operation.startedAt ||
-                          new Date().toISOString()
+                        operation.createdAt || operation.startedAt || new Date().toISOString(),
                       )}
                     </div>
                     {operation.executionStartedAt && (
-                      <div>
-                        Execution started:{' '}
-                        {formatTime(operation.executionStartedAt)}
-                      </div>
+                      <div>Execution started: {formatTime(operation.executionStartedAt)}</div>
                     )}
                     <div>
-                      Duration:{' '}
-                      {getDuration(
-                        operation.executionStartedAt,
-                        operation.completedAt
-                      )}
+                      Duration: {getDuration(operation.executionStartedAt, operation.completedAt)}
                     </div>
                   </div>
 
@@ -365,25 +325,22 @@ export default function OperationDashboard({
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-800 text-sm transition-colors"
-                        onClick={e => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         🔗 Access Interview
                       </a>
                     )}
 
-                    {(operation.status === 'pending' ||
-                      operation.status === 'running') && (
+                    {(operation.status === 'pending' || operation.status === 'running') && (
                       <button
-                        onClick={e => {
+                        onClick={(e) => {
                           e.stopPropagation()
                           cancelOperation(operation.id)
                         }}
                         disabled={cancellingOperations.has(operation.id)}
                         className="text-red-600 hover:text-red-800 text-sm px-2 py-1 rounded-md border border-red-200 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        {cancellingOperations.has(operation.id)
-                          ? 'Cancelling...'
-                          : 'Cancel'}
+                        {cancellingOperations.has(operation.id) ? 'Cancelling...' : 'Cancel'}
                       </button>
                     )}
                   </div>
@@ -397,9 +354,7 @@ export default function OperationDashboard({
         <div className="w-3/4 flex flex-col">
           <div className="p-4 border-b border-slate-200 bg-slate-50">
             <h3 className="font-medium text-slate-900">
-              {selectedOperation
-                ? 'Operation Logs'
-                : 'Select an operation to view logs'}
+              {selectedOperation ? 'Operation Logs' : 'Select an operation to view logs'}
             </h3>
           </div>
 

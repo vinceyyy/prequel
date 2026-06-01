@@ -28,14 +28,7 @@ export interface LogContext {
 }
 
 // Fields that should be redacted in logs
-const SENSITIVE_FIELDS = [
-  'password',
-  'passcode',
-  'token',
-  'apiKey',
-  'secret',
-  'authorization',
-]
+const SENSITIVE_FIELDS = ['password', 'passcode', 'token', 'apiKey', 'secret', 'authorization']
 
 class Logger {
   private currentLevel: LogLevel
@@ -79,7 +72,7 @@ class Logger {
     const redacted: LogContext = {}
     for (const [key, value] of Object.entries(context)) {
       const lowerKey = key.toLowerCase()
-      if (SENSITIVE_FIELDS.some(f => lowerKey.includes(f))) {
+      if (SENSITIVE_FIELDS.some((f) => lowerKey.includes(f))) {
         redacted[key] = '[REDACTED]'
       } else {
         redacted[key] = value
@@ -88,11 +81,7 @@ class Logger {
     return redacted
   }
 
-  private formatMessage(
-    level: string,
-    message: string,
-    context?: LogContext
-  ): string {
+  private formatMessage(level: string, message: string, context?: LogContext): string {
     const timestamp = new Date().toISOString()
     const safeContext = context ? this.redactSensitive(context) : undefined
 

@@ -108,9 +108,7 @@ export class InterviewManager {
   /**
    * Creates a new interview record in DynamoDB.
    */
-  async createInterview(
-    interview: Omit<Interview, 'createdAt' | 'ttl'>
-  ): Promise<Interview> {
+  async createInterview(interview: Omit<Interview, 'createdAt' | 'ttl'>): Promise<Interview> {
     const now = new Date()
     const fullInterview: Interview = {
       ...interview,
@@ -119,9 +117,7 @@ export class InterviewManager {
 
     // Set TTL for 90 days after creation (converted to Unix timestamp)
     if (interview.status === 'destroyed' || interview.status === 'error') {
-      fullInterview.ttl = Math.floor(
-        (now.getTime() + 90 * 24 * 60 * 60 * 1000) / 1000
-      )
+      fullInterview.ttl = Math.floor((now.getTime() + 90 * 24 * 60 * 60 * 1000) / 1000)
     }
 
     try {
@@ -131,7 +127,7 @@ export class InterviewManager {
           Item: marshall(this.interviewToDynamoItem(fullInterview), {
             removeUndefinedValues: true,
           }),
-        })
+        }),
       )
 
       logger.info('Interview created in DynamoDB', {
@@ -159,7 +155,7 @@ export class InterviewManager {
         new GetItemCommand({
           TableName: this.tableName,
           Key: marshall({ id }),
-        })
+        }),
       )
 
       if (!response.Item) {
@@ -183,15 +179,8 @@ export class InterviewManager {
     id: string,
     status: InterviewStatus,
     updates: Partial<
-      Pick<
-        Interview,
-        | 'accessUrl'
-        | 'password'
-        | 'completedAt'
-        | 'destroyedAt'
-        | 'historyS3Key'
-      >
-    > = {}
+      Pick<Interview, 'accessUrl' | 'password' | 'completedAt' | 'destroyedAt' | 'historyS3Key'>
+    > = {},
   ): Promise<void> {
     const now = new Date()
 
@@ -207,23 +196,19 @@ export class InterviewManager {
     // Add completion timestamp for terminal states
     if (status === 'destroyed' || status === 'error') {
       updateExpression += ', completedAt = :completedAt'
-      expressionAttributeValues[':completedAt'] = Math.floor(
-        now.getTime() / 1000
-      )
+      expressionAttributeValues[':completedAt'] = Math.floor(now.getTime() / 1000)
 
       // Set TTL for cleanup after 90 days
       updateExpression += ', #ttl = :ttl'
       expressionAttributeNames['#ttl'] = 'ttl'
       expressionAttributeValues[':ttl'] = Math.floor(
-        (now.getTime() + 90 * 24 * 60 * 60 * 1000) / 1000
+        (now.getTime() + 90 * 24 * 60 * 60 * 1000) / 1000,
       )
     }
 
     if (status === 'destroyed' && !updates.destroyedAt) {
       updateExpression += ', destroyedAt = :destroyedAt'
-      expressionAttributeValues[':destroyedAt'] = Math.floor(
-        now.getTime() / 1000
-      )
+      expressionAttributeValues[':destroyedAt'] = Math.floor(now.getTime() / 1000)
     }
 
     // Add optional updates
@@ -243,7 +228,7 @@ export class InterviewManager {
           UpdateExpression: updateExpression,
           ExpressionAttributeNames: expressionAttributeNames,
           ExpressionAttributeValues: marshall(expressionAttributeValues),
-        })
+        }),
       )
 
       logger.info('Interview status updated', {
@@ -285,12 +270,12 @@ export class InterviewManager {
             ExpressionAttributeNames: { '#status': 'status' },
             ExpressionAttributeValues: marshall({ ':status': status }),
             ScanIndexForward: false, // Sort by createdAt descending (newest first)
-          })
+          }),
         )
 
         if (response.Items) {
-          const statusInterviews = response.Items.map(item =>
-            this.dynamoItemToInterview(unmarshall(item))
+          const statusInterviews = response.Items.map((item) =>
+            this.dynamoItemToInterview(unmarshall(item)),
           )
           interviews.push(...statusInterviews)
         }
@@ -325,12 +310,12 @@ export class InterviewManager {
             ExpressionAttributeValues: marshall({ ':status': status }),
             ScanIndexForward: false, // Sort by createdAt descending (newest first)
             Limit: Math.ceil(limit / historicalStatuses.length), // Distribute limit across statuses
-          })
+          }),
         )
 
         if (response.Items) {
-          const statusInterviews = response.Items.map(item =>
-            this.dynamoItemToInterview(unmarshall(item))
+          const statusInterviews = response.Items.map((item) =>
+            this.dynamoItemToInterview(unmarshall(item)),
           )
           interviews.push(...statusInterviews)
         }
@@ -353,10 +338,7 @@ export class InterviewManager {
   /**
    * Searches interviews by candidate name.
    */
-  async searchByCandidate(
-    candidateName: string,
-    limit: number = 20
-  ): Promise<Interview[]> {
+  async searchByCandidate(candidateName: string, limit: number = 20): Promise<Interview[]> {
     try {
       const response = await this.dynamoClient.send(
         new QueryCommand({
@@ -368,16 +350,14 @@ export class InterviewManager {
           }),
           ScanIndexForward: false, // Sort by createdAt descending (newest first)
           Limit: limit,
-        })
+        }),
       )
 
       if (!response.Items) {
         return []
       }
 
-      return response.Items.map(item =>
-        this.dynamoItemToInterview(unmarshall(item))
-      )
+      return response.Items.map((item) => this.dynamoItemToInterview(unmarshall(item)))
     } catch (error) {
       logger.error('Failed to search interviews by candidate', {
         candidateName,
@@ -396,7 +376,7 @@ export class InterviewManager {
         new DeleteItemCommand({
           TableName: this.tableName,
           Key: marshall({ id }),
-        })
+        }),
       )
 
       logger.info('Interview deleted from DynamoDB', { interviewId: id })
@@ -439,18 +419,12 @@ export class InterviewManager {
     return {
       ...dynamoItem,
       createdAt: new Date(dynamoItem.createdAt * 1000),
-      scheduledAt: dynamoItem.scheduledAt
-        ? new Date(dynamoItem.scheduledAt * 1000)
-        : undefined,
+      scheduledAt: dynamoItem.scheduledAt ? new Date(dynamoItem.scheduledAt * 1000) : undefined,
       autoDestroyAt: dynamoItem.autoDestroyAt
         ? new Date(dynamoItem.autoDestroyAt * 1000)
         : undefined,
-      completedAt: dynamoItem.completedAt
-        ? new Date(dynamoItem.completedAt * 1000)
-        : undefined,
-      destroyedAt: dynamoItem.destroyedAt
-        ? new Date(dynamoItem.destroyedAt * 1000)
-        : undefined,
+      completedAt: dynamoItem.completedAt ? new Date(dynamoItem.completedAt * 1000) : undefined,
+      destroyedAt: dynamoItem.destroyedAt ? new Date(dynamoItem.destroyedAt * 1000) : undefined,
     } as Interview
   }
 
@@ -471,7 +445,7 @@ export class InterviewManager {
     scheduledAt?: Date,
     autoDestroyAt?: Date,
     saveFiles?: boolean,
-    openaiServiceAccountId?: string
+    openaiServiceAccountId?: string,
   ): Promise<{
     success: boolean
     error?: string
@@ -512,7 +486,7 @@ export class InterviewManager {
           if (onInfrastructureReady) {
             onInfrastructureReady(accessUrl)
           }
-        }
+        },
       )
 
       if (result.success) {
@@ -567,7 +541,7 @@ export class InterviewManager {
     onData?: (data: string) => void,
     candidateName?: string,
     challenge?: string,
-    saveFiles?: boolean
+    saveFiles?: boolean,
   ): Promise<{
     success: boolean
     error?: string
@@ -591,7 +565,7 @@ export class InterviewManager {
         onData,
         candidateName,
         challenge,
-        saveFiles
+        saveFiles,
       )
 
       if (result.success) {

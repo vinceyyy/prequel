@@ -39,10 +39,7 @@ export class SchedulerService {
   start() {
     // Don't run the polling loop under tests or when explicitly disabled
     // (e.g. running the API without the scheduler).
-    if (
-      process.env.NODE_ENV === 'test' ||
-      process.env.DISABLE_SCHEDULER === 'true'
-    ) {
+    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_SCHEDULER === 'true') {
       return
     }
 
@@ -102,17 +99,13 @@ export class SchedulerService {
       const now = new Date()
 
       if (scheduledOps.length > 0) {
-        schedulerLogger.debug(
-          `Found ${scheduledOps.length} scheduled operations to check`
-        )
+        schedulerLogger.debug(`Found ${scheduledOps.length} scheduled operations to check`)
       }
 
       for (const operation of scheduledOps) {
         if (operation.scheduledAt) {
           // Start provisioning 5 minutes before scheduled time to ensure instance is ready
-          const provisioningTime = new Date(
-            operation.scheduledAt.getTime() - 5 * 60 * 1000
-          )
+          const provisioningTime = new Date(operation.scheduledAt.getTime() - 5 * 60 * 1000)
 
           if (provisioningTime <= now) {
             schedulerLogger.info('Processing scheduled operation', {
@@ -123,16 +116,12 @@ export class SchedulerService {
               scheduledAt: operation.scheduledAt.toISOString(),
               provisioningStartTime: provisioningTime.toISOString(),
               minutesBeforeScheduled: Math.round(
-                (operation.scheduledAt.getTime() - now.getTime()) / 60000
+                (operation.scheduledAt.getTime() - now.getTime()) / 60000,
               ),
             })
 
             try {
-              if (
-                operation.type === 'create' &&
-                operation.candidateName &&
-                operation.challenge
-              ) {
+              if (operation.type === 'create' && operation.candidateName && operation.challenge) {
                 await this.executeScheduledCreate({
                   id: operation.id,
                   interviewId: operation.interviewId,
@@ -156,12 +145,9 @@ export class SchedulerService {
               })
               await operationManager.addOperationLog(
                 operation.id,
-                `❌ Scheduler error: ${error instanceof Error ? error.message : 'Unknown error'}`
+                `❌ Scheduler error: ${error instanceof Error ? error.message : 'Unknown error'}`,
               )
-              await operationManager.updateOperationStatus(
-                operation.id,
-                'failed'
-              )
+              await operationManager.updateOperationStatus(operation.id, 'failed')
             }
           }
         }
@@ -170,7 +156,7 @@ export class SchedulerService {
       // Handle DynamoDB throttling gracefully
       if (error instanceof Error && error.name === 'ThrottlingException') {
         schedulerLogger.warn(
-          'DynamoDB throttling during scheduled operations check - will retry next cycle'
+          'DynamoDB throttling during scheduled operations check - will retry next cycle',
         )
       } else {
         schedulerLogger.error('Error in processScheduledOperations', {
@@ -203,7 +189,7 @@ export class SchedulerService {
       // Handle DynamoDB throttling gracefully
       if (error instanceof Error && error.name === 'ThrottlingException') {
         schedulerLogger.warn(
-          'DynamoDB throttling during auto-destroy check - will retry next cycle'
+          'DynamoDB throttling during auto-destroy check - will retry next cycle',
         )
       } else {
         schedulerLogger.error('Error in processAutoDestroyOperations', {
@@ -219,13 +205,10 @@ export class SchedulerService {
    */
   private async processOperationsAutoDestroy() {
     try {
-      const autoDestroyOps =
-        await operationManager.getOperationsForAutoDestroy()
+      const autoDestroyOps = await operationManager.getOperationsForAutoDestroy()
 
       if (autoDestroyOps.length > 0) {
-        schedulerLogger.debug(
-          `Found ${autoDestroyOps.length} operations eligible for auto-destroy`
-        )
+        schedulerLogger.debug(`Found ${autoDestroyOps.length} operations eligible for auto-destroy`)
       }
 
       for (const operation of autoDestroyOps) {
@@ -246,7 +229,7 @@ export class SchedulerService {
             operation.challenge,
             undefined, // scheduledAt
             undefined, // autoDestroyAt
-            operation.saveFiles // Inherit saveFiles setting from original operation
+            operation.saveFiles, // Inherit saveFiles setting from original operation
           )
 
           const destroyOp = await operationManager.getOperation(destroyOpId)
@@ -267,14 +250,11 @@ export class SchedulerService {
             originalOperationId: operation.id,
           })
         } catch (error) {
-          schedulerLogger.error(
-            'Error auto-destroying interview (operations)',
-            {
-              interviewId: operation.interviewId,
-              operationId: operation.id,
-              error: error instanceof Error ? error.message : 'Unknown error',
-            }
-          )
+          schedulerLogger.error('Error auto-destroying interview (operations)', {
+            interviewId: operation.interviewId,
+            operationId: operation.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          })
         }
       }
     } catch (error) {
@@ -296,37 +276,30 @@ export class SchedulerService {
 
       // Filter interviews that need auto-destroy
       const expiredInterviews = activeInterviews.filter(
-        interview =>
+        (interview) =>
           interview.autoDestroyAt &&
           interview.autoDestroyAt <= now &&
-          interview.status === 'active' // Only destroy active interviews
+          interview.status === 'active', // Only destroy active interviews
       )
 
       if (expiredInterviews.length > 0) {
         schedulerLogger.debug(
-          `Found ${expiredInterviews.length} interviews eligible for auto-destroy from DynamoDB`
+          `Found ${expiredInterviews.length} interviews eligible for auto-destroy from DynamoDB`,
         )
       }
 
       for (const interview of expiredInterviews) {
         // Check if there's already a destroy operation in progress for this interview
-        const operations = await operationManager.getOperationsByInterview(
-          interview.id
-        )
+        const operations = await operationManager.getOperationsByInterview(interview.id)
         const hasActiveDestroy = operations.some(
-          op =>
-            op.type === 'destroy' &&
-            (op.status === 'pending' || op.status === 'running')
+          (op) => op.type === 'destroy' && (op.status === 'pending' || op.status === 'running'),
         )
 
         if (hasActiveDestroy) {
-          schedulerLogger.debug(
-            'Skipping auto-destroy - destroy already in progress',
-            {
-              interviewId: interview.id,
-              candidateName: interview.candidateName,
-            }
-          )
+          schedulerLogger.debug('Skipping auto-destroy - destroy already in progress', {
+            interviewId: interview.id,
+            candidateName: interview.candidateName,
+          })
           continue
         }
 
@@ -345,7 +318,7 @@ export class SchedulerService {
             interview.challenge,
             undefined, // scheduledAt
             undefined, // autoDestroyAt
-            interview.saveFiles // Use saveFiles setting from interview record
+            interview.saveFiles, // Use saveFiles setting from interview record
           )
 
           const destroyOp = await operationManager.getOperation(destroyOpId)
@@ -398,10 +371,7 @@ export class SchedulerService {
 
       for (const takeHome of takeHomes) {
         // CASE 1: Expire available take-homes that are past their availability window
-        if (
-          takeHome.sessionStatus === 'available' &&
-          takeHome.availableUntil <= now
-        ) {
+        if (takeHome.sessionStatus === 'available' && takeHome.availableUntil <= now) {
           await this.expireTakeHome(takeHome)
           continue
         }
@@ -445,7 +415,7 @@ export class SchedulerService {
 
         const deleteResult = await openaiService.deleteServiceAccount(
           config.services.openaiProjectId,
-          takeHome.openaiServiceAccount.serviceAccountId
+          takeHome.openaiServiceAccount.serviceAccountId,
         )
 
         if (deleteResult.success) {
@@ -461,11 +431,7 @@ export class SchedulerService {
       }
 
       // Update session status to expired
-      await assessmentManager.updateSessionStatus(
-        takeHome.id,
-        'takehome',
-        'expired'
-      )
+      await assessmentManager.updateSessionStatus(takeHome.id, 'takehome', 'expired')
       schedulerLogger.info('Take-home marked as expired', {
         takeHomeId: takeHome.id,
       })
@@ -488,13 +454,11 @@ export class SchedulerService {
     saveFiles?: boolean
   }) {
     // Check if there's already a destroy operation in progress
-    const operations = await operationManager.getOperationsByInterview(
-      takeHome.id
-    )
+    const operations = await operationManager.getOperationsByInterview(takeHome.id)
     const hasActiveDestroy = operations.some(
-      op =>
+      (op) =>
         (op.type === 'destroy' || op.type === 'revoke_takehome') &&
-        (op.status === 'pending' || op.status === 'running')
+        (op.status === 'pending' || op.status === 'running'),
     )
 
     if (hasActiveDestroy) {
@@ -514,16 +478,8 @@ export class SchedulerService {
 
     try {
       // Update statuses
-      await assessmentManager.updateSessionStatus(
-        takeHome.id,
-        'takehome',
-        'completed'
-      )
-      await assessmentManager.updateInstanceStatus(
-        takeHome.id,
-        'takehome',
-        'destroying'
-      )
+      await assessmentManager.updateSessionStatus(takeHome.id, 'takehome', 'completed')
+      await assessmentManager.updateInstanceStatus(takeHome.id, 'takehome', 'destroying')
 
       // Create destroy operation
       const destroyOpId = await operationManager.createOperation(
@@ -533,7 +489,7 @@ export class SchedulerService {
         takeHome.challengeId,
         undefined,
         undefined,
-        takeHome.saveFiles || true
+        takeHome.saveFiles || true,
       )
 
       const destroyOp = await operationManager.getOperation(destroyOpId)
@@ -587,13 +543,10 @@ export class SchedulerService {
 
           try {
             // Create OpenAI service account
-            if (
-              config.services.openaiProjectId &&
-              config.services.openaiAdminKey
-            ) {
+            if (config.services.openaiProjectId && config.services.openaiAdminKey) {
               const result = await openaiService.createServiceAccount(
                 config.services.openaiProjectId,
-                `interview-${config.project.environment}-apikey-${key.id}-${key.name}`
+                `interview-${config.project.environment}-apikey-${key.id}-${key.name}`,
               )
 
               if (result.success) {
@@ -618,12 +571,9 @@ export class SchedulerService {
             } else {
               // OpenAI not configured - cannot activate
               await apiKeyManager.updateStatus(key.id, 'error')
-              schedulerLogger.error(
-                'Cannot activate scheduled API key - OpenAI not configured',
-                {
-                  apiKeyId: key.id,
-                }
-              )
+              schedulerLogger.error('Cannot activate scheduled API key - OpenAI not configured', {
+                apiKeyId: key.id,
+              })
             }
           } catch (error) {
             await apiKeyManager.updateStatus(key.id, 'error')
@@ -660,7 +610,7 @@ export class SchedulerService {
           if (key.serviceAccountId && config.services.openaiProjectId) {
             const result = await openaiService.deleteServiceAccount(
               config.services.openaiProjectId,
-              key.serviceAccountId
+              key.serviceAccountId,
             )
 
             if (!result.success) {
@@ -725,7 +675,7 @@ export class SchedulerService {
     await operationManager.updateOperationStatus(operation.id, 'running')
     await operationManager.addOperationLog(
       operation.id,
-      `🕐 Scheduled interview creation starting for ${operation.candidateName}`
+      `🕐 Scheduled interview creation starting for ${operation.candidateName}`,
     )
 
     this.emit({
@@ -739,14 +689,11 @@ export class SchedulerService {
     let openaiApiKey: string | undefined
 
     if (config.services.openaiProjectId && config.services.openaiAdminKey) {
-      await operationManager.addOperationLog(
-        operation.id,
-        '🤖 Creating OpenAI service account...'
-      )
+      await operationManager.addOperationLog(operation.id, '🤖 Creating OpenAI service account...')
 
       const serviceAccountResult = await openaiService.createServiceAccount(
         config.services.openaiProjectId,
-        `interview-${config.project.environment}-interview-${operation.interviewId}-${operation.candidateName}`
+        `interview-${config.project.environment}-interview-${operation.interviewId}-${operation.candidateName}`,
       )
 
       if (serviceAccountResult.success) {
@@ -754,12 +701,12 @@ export class SchedulerService {
         openaiApiKey = serviceAccountResult.apiKey
         await operationManager.addOperationLog(
           operation.id,
-          `✅ OpenAI service account created: ${serviceAccountId}`
+          `✅ OpenAI service account created: ${serviceAccountId}`,
         )
       } else {
         await operationManager.addOperationLog(
           operation.id,
-          `❌ OpenAI service account creation failed: ${serviceAccountResult.error}`
+          `❌ OpenAI service account creation failed: ${serviceAccountResult.error}`,
         )
         await operationManager.setOperationResult(operation.id, {
           success: false,
@@ -792,40 +739,31 @@ export class SchedulerService {
       const result = await interviewManager.createInterviewWithInfrastructure(
         instance,
         (data: string) => {
-          const lines = data.split('\n').filter(line => line.trim())
-          lines.forEach(line => {
+          const lines = data.split('\n').filter((line) => line.trim())
+          lines.forEach((line) => {
             // Note: We can't await here since this is a streaming callback
             // Logs will be added asynchronously without blocking the stream
-            operationManager
-              .addOperationLog(operation.id, line)
-              .catch(console.error)
+            operationManager.addOperationLog(operation.id, line).catch(console.error)
           })
         },
         (accessUrl: string) => {
           // Infrastructure ready callback - update operation
           operationManager
-            .updateOperationInfrastructureReady(
-              operation.id,
-              accessUrl,
-              instance.password
-            )
+            .updateOperationInfrastructureReady(operation.id, accessUrl, instance.password)
             .catch(console.error)
         },
         operationDetails?.scheduledAt,
         operationDetails?.autoDestroyAt,
         operationDetails?.saveFiles,
-        serviceAccountId
+        serviceAccountId,
       )
 
       if (result.success) {
         await operationManager.addOperationLog(
           operation.id,
-          '✅ Scheduled interview created successfully!'
+          '✅ Scheduled interview created successfully!',
         )
-        await operationManager.addOperationLog(
-          operation.id,
-          `Access URL: ${result.accessUrl}`
-        )
+        await operationManager.addOperationLog(operation.id, `Access URL: ${result.accessUrl}`)
 
         await operationManager.setOperationResult(operation.id, {
           success: true,
@@ -845,12 +783,9 @@ export class SchedulerService {
       } else {
         await operationManager.addOperationLog(
           operation.id,
-          '❌ Scheduled interview creation failed'
+          '❌ Scheduled interview creation failed',
         )
-        await operationManager.addOperationLog(
-          operation.id,
-          `Error: ${result.error}`
-        )
+        await operationManager.addOperationLog(operation.id, `Error: ${result.error}`)
 
         await operationManager.setOperationResult(operation.id, {
           success: false,
@@ -868,10 +803,7 @@ export class SchedulerService {
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-      await operationManager.addOperationLog(
-        operation.id,
-        `❌ Error: ${errorMsg}`
-      )
+      await operationManager.addOperationLog(operation.id, `❌ Error: ${errorMsg}`)
       await operationManager.setOperationResult(operation.id, {
         success: false,
         error: errorMsg,
@@ -897,7 +829,7 @@ export class SchedulerService {
     await operationManager.updateOperationStatus(operation.id, 'running')
     await operationManager.addOperationLog(
       operation.id,
-      `🕐 Scheduled interview destruction starting for ${operation.candidateName || operation.interviewId}`
+      `🕐 Scheduled interview destruction starting for ${operation.candidateName || operation.interviewId}`,
     )
 
     this.emit({
@@ -912,36 +844,33 @@ export class SchedulerService {
       try {
         interview = await interviewManager.getInterview(operation.interviewId)
       } catch (error) {
-        schedulerLogger.debug(
-          'Could not fetch interview record for OpenAI cleanup',
-          {
-            interviewId: operation.interviewId,
-            error: error instanceof Error ? error.message : 'Unknown error',
-          }
-        )
+        schedulerLogger.debug('Could not fetch interview record for OpenAI cleanup', {
+          interviewId: operation.interviewId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
       }
 
       // Delete OpenAI service account first (before destroying infrastructure)
       if (interview?.openaiServiceAccountId) {
         await operationManager.addOperationLog(
           operation.id,
-          '🤖 Deleting OpenAI service account...'
+          '🤖 Deleting OpenAI service account...',
         )
 
         const deleteResult = await openaiService.deleteServiceAccount(
           config.services.openaiProjectId,
-          interview?.openaiServiceAccountId
+          interview?.openaiServiceAccountId,
         )
 
         if (deleteResult.success) {
           await operationManager.addOperationLog(
             operation.id,
-            `✅ OpenAI service account deleted: ${interview?.openaiServiceAccountId}`
+            `✅ OpenAI service account deleted: ${interview?.openaiServiceAccountId}`,
           )
         } else {
           await operationManager.addOperationLog(
             operation.id,
-            `⚠️ OpenAI service account deletion failed: ${deleteResult.error}`
+            `⚠️ OpenAI service account deletion failed: ${deleteResult.error}`,
           )
           // Don't fail the entire destruction - continue with infrastructure cleanup
         }
@@ -951,29 +880,27 @@ export class SchedulerService {
       const result = await interviewManager.destroyInterviewWithInfrastructure(
         operation.interviewId,
         (data: string) => {
-          const lines = data.split('\n').filter(line => line.trim())
-          lines.forEach(line => {
+          const lines = data.split('\n').filter((line) => line.trim())
+          lines.forEach((line) => {
             // Note: We can't await here since this is a streaming callback
             // Logs will be added asynchronously without blocking the stream
-            operationManager
-              .addOperationLog(operation.id, line)
-              .catch(console.error)
+            operationManager.addOperationLog(operation.id, line).catch(console.error)
           })
         },
         operation.candidateName,
         operation.challenge,
-        operation.saveFiles
+        operation.saveFiles,
       )
 
       if (result.success) {
         await operationManager.addOperationLog(
           operation.id,
-          '✅ Infrastructure destroyed successfully'
+          '✅ Infrastructure destroyed successfully',
         )
 
         await operationManager.addOperationLog(
           operation.id,
-          '✅ Scheduled interview destroyed successfully!'
+          '✅ Scheduled interview destroyed successfully!',
         )
         await operationManager.setOperationResult(operation.id, {
           success: true,
@@ -990,12 +917,9 @@ export class SchedulerService {
       } else {
         await operationManager.addOperationLog(
           operation.id,
-          '❌ Scheduled interview destruction failed'
+          '❌ Scheduled interview destruction failed',
         )
-        await operationManager.addOperationLog(
-          operation.id,
-          `Error: ${result.error}`
-        )
+        await operationManager.addOperationLog(operation.id, `Error: ${result.error}`)
 
         await operationManager.setOperationResult(operation.id, {
           success: false,
@@ -1013,10 +937,7 @@ export class SchedulerService {
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-      await operationManager.addOperationLog(
-        operation.id,
-        `❌ Error: ${errorMsg}`
-      )
+      await operationManager.addOperationLog(operation.id, `❌ Error: ${errorMsg}`)
       await operationManager.setOperationResult(operation.id, {
         success: false,
         error: errorMsg,

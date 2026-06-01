@@ -35,8 +35,7 @@ interface DanglingResources {
 
 export default function CleanupDashboard() {
   const [loading, setLoading] = useState(false)
-  const [danglingResources, setDanglingResources] =
-    useState<DanglingResources | null>(null)
+  const [danglingResources, setDanglingResources] = useState<DanglingResources | null>(null)
   const [cleanupResult, setCleanupResult] = useState<CleanupResult | null>(null)
   const [showDetails, setShowDetails] = useState(false)
 
@@ -52,11 +51,7 @@ export default function CleanupDashboard() {
         alert(`Error: ${data.error}`)
       }
     } catch (error) {
-      alert(
-        `Error loading resources: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      )
+      alert(`Error loading resources: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
@@ -68,12 +63,7 @@ export default function CleanupDashboard() {
     maxConcurrency?: number
     timeout?: number
   }) => {
-    const {
-      dryRun = false,
-      forceDestroy = false,
-      maxConcurrency = 3,
-      timeout = 300,
-    } = options
+    const { dryRun = false, forceDestroy = false, maxConcurrency = 3, timeout = 300 } = options
 
     if (
       !dryRun &&
@@ -82,7 +72,7 @@ export default function CleanupDashboard() {
           forceDestroy
             ? 'destroy ALL workspaces including active interviews'
             : 'destroy dangling workspaces'
-        }. Are you sure?`
+        }. Are you sure?`,
       )
     ) {
       return
@@ -113,11 +103,7 @@ export default function CleanupDashboard() {
         }, 1000)
       }
     } catch (error) {
-      alert(
-        `Error during cleanup: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      )
+      alert(`Error during cleanup: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
@@ -126,9 +112,7 @@ export default function CleanupDashboard() {
   return (
     <div className="space-y-6 p-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">
-          AWS Resource Cleanup
-        </h2>
+        <h2 className="text-2xl font-bold text-gray-900">AWS Resource Cleanup</h2>
         <button
           onClick={loadDanglingResources}
           disabled={loading}
@@ -141,11 +125,7 @@ export default function CleanupDashboard() {
       <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
         <div className="flex">
           <div className="flex-shrink-0">
-            <svg
-              className="h-5 w-5 text-yellow-400"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
+            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
               <path
                 fillRule="evenodd"
                 d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
@@ -157,9 +137,8 @@ export default function CleanupDashboard() {
             <h3 className="text-sm font-medium text-yellow-800">Important</h3>
             <div className="mt-2 text-sm text-yellow-700">
               <p>
-                This tool cleans up AWS resources and terraform workspaces that
-                may be left behind due to failed operations. Use with caution in
-                production environments.
+                This tool cleans up AWS resources and terraform workspaces that may be left behind
+                due to failed operations. Use with caution in production environments.
               </p>
             </div>
           </div>
@@ -168,9 +147,7 @@ export default function CleanupDashboard() {
 
       {danglingResources && (
         <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
-            Resource Overview
-          </h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Resource Overview</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-4 bg-blue-50 rounded-lg">
               <div className="text-2xl font-bold text-blue-600">
@@ -194,20 +171,13 @@ export default function CleanupDashboard() {
 
           {danglingResources.danglingWorkspaces > 0 && (
             <div className="mt-6">
-              <h4 className="text-md font-medium text-gray-900 mb-3">
-                Dangling Workspaces
-              </h4>
+              <h4 className="text-md font-medium text-gray-900 mb-3">Dangling Workspaces</h4>
               <div className="max-h-40 overflow-y-auto bg-gray-50 rounded-md p-3">
-                {danglingResources.danglingWorkspacesList?.map(
-                  (workspaceId, index) => (
-                    <div
-                      key={index}
-                      className="text-sm text-gray-700 font-mono"
-                    >
-                      {workspaceId}
-                    </div>
-                  )
-                )}
+                {danglingResources.danglingWorkspacesList?.map((workspaceId, index) => (
+                  <div key={index} className="text-sm text-gray-700 font-mono">
+                    {workspaceId}
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -247,14 +217,10 @@ export default function CleanupDashboard() {
       {cleanupResult && (
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">
-              Cleanup Results
-            </h3>
+            <h3 className="text-lg font-medium text-gray-900">Cleanup Results</h3>
             <span
               className={`px-3 py-1 rounded-full text-sm font-medium ${
-                cleanupResult.success
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
+                cleanupResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
               }`}
             >
               {cleanupResult.success ? 'Success' : 'Partial Failure'}
@@ -318,9 +284,7 @@ export default function CleanupDashboard() {
           {showDetails && (
             <div className="space-y-4">
               <div>
-                <h4 className="text-md font-medium text-gray-900 mb-2">
-                  Execution Log
-                </h4>
+                <h4 className="text-md font-medium text-gray-900 mb-2">Execution Log</h4>
                 <div className="max-h-60 overflow-y-auto bg-gray-900 text-green-400 text-sm font-mono p-3 rounded-md">
                   {cleanupResult.details.map((detail, index) => (
                     <div key={index}>{detail}</div>
@@ -330,9 +294,7 @@ export default function CleanupDashboard() {
 
               {cleanupResult.workspaceResults.length > 0 && (
                 <div>
-                  <h4 className="text-md font-medium text-gray-900 mb-2">
-                    Individual Results
-                  </h4>
+                  <h4 className="text-md font-medium text-gray-900 mb-2">Individual Results</h4>
                   <div className="max-h-60 overflow-y-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">

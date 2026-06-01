@@ -40,7 +40,7 @@ takehomesRouter.get('/', async (c) => {
     const takeHomes = await assessmentManager.listTakeHomes()
 
     // Convert to API format with all fields needed for UI
-    const takeHomeList: TakeHomeListItem[] = takeHomes.map(takeHome => {
+    const takeHomeList: TakeHomeListItem[] = takeHomes.map((takeHome) => {
       const item: TakeHomeListItem = {
         id: takeHome.id,
         candidateName: takeHome.candidateName,
@@ -63,9 +63,7 @@ takehomesRouter.get('/', async (c) => {
 
       // Add autoDestroyAt if present
       if (takeHome.autoDestroyAt) {
-        item.autoDestroyAt = new Date(
-          takeHome.autoDestroyAt * 1000
-        ).toISOString()
+        item.autoDestroyAt = new Date(takeHome.autoDestroyAt * 1000).toISOString()
       }
 
       // Add destroyedAt if present
@@ -102,10 +100,7 @@ takehomesRouter.post('/create', async (c) => {
 
     // Validate required fields
     if (!candidateName || !challengeId) {
-      return c.json(
-        { error: 'candidateName and challengeId are required' },
-        400
-      )
+      return c.json({ error: 'candidateName and challengeId are required' }, 400)
     }
 
     // Generate IDs
@@ -122,7 +117,7 @@ takehomesRouter.post('/create', async (c) => {
     try {
       const serviceAccountResult = await openaiService.createServiceAccount(
         config.services.openaiProjectId,
-        `interview-${config.project.environment}-takehome-${takeHomeId}-${candidateName}`
+        `interview-${config.project.environment}-takehome-${takeHomeId}-${candidateName}`,
       )
       if (
         serviceAccountResult.success &&
@@ -197,7 +192,7 @@ takehomesRouter.post('/create', async (c) => {
         error: 'Failed to create take-home',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -249,7 +244,7 @@ takehomesRouter.post('/:id/revoke', async (c) => {
         {
           error: `Cannot revoke - take-home is already ${assessment.sessionStatus}`,
         },
-        400
+        400,
       )
     }
 
@@ -259,12 +254,9 @@ takehomesRouter.post('/:id/revoke', async (c) => {
     }
 
     // Check for existing revoke operations to prevent duplicates
-    const existingOperations =
-      await operationManager.getOperationsByInterview(id)
+    const existingOperations = await operationManager.getOperationsByInterview(id)
     const hasActiveRevoke = existingOperations.some(
-      op =>
-        op.type === 'revoke_takehome' &&
-        (op.status === 'pending' || op.status === 'running')
+      (op) => op.type === 'revoke_takehome' && (op.status === 'pending' || op.status === 'running'),
     )
 
     if (hasActiveRevoke) {
@@ -289,7 +281,7 @@ takehomesRouter.post('/:id/revoke', async (c) => {
         assessment.challengeId,
         undefined, // scheduledAt
         undefined, // autoDestroyAt
-        true // saveFiles - always save files for revoked take-homes
+        true, // saveFiles - always save files for revoked take-homes
       )
 
       // Start background operation
@@ -298,42 +290,38 @@ takehomesRouter.post('/:id/revoke', async (c) => {
           await operationManager.updateOperationStatus(operationId, 'running')
           await operationManager.addOperationLog(
             operationId,
-            `Starting take-home revocation for ${id}`
+            `Starting take-home revocation for ${id}`,
           )
 
           // Update session status to 'revoked' and instance status to 'destroying'
           await assessmentManager.updateSessionStatus(id, 'takehome', 'revoked')
-          await assessmentManager.updateInstanceStatus(
-            id,
-            'takehome',
-            'destroying'
-          )
+          await assessmentManager.updateInstanceStatus(id, 'takehome', 'destroying')
           await operationManager.addOperationLog(
             operationId,
-            'Take-home status set to revoked, destroying infrastructure'
+            'Take-home status set to revoked, destroying infrastructure',
           )
 
           // Delete OpenAI service account if exists
           if (assessment.openaiServiceAccount) {
             await operationManager.addOperationLog(
               operationId,
-              'Deleting OpenAI service account...'
+              'Deleting OpenAI service account...',
             )
 
             const deleteResult = await openaiService.deleteServiceAccount(
               assessment.openaiServiceAccount.projectId,
-              assessment.openaiServiceAccount.serviceAccountId
+              assessment.openaiServiceAccount.serviceAccountId,
             )
 
             if (deleteResult.success) {
               await operationManager.addOperationLog(
                 operationId,
-                'OpenAI service account deleted successfully'
+                'OpenAI service account deleted successfully',
               )
             } else {
               await operationManager.addOperationLog(
                 operationId,
-                `OpenAI service account deletion failed: ${deleteResult.error}`
+                `OpenAI service account deletion failed: ${deleteResult.error}`,
               )
             }
           }
@@ -344,11 +332,9 @@ takehomesRouter.post('/:id/revoke', async (c) => {
             candidateName: assessment.candidateName,
             challenge: assessment.challengeId,
             onData: (data: string) => {
-              const lines = data.split('\n').filter(line => line.trim())
-              lines.forEach(line => {
-                operationManager
-                  .addOperationLog(operationId, line)
-                  .catch(console.error)
+              const lines = data.split('\n').filter((line) => line.trim())
+              lines.forEach((line) => {
+                operationManager.addOperationLog(operationId, line).catch(console.error)
               })
             },
           })
@@ -356,13 +342,10 @@ takehomesRouter.post('/:id/revoke', async (c) => {
           if (result.success) {
             await operationManager.addOperationLog(
               operationId,
-              'Infrastructure destroyed successfully'
+              'Infrastructure destroyed successfully',
             )
 
-            await operationManager.addOperationLog(
-              operationId,
-              'Take-home revoked successfully!'
-            )
+            await operationManager.addOperationLog(operationId, 'Take-home revoked successfully!')
 
             await operationManager.setOperationResult(operationId, {
               success: true,
@@ -370,14 +353,8 @@ takehomesRouter.post('/:id/revoke', async (c) => {
               historyS3Key: result.historyS3Key,
             })
           } else {
-            await operationManager.addOperationLog(
-              operationId,
-              'Take-home revocation failed'
-            )
-            await operationManager.addOperationLog(
-              operationId,
-              `Error: ${result.error}`
-            )
+            await operationManager.addOperationLog(operationId, 'Take-home revocation failed')
+            await operationManager.addOperationLog(operationId, `Error: ${result.error}`)
 
             await operationManager.setOperationResult(operationId, {
               success: false,
@@ -386,12 +363,8 @@ takehomesRouter.post('/:id/revoke', async (c) => {
             })
           }
         } catch (error) {
-          const errorMsg =
-            error instanceof Error ? error.message : 'Unknown error'
-          await operationManager.addOperationLog(
-            operationId,
-            `Error: ${errorMsg}`
-          )
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+          await operationManager.addOperationLog(operationId, `Error: ${errorMsg}`)
           await operationManager.setOperationResult(operationId, {
             success: false,
             error: errorMsg,
@@ -416,7 +389,7 @@ takehomesRouter.post('/:id/revoke', async (c) => {
         try {
           await openaiService.deleteServiceAccount(
             assessment.openaiServiceAccount.projectId,
-            assessment.openaiServiceAccount.serviceAccountId
+            assessment.openaiServiceAccount.serviceAccountId,
           )
           logger.info('OpenAI service account deleted', { takeHomeId: id })
         } catch (error) {
@@ -443,7 +416,7 @@ takehomesRouter.post('/:id/revoke', async (c) => {
         error: 'Failed to revoke take-home',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -478,10 +451,7 @@ takehomesRouter.post('/:id/delete', async (c) => {
 
     // Verify it's a take-home (not an interview)
     if (assessment.sessionType !== 'takehome') {
-      return c.json(
-        { error: 'This endpoint is for take-homes only, not a take-home' },
-        400
-      )
+      return c.json({ error: 'This endpoint is for take-homes only, not a take-home' }, 400)
     }
 
     // Check if take-home has been activated (has infrastructure)
@@ -499,7 +469,7 @@ takehomesRouter.post('/:id/delete', async (c) => {
         'destroy',
         id,
         assessment.candidateName,
-        assessment.challengeId
+        assessment.challengeId,
       )
 
       // Start background operation
@@ -508,30 +478,30 @@ takehomesRouter.post('/:id/delete', async (c) => {
           await operationManager.updateOperationStatus(operationId, 'running')
           await operationManager.addOperationLog(
             operationId,
-            `Starting take-home destruction for ${id}`
+            `Starting take-home destruction for ${id}`,
           )
 
           // Delete OpenAI service account if exists
           if (assessment.openaiServiceAccount) {
             await operationManager.addOperationLog(
               operationId,
-              'Deleting OpenAI service account...'
+              'Deleting OpenAI service account...',
             )
 
             const deleteResult = await openaiService.deleteServiceAccount(
               assessment.openaiServiceAccount.projectId,
-              assessment.openaiServiceAccount.serviceAccountId
+              assessment.openaiServiceAccount.serviceAccountId,
             )
 
             if (deleteResult.success) {
               await operationManager.addOperationLog(
                 operationId,
-                'OpenAI service account deleted successfully'
+                'OpenAI service account deleted successfully',
               )
             } else {
               await operationManager.addOperationLog(
                 operationId,
-                `OpenAI service account deletion failed: ${deleteResult.error}`
+                `OpenAI service account deletion failed: ${deleteResult.error}`,
               )
             }
           }
@@ -542,11 +512,9 @@ takehomesRouter.post('/:id/delete', async (c) => {
             candidateName: assessment.candidateName,
             challenge: assessment.challengeId,
             onData: (data: string) => {
-              const lines = data.split('\n').filter(line => line.trim())
-              lines.forEach(line => {
-                operationManager
-                  .addOperationLog(operationId, line)
-                  .catch(console.error)
+              const lines = data.split('\n').filter((line) => line.trim())
+              lines.forEach((line) => {
+                operationManager.addOperationLog(operationId, line).catch(console.error)
               })
             },
           })
@@ -554,13 +522,10 @@ takehomesRouter.post('/:id/delete', async (c) => {
           if (result.success) {
             await operationManager.addOperationLog(
               operationId,
-              'Infrastructure destroyed successfully'
+              'Infrastructure destroyed successfully',
             )
 
-            await operationManager.addOperationLog(
-              operationId,
-              'Take-home destroyed successfully!'
-            )
+            await operationManager.addOperationLog(operationId, 'Take-home destroyed successfully!')
 
             await operationManager.setOperationResult(operationId, {
               success: true,
@@ -568,14 +533,8 @@ takehomesRouter.post('/:id/delete', async (c) => {
               historyS3Key: result.historyS3Key,
             })
           } else {
-            await operationManager.addOperationLog(
-              operationId,
-              'Take-home destruction failed'
-            )
-            await operationManager.addOperationLog(
-              operationId,
-              `Error: ${result.error}`
-            )
+            await operationManager.addOperationLog(operationId, 'Take-home destruction failed')
+            await operationManager.addOperationLog(operationId, `Error: ${result.error}`)
 
             await operationManager.setOperationResult(operationId, {
               success: false,
@@ -584,12 +543,8 @@ takehomesRouter.post('/:id/delete', async (c) => {
             })
           }
         } catch (error) {
-          const errorMsg =
-            error instanceof Error ? error.message : 'Unknown error'
-          await operationManager.addOperationLog(
-            operationId,
-            `Error: ${errorMsg}`
-          )
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+          await operationManager.addOperationLog(operationId, `Error: ${errorMsg}`)
           await operationManager.setOperationResult(operationId, {
             success: false,
             error: errorMsg,
@@ -614,7 +569,7 @@ takehomesRouter.post('/:id/delete', async (c) => {
         try {
           await openaiService.deleteServiceAccount(
             assessment.openaiServiceAccount.projectId,
-            assessment.openaiServiceAccount.serviceAccountId
+            assessment.openaiServiceAccount.serviceAccountId,
           )
           logger.info('OpenAI service account deleted', { takeHomeId: id })
         } catch (error) {
@@ -641,7 +596,7 @@ takehomesRouter.post('/:id/delete', async (c) => {
         error: 'Failed to delete take-home',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })

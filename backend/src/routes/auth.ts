@@ -13,9 +13,7 @@ export const authRouter = new Hono()
  */
 authRouter.post('/login', async (c) => {
   const clientIp =
-    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||
-    c.req.header('x-real-ip') ||
-    'unknown'
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || c.req.header('x-real-ip') || 'unknown'
 
   try {
     const { passcode } = await c.req.json<{ passcode?: string }>()

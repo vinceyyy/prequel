@@ -122,9 +122,7 @@ export class FileExtractionService {
    * @param config - Configuration for file extraction
    * @returns Promise with extraction result and S3 keys
    */
-  async extractAndUploadFiles(
-    config: FileExtractionConfig
-  ): Promise<FileExtractionResult> {
+  async extractAndUploadFiles(config: FileExtractionConfig): Promise<FileExtractionResult> {
     const {
       interviewId,
       candidateName,
@@ -180,13 +178,10 @@ export class FileExtractionService {
         interviewId,
         candidateName,
         challengeId,
-        challengeName
+        challengeName,
       )
 
-      const scriptResult = await this.executeScriptInContainer(
-        taskArn,
-        extractionScript
-      )
+      const scriptResult = await this.executeScriptInContainer(taskArn, extractionScript)
       if (!scriptResult.success) {
         return {
           success: false,
@@ -223,9 +218,7 @@ export class FileExtractionService {
   /**
    * Finds the running ECS task for an interview.
    */
-  private async findRunningECSTask(
-    interviewId: string
-  ): Promise<string | null> {
+  private async findRunningECSTask(interviewId: string): Promise<string | null> {
     try {
       const serviceName = `interview-${interviewId}`
 
@@ -234,7 +227,7 @@ export class FileExtractionService {
           cluster: ECS_CLUSTER_NAME,
           serviceName,
           desiredStatus: 'RUNNING',
-        })
+        }),
       )
 
       if (response.taskArns && response.taskArns.length > 0) {
@@ -260,16 +253,13 @@ export class FileExtractionService {
     interviewId: string,
     candidateName: string,
     challengeId: string,
-    challengeName: string
+    challengeName: string,
   ): string {
-    const allIgnorePatterns = [
-      ...DEFAULT_IGNORE_PATTERNS,
-      ...customIgnorePatterns,
-    ]
+    const allIgnorePatterns = [...DEFAULT_IGNORE_PATTERNS, ...customIgnorePatterns]
 
     // Create find exclusions for ignore patterns
     const findExclusions = allIgnorePatterns
-      .map(pattern => {
+      .map((pattern) => {
         // Convert glob patterns to find -path patterns
         const findPattern = pattern.replace(/\*\*/g, '*')
         // Handle different pattern types
@@ -293,12 +283,12 @@ MAX_SIZE_MB=${maxFileSizeMB}
 ARCHIVE_PATH="/tmp/workspace-archive.tar.gz"
 METADATA_PATH="/tmp/interview.json"
 
-echo "Starting file extraction from \$WORKSPACE_DIR"
+echo "Starting file extraction from $WORKSPACE_DIR"
 
 # Check if workspace directory exists
-echo "Checking workspace directory: \$WORKSPACE_DIR"
-if [ ! -d "\$WORKSPACE_DIR" ]; then
-  echo "ERROR: Workspace directory \$WORKSPACE_DIR does not exist"
+echo "Checking workspace directory: $WORKSPACE_DIR"
+if [ ! -d "$WORKSPACE_DIR" ]; then
+  echo "ERROR: Workspace directory $WORKSPACE_DIR does not exist"
   echo "Available directories in /:"
   ls -la /
   echo "Available directories in /workspaces:"
@@ -310,110 +300,110 @@ fi
 
 # Create interview metadata file
 echo "Creating interview metadata..."
-cat > "\$METADATA_PATH" << EOF
+cat > "$METADATA_PATH" << EOF
 {
   "interviewId": "${interviewId}",
   "candidateName": "${candidateName}",
   "challenge": "${challengeName}",
   "challengeId": "${challengeId}",
-  "extractedAt": "\$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")",
+  "extractedAt": "$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")",
   "extractionVersion": "1.0.0"
 }
 EOF
 
 # Find files to include (applying ignore patterns)
 echo "Scanning for files to archive..."
-FILES=\$(find "\$WORKSPACE_DIR" -type f ${findExclusions})
+FILES=$(find "$WORKSPACE_DIR" -type f ${findExclusions})
 
-if [ -z "\$FILES" ]; then
+if [ -z "$FILES" ]; then
   echo "No files found to archive"
   # Create archive structure with empty workspace folder
   TEMP_ARCHIVE_DIR="/tmp/archive_structure"
-  mkdir -p "\$TEMP_ARCHIVE_DIR/workspace"
-  cp "\$METADATA_PATH" "\$TEMP_ARCHIVE_DIR/interview.json"
-  cd "\$TEMP_ARCHIVE_DIR"
-  tar -czf "\$ARCHIVE_PATH" .
-  rm -rf "\$TEMP_ARCHIVE_DIR"
+  mkdir -p "$TEMP_ARCHIVE_DIR/workspace"
+  cp "$METADATA_PATH" "$TEMP_ARCHIVE_DIR/interview.json"
+  cd "$TEMP_ARCHIVE_DIR"
+  tar -czf "$ARCHIVE_PATH" .
+  rm -rf "$TEMP_ARCHIVE_DIR"
   FILE_COUNT=0
-  TOTAL_SIZE=\$(stat -c %s "\$METADATA_PATH")
+  TOTAL_SIZE=$(stat -c %s "$METADATA_PATH")
 else
   # Count files and calculate size
-  FILE_COUNT=\$(echo "\$FILES" | wc -l)
-  TOTAL_SIZE=\$(echo "\$FILES" | xargs stat -c %s | awk '{sum += \$1} END {print sum+0}')
+  FILE_COUNT=$(echo "$FILES" | wc -l)
+  TOTAL_SIZE=$(echo "$FILES" | xargs stat -c %s | awk '{sum += $1} END {print sum+0}')
   
-  echo "Found \$FILE_COUNT files, total size: \$TOTAL_SIZE bytes"
+  echo "Found $FILE_COUNT files, total size: $TOTAL_SIZE bytes"
   
   # Check size limit
-  MAX_SIZE_BYTES=\$((MAX_SIZE_MB * 1024 * 1024))
-  if [ "\$TOTAL_SIZE" -gt "\$MAX_SIZE_BYTES" ]; then
-    echo "ERROR: Total file size (\$TOTAL_SIZE bytes) exceeds limit (\$MAX_SIZE_BYTES bytes)"
+  MAX_SIZE_BYTES=$((MAX_SIZE_MB * 1024 * 1024))
+  if [ "$TOTAL_SIZE" -gt "$MAX_SIZE_BYTES" ]; then
+    echo "ERROR: Total file size ($TOTAL_SIZE bytes) exceeds limit ($MAX_SIZE_BYTES bytes)"
     exit 1
   fi
   
   # Create a temporary directory to structure the archive correctly
   TEMP_ARCHIVE_DIR="/tmp/archive_structure"
-  mkdir -p "\$TEMP_ARCHIVE_DIR/workspace"
+  mkdir -p "$TEMP_ARCHIVE_DIR/workspace"
   
   # Copy all files to the workspace folder, preserving structure
-  echo "\$FILES" | while IFS= read -r file; do
-    if [ -n "\$file" ]; then
+  echo "$FILES" | while IFS= read -r file; do
+    if [ -n "$file" ]; then
       # Get relative path from workspace dir
-      rel_path="\${file#\$WORKSPACE_DIR/}"
-      target_dir="\$TEMP_ARCHIVE_DIR/workspace/\$(dirname "\$rel_path")"
-      mkdir -p "\$target_dir"
-      cp "\$file" "\$target_dir/" || echo "Warning: Failed to copy \$file"
+      rel_path="\${file#$WORKSPACE_DIR/}"
+      target_dir="$TEMP_ARCHIVE_DIR/workspace/$(dirname "$rel_path")"
+      mkdir -p "$target_dir"
+      cp "$file" "$target_dir/" || echo "Warning: Failed to copy $file"
     fi
   done
   
   # Copy metadata to archive root
-  cp "\$METADATA_PATH" "\$TEMP_ARCHIVE_DIR/interview.json"
+  cp "$METADATA_PATH" "$TEMP_ARCHIVE_DIR/interview.json"
   
   # Create tar from the structured directory
-  cd "\$TEMP_ARCHIVE_DIR"
-  tar -czf "\$ARCHIVE_PATH" . || {
+  cd "$TEMP_ARCHIVE_DIR"
+  tar -czf "$ARCHIVE_PATH" . || {
     echo "ERROR: Failed to create tar archive"
     exit 1
   }
   
   # Verify archive was created
-  if [ ! -f "\$ARCHIVE_PATH" ]; then
-    echo "ERROR: Archive file was not created at \$ARCHIVE_PATH"
+  if [ ! -f "$ARCHIVE_PATH" ]; then
+    echo "ERROR: Archive file was not created at $ARCHIVE_PATH"
     exit 1
   fi
   
-  echo "Archive created successfully: \$(ls -lh \$ARCHIVE_PATH)"
+  echo "Archive created successfully: $(ls -lh $ARCHIVE_PATH)"
   
   # Cleanup temp structure
-  rm -rf "\$TEMP_ARCHIVE_DIR"
+  rm -rf "$TEMP_ARCHIVE_DIR"
 fi
 
 # Upload to S3
-echo "Uploading archive to s3://\$BUCKET_NAME/\$S3_KEY"
+echo "Uploading archive to s3://$BUCKET_NAME/$S3_KEY"
 
 # Use s3api put-object directly (more reliable and doesn't trigger session termination)
 echo "Using s3api put-object for upload..."
-S3API_OUTPUT=\$(aws s3api put-object --bucket "\$BUCKET_NAME" --key "\$S3_KEY" --body "\$ARCHIVE_PATH" --region "\${AWS_REGION:-us-east-1}" 2>&1 || true)
-echo "S3API output: \$S3API_OUTPUT"
+S3API_OUTPUT=$(aws s3api put-object --bucket "$BUCKET_NAME" --key "$S3_KEY" --body "$ARCHIVE_PATH" --region "\${AWS_REGION:-us-east-1}" 2>&1 || true)
+echo "S3API output: $S3API_OUTPUT"
 
 # Check if upload succeeded by looking for ETag in response
-if echo "\$S3API_OUTPUT" | grep -q "ETag"; then
+if echo "$S3API_OUTPUT" | grep -q "ETag"; then
   echo "✅ Upload succeeded"
-  echo "File uploaded to: s3://\$BUCKET_NAME/\$S3_KEY"
+  echo "File uploaded to: s3://$BUCKET_NAME/$S3_KEY"
 else
   echo "WARNING: Upload may have failed - no ETag in response"
   echo "Attempting fallback with s3 cp..."
-  S3_CP_OUTPUT=\$(aws s3 cp "\$ARCHIVE_PATH" "s3://\$BUCKET_NAME/\$S3_KEY" --region "\${AWS_REGION:-us-east-1}" 2>&1 || true)
-  echo "S3 cp output: \$S3_CP_OUTPUT"
+  S3_CP_OUTPUT=$(aws s3 cp "$ARCHIVE_PATH" "s3://$BUCKET_NAME/$S3_KEY" --region "\${AWS_REGION:-us-east-1}" 2>&1 || true)
+  echo "S3 cp output: $S3_CP_OUTPUT"
 fi
 
 # Output results for parsing
 echo "EXTRACTION_RESULT: SUCCESS"
-echo "FILE_COUNT: \$FILE_COUNT"
-echo "TOTAL_SIZE: \$TOTAL_SIZE"
-echo "S3_LOCATION: s3://\$BUCKET_NAME/\$S3_KEY"
+echo "FILE_COUNT: $FILE_COUNT"
+echo "TOTAL_SIZE: $TOTAL_SIZE"
+echo "S3_LOCATION: s3://$BUCKET_NAME/$S3_KEY"
 
 # Cleanup
-rm -f "\$ARCHIVE_PATH" "\$METADATA_PATH"
+rm -f "$ARCHIVE_PATH" "$METADATA_PATH"
 echo "File extraction completed successfully"
 `
   }
@@ -427,7 +417,7 @@ echo "File extraction completed successfully"
    */
   private async executeScriptInContainer(
     taskArn: string,
-    script: string
+    script: string,
   ): Promise<{
     success: boolean
     error?: string
@@ -454,7 +444,7 @@ echo "File extraction completed successfully"
    */
   private async executeScriptViaAWSCLI(
     taskArn: string,
-    script: string
+    script: string,
   ): Promise<{
     success: boolean
     error?: string
@@ -498,8 +488,7 @@ echo "File extraction completed successfully"
         output.includes('EXTRACTION_RESULT: SUCCESS') ||
         output.includes('✅ Upload succeeded') ||
         output.includes('ETag') || // S3API returns ETag on success
-        (output.includes('Archive created successfully') &&
-          output.includes('S3API output:')) // Archive created and upload attempted
+        (output.includes('Archive created successfully') && output.includes('S3API output:')) // Archive created and upload attempted
 
       if (uploadSuccessful) {
         const fileCountMatch = output.match(/FILE_COUNT: (\d+)/)
@@ -513,13 +502,10 @@ echo "File extraction completed successfully"
       } else {
         // Check for Session Manager plugin error
         if (output.includes('SessionManagerPlugin is not found')) {
-          logger.warn(
-            'Session Manager plugin not installed - file extraction skipped',
-            {
-              taskArn,
-              output: output.substring(0, 500), // Log first 500 chars for debugging
-            }
-          )
+          logger.warn('Session Manager plugin not installed - file extraction skipped', {
+            taskArn,
+            output: output.substring(0, 500), // Log first 500 chars for debugging
+          })
           return {
             success: false,
             error:
@@ -533,18 +519,14 @@ echo "File extraction completed successfully"
         }
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error'
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
       // Check for Session Manager plugin error in exception message
       if (errorMessage.includes('SessionManagerPlugin is not found')) {
-        logger.warn(
-          'Session Manager plugin not installed - file extraction skipped',
-          {
-            taskArn,
-            error: errorMessage,
-          }
-        )
+        logger.warn('Session Manager plugin not installed - file extraction skipped', {
+          taskArn,
+          error: errorMessage,
+        })
         return {
           success: false,
           error:

@@ -20,33 +20,28 @@ describe('OperationManager', () => {
         interviewId,
         'Test Candidate',
         'javascript',
-        new Date(Date.now() + 60000) // scheduled for 1 minute in future
+        new Date(Date.now() + 60000), // scheduled for 1 minute in future
       )
 
       const regularOpId = operationManager.createOperation(
         'create',
         'other-interview',
         'Other Candidate',
-        'python'
+        'python',
       )
 
       // Verify initial state
-      expect(operationManager.getOperation(scheduleOpId)?.status).toBe(
-        'scheduled'
-      )
+      expect(operationManager.getOperation(scheduleOpId)?.status).toBe('scheduled')
       expect(operationManager.getOperation(regularOpId)?.status).toBe('pending')
 
       // Cancel scheduled operations for the interview
-      const cancelledCount =
-        operationManager.cancelScheduledOperationsForInterview(interviewId)
+      const cancelledCount = operationManager.cancelScheduledOperationsForInterview(interviewId)
 
       // Verify results
       expect(cancelledCount).toBe(1)
-      expect(operationManager.getOperation(scheduleOpId)?.status).toBe(
-        'cancelled'
-      )
+      expect(operationManager.getOperation(scheduleOpId)?.status).toBe('cancelled')
       expect(operationManager.getOperation(scheduleOpId)?.result?.error).toBe(
-        'Operation cancelled due to manual interview destruction'
+        'Operation cancelled due to manual interview destruction',
       )
       expect(operationManager.getOperation(regularOpId)?.status).toBe('pending') // should be unchanged
     })
@@ -60,7 +55,7 @@ describe('OperationManager', () => {
         interviewId,
         'Test Candidate',
         'javascript',
-        new Date(Date.now() + 60000)
+        new Date(Date.now() + 60000),
       )
 
       const scheduleOpId2 = operationManager.createOperation(
@@ -68,37 +63,26 @@ describe('OperationManager', () => {
         interviewId,
         'Test Candidate',
         'javascript',
-        new Date(Date.now() + 120000)
+        new Date(Date.now() + 120000),
       )
 
       // Cancel scheduled operations for the interview
-      const cancelledCount =
-        operationManager.cancelScheduledOperationsForInterview(interviewId)
+      const cancelledCount = operationManager.cancelScheduledOperationsForInterview(interviewId)
 
       // Verify results
       expect(cancelledCount).toBe(2)
-      expect(operationManager.getOperation(scheduleOpId1)?.status).toBe(
-        'cancelled'
-      )
-      expect(operationManager.getOperation(scheduleOpId2)?.status).toBe(
-        'cancelled'
-      )
+      expect(operationManager.getOperation(scheduleOpId1)?.status).toBe('cancelled')
+      expect(operationManager.getOperation(scheduleOpId2)?.status).toBe('cancelled')
     })
 
     it('should return 0 when no scheduled operations exist for the interview', () => {
       const interviewId = 'nonexistent-interview'
 
       // Create an operation for a different interview
-      operationManager.createOperation(
-        'create',
-        'other-interview',
-        'Other Candidate',
-        'python'
-      )
+      operationManager.createOperation('create', 'other-interview', 'Other Candidate', 'python')
 
       // Try to cancel scheduled operations for non-existent interview
-      const cancelledCount =
-        operationManager.cancelScheduledOperationsForInterview(interviewId)
+      const cancelledCount = operationManager.cancelScheduledOperationsForInterview(interviewId)
 
       // Verify results
       expect(cancelledCount).toBe(0)
@@ -113,28 +97,25 @@ describe('OperationManager', () => {
         interviewId,
         'Test Candidate',
         'javascript',
-        new Date(Date.now() + 60000)
+        new Date(Date.now() + 60000),
       )
 
       const pendingOpId = operationManager.createOperation(
         'create',
         interviewId,
         'Test Candidate',
-        'javascript'
+        'javascript',
       )
 
       // Change pending operation to running
       operationManager.updateOperationStatus(pendingOpId, 'running')
 
       // Cancel scheduled operations for the interview
-      const cancelledCount =
-        operationManager.cancelScheduledOperationsForInterview(interviewId)
+      const cancelledCount = operationManager.cancelScheduledOperationsForInterview(interviewId)
 
       // Verify results
       expect(cancelledCount).toBe(1)
-      expect(operationManager.getOperation(scheduleOpId)?.status).toBe(
-        'cancelled'
-      )
+      expect(operationManager.getOperation(scheduleOpId)?.status).toBe('cancelled')
       expect(operationManager.getOperation(pendingOpId)?.status).toBe('running') // should be unchanged
     })
   })
@@ -144,12 +125,10 @@ describe('OperationManager', () => {
     const mockSend = jest.fn()
 
     // Store original client to restore later
-    const originalClient = (
-      operationManager as unknown as { dynamoClient: unknown }
-    ).dynamoClient
-    ;(
-      operationManager as unknown as { dynamoClient: { send: jest.Mock } }
-    ).dynamoClient = { send: mockSend }
+    const originalClient = (operationManager as unknown as { dynamoClient: unknown }).dynamoClient
+    ;(operationManager as unknown as { dynamoClient: { send: jest.Mock } }).dynamoClient = {
+      send: mockSend,
+    }
 
     // Mock successful PutItem responses
     mockSend
@@ -160,14 +139,14 @@ describe('OperationManager', () => {
       'create',
       'INTERVIEW#int-123', // instanceId can be interview ID
       'John Doe',
-      'challenge-123'
+      'challenge-123',
     )
 
     const takeHomeOp = await operationManager.createOperation(
       'create',
       'TAKEHOME#th-456', // instanceId can be take-home ID
       'Jane Smith',
-      'challenge-456'
+      'challenge-456',
     )
 
     expect(interviewOp).toBeDefined()
@@ -207,8 +186,7 @@ describe('OperationManager', () => {
     expect(fetchedTakeHomeOp?.interviewId).toBe('TAKEHOME#th-456')
 
     // Restore original client
-    ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient =
-      originalClient
+    ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient = originalClient
   })
 
   describe('getActiveOperations', () => {
@@ -217,12 +195,10 @@ describe('OperationManager', () => {
       const mockSend = jest.fn()
 
       // Store original client to restore later
-      const originalClient = (
-        operationManager as unknown as { dynamoClient: unknown }
-      ).dynamoClient
-      ;(
-        operationManager as unknown as { dynamoClient: { send: jest.Mock } }
-      ).dynamoClient = { send: mockSend }
+      const originalClient = (operationManager as unknown as { dynamoClient: unknown }).dynamoClient
+      ;(operationManager as unknown as { dynamoClient: { send: jest.Mock } }).dynamoClient = {
+        send: mockSend,
+      }
 
       // Mock responses for running and scheduled operations
       mockSend
@@ -278,7 +254,7 @@ describe('OperationManager', () => {
               ':status': { S: 'running' },
             }),
           }),
-        })
+        }),
       )
       expect(mockSend).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -289,12 +265,11 @@ describe('OperationManager', () => {
               ':status': { S: 'scheduled' },
             }),
           }),
-        })
+        }),
       )
 
       // Restore original client
-      ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient =
-        originalClient
+      ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient = originalClient
     })
 
     it('should return empty array when no active operations exist', async () => {
@@ -302,12 +277,10 @@ describe('OperationManager', () => {
       const mockSend = jest.fn()
 
       // Store original client to restore later
-      const originalClient = (
-        operationManager as unknown as { dynamoClient: unknown }
-      ).dynamoClient
-      ;(
-        operationManager as unknown as { dynamoClient: { send: jest.Mock } }
-      ).dynamoClient = { send: mockSend }
+      const originalClient = (operationManager as unknown as { dynamoClient: unknown }).dynamoClient
+      ;(operationManager as unknown as { dynamoClient: { send: jest.Mock } }).dynamoClient = {
+        send: mockSend,
+      }
 
       // Mock empty responses
       mockSend
@@ -320,8 +293,7 @@ describe('OperationManager', () => {
       expect(mockSend).toHaveBeenCalledTimes(2)
 
       // Restore original client
-      ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient =
-        originalClient
+      ;(operationManager as unknown as { dynamoClient: unknown }).dynamoClient = originalClient
     })
   })
 })

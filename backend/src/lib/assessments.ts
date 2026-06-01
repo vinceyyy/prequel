@@ -28,16 +28,13 @@ export class AssessmentManager {
 
   constructor() {
     this.dynamoClient = new DynamoDBClient(config.aws.getCredentials())
-    this.tableName =
-      config.database.assessmentsTable || config.database.interviewsTable
+    this.tableName = config.database.assessmentsTable || config.database.interviewsTable
   }
 
   /**
    * Creates a new interview record.
    */
-  async createInterview(
-    interview: Omit<Interview, 'createdAt'>
-  ): Promise<Interview> {
+  async createInterview(interview: Omit<Interview, 'createdAt'>): Promise<Interview> {
     const now = Math.floor(Date.now() / 1000)
     const fullInterview: Interview = {
       ...interview,
@@ -49,7 +46,7 @@ export class AssessmentManager {
         new PutItemCommand({
           TableName: this.tableName,
           Item: marshall(fullInterview, { removeUndefinedValues: true }),
-        })
+        }),
       )
 
       logger.info('Interview created', { interviewId: interview.id })
@@ -66,9 +63,7 @@ export class AssessmentManager {
   /**
    * Creates a new take-home record.
    */
-  async createTakeHome(
-    takeHome: Omit<TakeHome, 'createdAt'>
-  ): Promise<TakeHome> {
+  async createTakeHome(takeHome: Omit<TakeHome, 'createdAt'>): Promise<TakeHome> {
     const now = Math.floor(Date.now() / 1000)
     const fullTakeHome: TakeHome = {
       ...takeHome,
@@ -80,7 +75,7 @@ export class AssessmentManager {
         new PutItemCommand({
           TableName: this.tableName,
           Item: marshall(fullTakeHome, { removeUndefinedValues: true }),
-        })
+        }),
       )
 
       logger.info('TakeHome created', { takeHomeId: takeHome.id })
@@ -106,7 +101,7 @@ export class AssessmentManager {
         new GetItemCommand({
           TableName: this.tableName,
           Key: marshall({ id }),
-        })
+        }),
       )
 
       if (response.Item) {
@@ -137,13 +132,12 @@ export class AssessmentManager {
       const response = await this.dynamoClient.send(
         new ScanCommand({
           TableName: this.tableName,
-          FilterExpression:
-            'begins_with(PK, :pkPrefix) AND accessToken = :token',
+          FilterExpression: 'begins_with(PK, :pkPrefix) AND accessToken = :token',
           ExpressionAttributeValues: marshall({
             ':pkPrefix': 'TAKEHOME#',
             ':token': token,
           }),
-        })
+        }),
       )
 
       if (response.Items && response.Items.length > 0) {
@@ -164,7 +158,7 @@ export class AssessmentManager {
   async updateInstanceStatus(
     id: string,
     sessionType: 'interview' | 'takehome',
-    status: InstanceStatus
+    status: InstanceStatus,
   ): Promise<void> {
     try {
       await this.dynamoClient.send(
@@ -173,7 +167,7 @@ export class AssessmentManager {
           Key: marshall({ id }),
           UpdateExpression: 'SET instanceStatus = :status',
           ExpressionAttributeValues: marshall({ ':status': status }),
-        })
+        }),
       )
 
       logger.info('Instance status updated', { id, sessionType, status })
@@ -195,7 +189,7 @@ export class AssessmentManager {
   async updateSessionStatus(
     id: string,
     sessionType: 'interview' | 'takehome',
-    status: InterviewSessionStatus | TakeHomeSessionStatus
+    status: InterviewSessionStatus | TakeHomeSessionStatus,
   ): Promise<void> {
     try {
       await this.dynamoClient.send(
@@ -204,7 +198,7 @@ export class AssessmentManager {
           Key: marshall({ id }),
           UpdateExpression: 'SET sessionStatus = :status',
           ExpressionAttributeValues: marshall({ ':status': status }),
-        })
+        }),
       )
 
       logger.info('Session status updated', { id, sessionType, status })
@@ -226,7 +220,7 @@ export class AssessmentManager {
   async updateTakeHomeActivation(
     id: string,
     activatedAt: number,
-    autoDestroyAt: number
+    autoDestroyAt: number,
   ): Promise<void> {
     try {
       await this.dynamoClient.send(
@@ -240,7 +234,7 @@ export class AssessmentManager {
             ':autoDestroyAt': autoDestroyAt,
             ':isActivated': true,
           }),
-        })
+        }),
       )
 
       logger.info('Take-home activation fields updated', {
@@ -263,11 +257,7 @@ export class AssessmentManager {
    * Updates assessment access credentials (url, password).
    * Called after infrastructure provisioning completes.
    */
-  async updateAccessCredentials(
-    id: string,
-    url: string,
-    password: string
-  ): Promise<void> {
+  async updateAccessCredentials(id: string, url: string, password: string): Promise<void> {
     try {
       await this.dynamoClient.send(
         new UpdateItemCommand({
@@ -281,7 +271,7 @@ export class AssessmentManager {
             ':url': url,
             ':password': password,
           }),
-        })
+        }),
       )
 
       logger.info('Access credentials updated', { id, url })
@@ -322,14 +312,14 @@ export class AssessmentManager {
           ExpressionAttributeValues: marshall({
             ':pkPrefix': 'TAKEHOME#',
           }),
-        })
+        }),
       )
 
       if (!response.Items || response.Items.length === 0) {
         return []
       }
 
-      const takeHomes = response.Items.map(item => unmarshall(item) as TakeHome)
+      const takeHomes = response.Items.map((item) => unmarshall(item) as TakeHome)
 
       // Sort by createdAt descending (newest first)
       return takeHomes.sort((a, b) => b.createdAt - a.createdAt)
@@ -351,7 +341,7 @@ export class AssessmentManager {
         new DeleteItemCommand({
           TableName: this.tableName,
           Key: marshall({ id }),
-        })
+        }),
       )
 
       logger.info('TakeHome deleted', { takeHomeId: id })

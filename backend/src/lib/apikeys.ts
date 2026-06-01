@@ -31,12 +31,11 @@ export class ApiKeyManager {
    * @param apiKey - API key data (id is optional, will be generated if not provided)
    */
   async createApiKey(
-    apiKey: Omit<ApiKey, 'id' | 'createdAt' | 'ttl'> & { id?: string }
+    apiKey: Omit<ApiKey, 'id' | 'createdAt' | 'ttl'> & { id?: string },
   ): Promise<ApiKey> {
     const now = Math.floor(Date.now() / 1000)
     const id = apiKey.id || generateId()
-    const accessToken =
-      apiKey.activationMode === 'recipient' ? generateSecureString() : undefined
+    const accessToken = apiKey.activationMode === 'recipient' ? generateSecureString() : undefined
 
     const fullApiKey: ApiKey = {
       ...apiKey,
@@ -54,7 +53,7 @@ export class ApiKeyManager {
         new PutItemCommand({
           TableName: this.tableName,
           Item: marshall(fullApiKey, { removeUndefinedValues: true }),
-        })
+        }),
       )
 
       logger.info('API key created', { apiKeyId: id, name: apiKey.name })
@@ -74,7 +73,7 @@ export class ApiKeyManager {
         new GetItemCommand({
           TableName: this.tableName,
           Key: marshall({ id }),
-        })
+        }),
       )
 
       if (!response.Item) {
@@ -99,7 +98,7 @@ export class ApiKeyManager {
           IndexName: 'accessToken-index',
           KeyConditionExpression: 'accessToken = :token',
           ExpressionAttributeValues: marshall({ ':token': token }),
-        })
+        }),
       )
 
       if (!response.Items || response.Items.length === 0) {
@@ -120,15 +119,8 @@ export class ApiKeyManager {
     id: string,
     status: ApiKeyStatus,
     updates: Partial<
-      Pick<
-        ApiKey,
-        | 'activatedAt'
-        | 'expiresAt'
-        | 'expiredAt'
-        | 'serviceAccountId'
-        | 'apiKey'
-      >
-    > = {}
+      Pick<ApiKey, 'activatedAt' | 'expiresAt' | 'expiredAt' | 'serviceAccountId' | 'apiKey'>
+    > = {},
   ): Promise<void> {
     const now = Math.floor(Date.now() / 1000)
 
@@ -164,7 +156,7 @@ export class ApiKeyManager {
           UpdateExpression: updateExpression,
           ExpressionAttributeNames: expressionAttributeNames,
           ExpressionAttributeValues: marshall(expressionAttributeValues),
-        })
+        }),
       )
 
       logger.info('API key status updated', { id, status })
@@ -190,11 +182,11 @@ export class ApiKeyManager {
             ExpressionAttributeNames: { '#status': 'status' },
             ExpressionAttributeValues: marshall({ ':status': status }),
             ScanIndexForward: false,
-          })
+          }),
         )
 
         if (response.Items) {
-          keys.push(...response.Items.map(item => unmarshall(item) as ApiKey))
+          keys.push(...response.Items.map((item) => unmarshall(item) as ApiKey))
         }
       }
 
@@ -232,7 +224,7 @@ export class ApiKeyManager {
   async getExpiredActiveKeys(): Promise<ApiKey[]> {
     const now = Math.floor(Date.now() / 1000)
     const activeKeys = await this.getKeysByStatus(['active'])
-    return activeKeys.filter(key => key.expiresAt && key.expiresAt <= now)
+    return activeKeys.filter((key) => key.expiresAt && key.expiresAt <= now)
   }
 
   /**
@@ -241,9 +233,7 @@ export class ApiKeyManager {
   async getExpiredAvailableKeys(): Promise<ApiKey[]> {
     const now = Math.floor(Date.now() / 1000)
     const availableKeys = await this.getKeysByStatus(['available'])
-    return availableKeys.filter(
-      key => key.availableUntil && key.availableUntil <= now
-    )
+    return availableKeys.filter((key) => key.availableUntil && key.availableUntil <= now)
   }
 
   /**
@@ -255,7 +245,7 @@ export class ApiKeyManager {
         new DeleteItemCommand({
           TableName: this.tableName,
           Key: marshall({ id }),
-        })
+        }),
       )
 
       logger.info('API key deleted', { id })

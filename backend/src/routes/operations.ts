@@ -19,8 +19,7 @@ operationsRouter.get('/', async (c) => {
 
     if (interviewId) {
       // Get operations for a specific interview (uses GSI - fast)
-      const operations =
-        await operationManager.getOperationsByInterview(interviewId)
+      const operations = await operationManager.getOperationsByInterview(interviewId)
       return c.json({ operations })
     } else if (activeOnly) {
       // Get only active operations (uses GSI queries - fast)
@@ -29,7 +28,7 @@ operationsRouter.get('/', async (c) => {
     } else {
       // Get all operations (uses table scan - slow for large datasets)
       console.warn(
-        '[PERFORMANCE] Using full table scan for getAllOperations() - consider using activeOnly=true for better performance'
+        '[PERFORMANCE] Using full table scan for getAllOperations() - consider using activeOnly=true for better performance',
       )
       const operations = await operationManager.getAllOperations()
       return c.json({ operations })
@@ -58,18 +57,12 @@ operationsRouter.post('/:id/cancel', async (c) => {
     const operationId = id
 
     if (!operationId) {
-      return c.json(
-        { success: false, error: 'Operation ID is required' },
-        400
-      )
+      return c.json({ success: false, error: 'Operation ID is required' }, 400)
     }
 
     const operation = await operationManager.getOperation(operationId)
     if (!operation) {
-      return c.json(
-        { success: false, error: 'Operation not found' },
-        404
-      )
+      return c.json({ success: false, error: 'Operation not found' }, 404)
     }
 
     // Check if operation can be cancelled
@@ -83,7 +76,7 @@ operationsRouter.post('/:id/cancel', async (c) => {
           success: false,
           error: `Cannot cancel operation with status: ${operation.status}`,
         },
-        400
+        400,
       )
     }
 
@@ -96,17 +89,11 @@ operationsRouter.post('/:id/cancel', async (c) => {
         operation: await operationManager.getOperation(operationId),
       })
     } else {
-      return c.json(
-        { success: false, error: 'Failed to cancel operation' },
-        500
-      )
+      return c.json({ success: false, error: 'Failed to cancel operation' }, 500)
     }
   } catch (error) {
     console.error('Error cancelling operation:', error)
-    return c.json(
-      { success: false, error: 'Internal server error' },
-      500
-    )
+    return c.json({ success: false, error: 'Internal server error' }, 500)
   }
 })
 
@@ -153,7 +140,7 @@ operationsRouter.get('/:id/logs', async (c) => {
         error: 'Failed to get operation logs',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })

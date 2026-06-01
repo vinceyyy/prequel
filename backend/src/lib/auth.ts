@@ -22,9 +22,7 @@ function getSecret(): string {
 export function createSessionToken(): string {
   const expiresAt = Date.now() + SESSION_DURATION_MS
   const payload = String(expiresAt)
-  const signature = createHmac('sha256', getSecret())
-    .update(payload)
-    .digest('hex')
+  const signature = createHmac('sha256', getSecret()).update(payload).digest('hex')
 
   return `${payload}.${signature}`
 }
@@ -57,9 +55,7 @@ export function validateSessionToken(token: string): boolean {
   }
 
   // Verify signature
-  const expectedSignature = createHmac('sha256', getSecret())
-    .update(timestampStr)
-    .digest('hex')
+  const expectedSignature = createHmac('sha256', getSecret()).update(timestampStr).digest('hex')
 
   // Constant-time comparison to prevent timing attacks
   if (providedSignature.length !== expectedSignature.length) {

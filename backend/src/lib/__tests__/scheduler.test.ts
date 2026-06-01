@@ -10,16 +10,14 @@ const mockDeleteServiceAccount = jest.fn()
 jest.mock('../assessments', () => ({
   assessmentManager: {
     listTakeHomes: (...args: unknown[]) => mockListTakeHomes(...args),
-    updateSessionStatus: (...args: unknown[]) =>
-      mockUpdateSessionStatus(...args),
+    updateSessionStatus: (...args: unknown[]) => mockUpdateSessionStatus(...args),
   },
 }))
 
 // Mock openaiService
 jest.mock('../openai', () => ({
   openaiService: {
-    deleteServiceAccount: (...args: unknown[]) =>
-      mockDeleteServiceAccount(...args),
+    deleteServiceAccount: (...args: unknown[]) => mockDeleteServiceAccount(...args),
   },
 }))
 
@@ -123,17 +121,13 @@ describe('SchedulerService - Take-Home Expiration', () => {
       await (scheduler as SchedulerServicePrivate).processExpiredTakeHomes()
 
       expect(mockListTakeHomes).toHaveBeenCalledTimes(1)
-      expect(mockUpdateSessionStatus).toHaveBeenCalledWith(
-        'th-123',
-        'takehome',
-        'expired'
-      )
+      expect(mockUpdateSessionStatus).toHaveBeenCalledWith('th-123', 'takehome', 'expired')
       expect(schedulerLogger.info).toHaveBeenCalledWith(
         'Expiring take-home',
         expect.objectContaining({
           takeHomeId: 'th-123',
           availableUntil: expect.any(String),
-        })
+        }),
       )
     })
 
@@ -171,7 +165,7 @@ describe('SchedulerService - Take-Home Expiration', () => {
         'Skipping take-home - already activated',
         expect.objectContaining({
           takeHomeId: 'th-456',
-        })
+        }),
       )
     })
 
@@ -243,21 +237,14 @@ describe('SchedulerService - Take-Home Expiration', () => {
 
       await (scheduler as SchedulerServicePrivate).processExpiredTakeHomes()
 
-      expect(mockDeleteServiceAccount).toHaveBeenCalledWith(
-        'test-project-id',
-        'sa-123'
-      )
+      expect(mockDeleteServiceAccount).toHaveBeenCalledWith('test-project-id', 'sa-123')
       expect(schedulerLogger.info).toHaveBeenCalledWith(
         expect.stringContaining('OpenAI service account deleted'),
         expect.objectContaining({
           serviceAccountId: 'sa-123',
-        })
+        }),
       )
-      expect(mockUpdateSessionStatus).toHaveBeenCalledWith(
-        'th-openai',
-        'takehome',
-        'expired'
-      )
+      expect(mockUpdateSessionStatus).toHaveBeenCalledWith('th-openai', 'takehome', 'expired')
     })
 
     test('handles errors gracefully when OpenAI deletion fails', async () => {
@@ -301,14 +288,10 @@ describe('SchedulerService - Take-Home Expiration', () => {
         expect.stringContaining('OpenAI service account deletion failed'),
         expect.objectContaining({
           error: 'OpenAI API error',
-        })
+        }),
       )
       // Should still mark as expired even if OpenAI deletion fails
-      expect(mockUpdateSessionStatus).toHaveBeenCalledWith(
-        'th-error',
-        'takehome',
-        'expired'
-      )
+      expect(mockUpdateSessionStatus).toHaveBeenCalledWith('th-error', 'takehome', 'expired')
     })
 
     test('handles DynamoDB errors gracefully', async () => {
@@ -320,7 +303,7 @@ describe('SchedulerService - Take-Home Expiration', () => {
         'Error in processExpiredTakeHomes',
         expect.objectContaining({
           error: 'DynamoDB error',
-        })
+        }),
       )
     })
 
@@ -398,16 +381,8 @@ describe('SchedulerService - Take-Home Expiration', () => {
       await (scheduler as SchedulerServicePrivate).processExpiredTakeHomes()
 
       expect(mockUpdateSessionStatus).toHaveBeenCalledTimes(2)
-      expect(mockUpdateSessionStatus).toHaveBeenCalledWith(
-        'th-multi-1',
-        'takehome',
-        'expired'
-      )
-      expect(mockUpdateSessionStatus).toHaveBeenCalledWith(
-        'th-multi-2',
-        'takehome',
-        'expired'
-      )
+      expect(mockUpdateSessionStatus).toHaveBeenCalledWith('th-multi-1', 'takehome', 'expired')
+      expect(mockUpdateSessionStatus).toHaveBeenCalledWith('th-multi-2', 'takehome', 'expired')
     })
   })
 })

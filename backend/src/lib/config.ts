@@ -58,7 +58,7 @@ export const aws = {
       if (!awsProfile) {
         throw new Error(
           'AWS_PROFILE environment variable is required for local development. ' +
-            'Please set AWS_PROFILE in your .env.local file.'
+            'Please set AWS_PROFILE in your .env.local file.',
         )
       }
 
@@ -109,8 +109,7 @@ export const database = {
    * DynamoDB table name for interviews
    */
   interviewsTable:
-    process.env.INTERVIEWS_TABLE_NAME ||
-    `${project.prefix}-${project.environment}-interviews`,
+    process.env.INTERVIEWS_TABLE_NAME || `${project.prefix}-${project.environment}-interviews`,
 
   /**
    * DynamoDB table name for assessments (interviews + take-homes)
@@ -125,22 +124,19 @@ export const database = {
    * DynamoDB table name for operations
    */
   operationsTable:
-    process.env.OPERATIONS_TABLE_NAME ||
-    `${project.prefix}-${project.environment}-operations`,
+    process.env.OPERATIONS_TABLE_NAME || `${project.prefix}-${project.environment}-operations`,
 
   /**
    * DynamoDB table name for challenges
    */
   challengesTable:
-    process.env.CHALLENGES_TABLE_NAME ||
-    `${project.prefix}-${project.environment}-challenges`,
+    process.env.CHALLENGES_TABLE_NAME || `${project.prefix}-${project.environment}-challenges`,
 
   /**
    * DynamoDB table name for API keys
    */
   apikeysTable:
-    process.env.APIKEYS_TABLE_NAME ||
-    `${project.prefix}-${project.environment}-apikeys`,
+    process.env.APIKEYS_TABLE_NAME || `${project.prefix}-${project.environment}-apikeys`,
 }
 
 /**
@@ -202,11 +198,7 @@ export const logging = {
   /**
    * Log level (debug, info, warn, error)
    */
-  level: (process.env.LOG_LEVEL || 'info') as
-    | 'debug'
-    | 'info'
-    | 'warn'
-    | 'error',
+  level: (process.env.LOG_LEVEL || 'info') as 'debug' | 'info' | 'warn' | 'error',
 }
 
 /**

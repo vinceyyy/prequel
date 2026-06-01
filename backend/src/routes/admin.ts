@@ -46,7 +46,7 @@ adminRouter.get('/cleanup', async (c) => {
         error: 'Failed to list dangling resources',
         details: errorMsg,
       },
-      500
+      500,
     )
   }
 })
@@ -78,7 +78,7 @@ adminRouter.post('/cleanup', async (c) => {
           success: false,
           error: 'maxConcurrency must be between 1 and 10',
         },
-        400
+        400,
       )
     }
 
@@ -88,7 +88,7 @@ adminRouter.post('/cleanup', async (c) => {
           success: false,
           error: 'timeout must be between 60 and 1800 seconds',
         },
-        400
+        400,
       )
     }
 
@@ -123,7 +123,7 @@ adminRouter.post('/cleanup', async (c) => {
         details: result.details,
         workspaceResults: result.workspaceResults,
       },
-      status
+      status,
     )
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error'
@@ -135,7 +135,7 @@ adminRouter.post('/cleanup', async (c) => {
         error: 'Cleanup operation failed',
         details: errorMsg,
       },
-      500
+      500,
     )
   }
 })

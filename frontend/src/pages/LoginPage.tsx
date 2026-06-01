@@ -42,19 +42,14 @@ export default function LoginPage() {
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Access Prequel Portal
         </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Enter the passcode to continue
-        </p>
+        <p className="mt-2 text-center text-sm text-gray-600">Enter the passcode to continue</p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-md sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label
-                htmlFor="passcode"
-                className="block text-sm font-medium text-gray-700"
-              >
+              <label htmlFor="passcode" className="block text-sm font-medium text-gray-700">
                 Passcode
               </label>
               <div className="mt-1">
@@ -64,7 +59,7 @@ export default function LoginPage() {
                   type="password"
                   required
                   value={passcode}
-                  onChange={e => setPasscode(e.target.value)}
+                  onChange={(e) => setPasscode(e.target.value)}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 text-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   autoFocus
                 />

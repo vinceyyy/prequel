@@ -13,13 +13,7 @@ export interface OperationResult {
 export interface OperationData {
   id: string
   type: 'create' | 'destroy'
-  status:
-    | 'scheduled'
-    | 'pending'
-    | 'running'
-    | 'completed'
-    | 'failed'
-    | 'cancelled'
+  status: 'scheduled' | 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
   interviewId: string
   candidateName?: string
   challenge?: string
@@ -77,9 +71,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingResult {
       setError(null)
 
       const timestamp = Date.now()
-      const response = await fetch(
-        `/api/operations?activeOnly=true&t=${timestamp}`
-      )
+      const response = await fetch(`/api/operations?activeOnly=true&t=${timestamp}`)
 
       if (!response.ok) {
         throw new Error(`Failed to fetch operations: ${response.status}`)
@@ -90,15 +82,12 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingResult {
 
       // Filter by prefix if specified
       if (filterPrefix) {
-        ops = ops.filter(op => op.interviewId?.startsWith(filterPrefix))
+        ops = ops.filter((op) => op.interviewId?.startsWith(filterPrefix))
       }
 
       // Check if any operations are active
       const activeOps = ops.some(
-        op =>
-          op.status === 'pending' ||
-          op.status === 'running' ||
-          op.status === 'scheduled'
+        (op) => op.status === 'pending' || op.status === 'running' || op.status === 'scheduled',
       )
 
       setOperations(ops)
@@ -114,8 +103,7 @@ export function usePolling(options: UsePollingOptions = {}): UsePollingResult {
 
       return activeOps
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Unknown error occurred'
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(errorMessage)
       console.error('Polling error:', errorMessage)
       return hasActiveOperations // Keep current state on error
@@ -241,7 +229,7 @@ interface UseInterviewPollingResult {
  * The server handles merging operation status into interview status.
  */
 export function useInterviewPolling(
-  options: UseInterviewPollingOptions = {}
+  options: UseInterviewPollingOptions = {},
 ): UseInterviewPollingResult {
   const { interval = 1000, onInterviewsChange } = options
 
@@ -275,10 +263,10 @@ export function useInterviewPolling(
 
       // Check if any items are in progress
       const inProgress = items.some(
-        item =>
+        (item) =>
           item.status === 'initializing' ||
           item.status === 'configuring' ||
-          item.status === 'destroying'
+          item.status === 'destroying',
       )
 
       setInterviews(items)
@@ -298,8 +286,7 @@ export function useInterviewPolling(
 
       return inProgress
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Unknown error occurred'
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(errorMessage)
       console.error('Interview polling error:', errorMessage)
       // Only clear loading on error if this was initial load
@@ -394,7 +381,7 @@ interface UseTakeHomePollingResult {
  * Polls /api/takehomes directly for real-time updates.
  */
 export function useTakeHomePolling(
-  options: UseTakeHomePollingOptions = {}
+  options: UseTakeHomePollingOptions = {},
 ): UseTakeHomePollingResult {
   const { interval = 1000, onTakeHomesChange } = options
 
@@ -428,10 +415,10 @@ export function useTakeHomePolling(
 
       // Check if any items are in progress
       const inProgress = items.some(
-        item =>
+        (item) =>
           item.instanceStatus === 'initializing' ||
           item.instanceStatus === 'configuring' ||
-          item.instanceStatus === 'destroying'
+          item.instanceStatus === 'destroying',
       )
 
       setTakeHomes(items)
@@ -451,8 +438,7 @@ export function useTakeHomePolling(
 
       return inProgress
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Unknown error occurred'
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(errorMessage)
       console.error('Take-home polling error:', errorMessage)
       // Only clear loading on error if this was initial load
@@ -551,9 +537,7 @@ interface UseApiKeyPollingResult {
  * Simple polling hook for API keys.
  * Polls /api/apikeys directly for real-time updates.
  */
-export function useApiKeyPolling(
-  options: UseApiKeyPollingOptions = {}
-): UseApiKeyPollingResult {
+export function useApiKeyPolling(options: UseApiKeyPollingOptions = {}): UseApiKeyPollingResult {
   const { interval = 1000, onApiKeysChange } = options
 
   const [keys, setKeys] = useState<ApiKeyData[]>([])
@@ -588,10 +572,10 @@ export function useApiKeyPolling(
 
       // Check if any keys are in progress (scheduled, available, or initializing)
       const inProgress = items.some(
-        item =>
+        (item) =>
           item.status === 'scheduled' ||
           item.status === 'available' ||
-          item.status === 'initializing'
+          item.status === 'initializing',
       )
 
       setKeys(items)
@@ -613,8 +597,7 @@ export function useApiKeyPolling(
 
       return inProgress
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Unknown error occurred'
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(errorMessage)
       console.error('API key polling error:', errorMessage)
       // Only clear loading on error if this was initial load
@@ -684,7 +667,7 @@ interface UseApiKeyStatusPollingResult {
  * Polls /api/apikey/[token] for real-time updates on the candidate page.
  */
 export function useApiKeyStatusPolling(
-  options: UseApiKeyStatusPollingOptions
+  options: UseApiKeyStatusPollingOptions,
 ): UseApiKeyStatusPollingResult {
   const { token, interval = 1000, onApiKeyChange } = options
 
@@ -729,8 +712,7 @@ export function useApiKeyStatusPolling(
       hasLoadedRef.current = true
       setIsLoading(false)
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Unknown error occurred'
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(errorMessage)
       console.error('API key status polling error:', errorMessage)
       // Only clear loading on error if this was initial load

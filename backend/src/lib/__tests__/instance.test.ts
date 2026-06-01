@@ -30,9 +30,7 @@ describe('Instance Management', () => {
       infrastructureReady: true,
     }
 
-    ;(terraformManager.createInterviewStreaming as jest.Mock).mockResolvedValue(
-      mockTerraformResult
-    )
+    ;(terraformManager.createInterviewStreaming as jest.Mock).mockResolvedValue(mockTerraformResult)
 
     const result = await provisionInstance({
       instanceId: 'test-123',
@@ -55,7 +53,7 @@ describe('Instance Management', () => {
         password: 'test-password',
       }),
       undefined,
-      undefined
+      undefined,
     )
   })
 
@@ -65,9 +63,9 @@ describe('Instance Management', () => {
       historyS3Key: 'history/test-123.tar.gz',
     }
 
-    ;(
-      terraformManager.destroyInterviewStreaming as jest.Mock
-    ).mockResolvedValue(mockTerraformResult)
+    ;(terraformManager.destroyInterviewStreaming as jest.Mock).mockResolvedValue(
+      mockTerraformResult,
+    )
 
     const result = await destroyInstance('test-123', {
       saveFiles: true,

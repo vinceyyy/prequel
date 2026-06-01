@@ -3,13 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 interface Operation {
   id: string
   type: 'create' | 'destroy'
-  status:
-    | 'pending'
-    | 'running'
-    | 'completed'
-    | 'failed'
-    | 'cancelled'
-    | 'scheduled'
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'scheduled'
   interviewId: string
   candidateName?: string
   challenge?: string
@@ -30,9 +24,7 @@ export function useOperations(interviewId?: string) {
 
   const loadOperations = useCallback(async () => {
     try {
-      const url = interviewId
-        ? `/api/operations?interviewId=${interviewId}`
-        : '/api/operations'
+      const url = interviewId ? `/api/operations?interviewId=${interviewId}` : '/api/operations'
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
@@ -67,7 +59,7 @@ export function useOperations(interviewId?: string) {
         setLoading(false)
       }
     },
-    [loadOperations]
+    [loadOperations],
   )
 
   const destroyInterview = useCallback(
@@ -99,7 +91,7 @@ export function useOperations(interviewId?: string) {
         setLoading(false)
       }
     },
-    [loadOperations]
+    [loadOperations],
   )
 
   useEffect(() => {

@@ -46,13 +46,7 @@ export interface OperationEvent {
 export interface Operation {
   id: string
   type: 'create' | 'destroy' | 'revoke_takehome'
-  status:
-    | 'pending'
-    | 'running'
-    | 'completed'
-    | 'failed'
-    | 'cancelled'
-    | 'scheduled'
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'scheduled'
   interviewId: string // TODO: Rename to instanceId (references Interview or TakeHome)
   candidateName?: string
   challenge?: string
@@ -168,7 +162,7 @@ class OperationManager {
       timestamp: new Date().toISOString(),
     }
 
-    this.eventListeners.forEach(listener => {
+    this.eventListeners.forEach((listener) => {
       try {
         listener(event)
       } catch (error) {
@@ -191,7 +185,7 @@ class OperationManager {
       timestamp: new Date().toISOString(),
     }
 
-    this.eventListeners.forEach(listener => {
+    this.eventListeners.forEach((listener) => {
       try {
         listener(event)
       } catch (error) {
@@ -298,7 +292,7 @@ class OperationManager {
     challenge?: string,
     scheduledAt?: Date,
     autoDestroyAt?: Date,
-    saveFiles?: boolean
+    saveFiles?: boolean,
   ): Promise<string> {
     const operationId = uuidv4()
 
@@ -323,7 +317,7 @@ class OperationManager {
         new PutItemCommand({
           TableName: this.tableName,
           Item: marshall(item, { removeUndefinedValues: true }),
-        })
+        }),
       )
 
       this.emit(operation)
@@ -346,7 +340,7 @@ class OperationManager {
       new GetItemCommand({
         TableName: this.tableName,
         Key: marshall({ id: operationId }),
-      })
+      }),
     )
 
     if (!response.Item) {
@@ -365,11 +359,11 @@ class OperationManager {
     const response = await this.dynamoClient.send(
       new ScanCommand({
         TableName: this.tableName,
-      })
+      }),
     )
 
     const operations = (response.Items || [])
-      .map(item => this.dynamoItemToOperation(unmarshall(item)))
+      .map((item) => this.dynamoItemToOperation(unmarshall(item)))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
     return operations
@@ -390,11 +384,9 @@ class OperationManager {
     ])
 
     // Combine and sort by creation time (newest first)
-    const activeOperations = [
-      ...pendingOps,
-      ...runningOps,
-      ...scheduledOps,
-    ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    const activeOperations = [...pendingOps, ...runningOps, ...scheduledOps].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    )
 
     return activeOperations
   }
@@ -406,9 +398,7 @@ class OperationManager {
    * @param status - The operation status to query for
    * @returns Promise<Operation[]> - Array of operations with the specified status
    */
-  private async getOperationsByStatus(
-    status: Operation['status']
-  ): Promise<Operation[]> {
+  private async getOperationsByStatus(status: Operation['status']): Promise<Operation[]> {
     const response = await this.dynamoClient.send(
       new QueryCommand({
         TableName: this.tableName,
@@ -420,11 +410,11 @@ class OperationManager {
         ExpressionAttributeValues: marshall({
           ':status': status,
         }),
-      })
+      }),
     )
 
     const operations = (response.Items || [])
-      .map(item => this.dynamoItemToOperation(unmarshall(item)))
+      .map((item) => this.dynamoItemToOperation(unmarshall(item)))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
     return operations
@@ -443,11 +433,11 @@ class OperationManager {
         ExpressionAttributeValues: marshall({
           ':interviewId': interviewId,
         }),
-      })
+      }),
     )
 
     const operations = (response.Items || [])
-      .map(item => this.dynamoItemToOperation(unmarshall(item)))
+      .map((item) => this.dynamoItemToOperation(unmarshall(item)))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
     return operations
@@ -456,10 +446,7 @@ class OperationManager {
   /**
    * Updates operation status and automatically sets execution/completion timestamps.
    */
-  async updateOperationStatus(
-    operationId: string,
-    status: Operation['status']
-  ): Promise<void> {
+  async updateOperationStatus(operationId: string, status: Operation['status']): Promise<void> {
     const now = Math.floor(Date.now() / 1000)
     let updateExpression = 'SET #status = :status'
     const expressionAttributeNames: Record<string, string> = {
@@ -491,7 +478,7 @@ class OperationManager {
         ExpressionAttributeValues: marshall(expressionAttributeValues, {
           removeUndefinedValues: true,
         }),
-      })
+      }),
     )
 
     // Fetch updated operation and emit event
@@ -521,15 +508,12 @@ class OperationManager {
         ExpressionAttributeValues: marshall({
           ':status': 'scheduled',
         }),
-      })
+      }),
     )
 
     const operations = (response.Items || [])
-      .map(item => this.dynamoItemToOperation(unmarshall(item)))
-      .sort(
-        (a, b) =>
-          (a.scheduledAt?.getTime() || 0) - (b.scheduledAt?.getTime() || 0)
-      )
+      .map((item) => this.dynamoItemToOperation(unmarshall(item)))
+      .sort((a, b) => (a.scheduledAt?.getTime() || 0) - (b.scheduledAt?.getTime() || 0))
 
     return operations
   }
@@ -563,26 +547,24 @@ class OperationManager {
           ':status': 'completed',
           ':now': now,
         }),
-      })
+      }),
     )
 
     const completedOps = (response.Items || [])
-      .map(item => this.dynamoItemToOperation(unmarshall(item)))
+      .map((item) => this.dynamoItemToOperation(unmarshall(item)))
       .filter(
-        op =>
+        (op) =>
           op.type === 'create' &&
           op.result?.success &&
           op.autoDestroyAt &&
-          op.autoDestroyAt <= new Date()
+          op.autoDestroyAt <= new Date(),
       )
 
     // Filter out operations that already have destroy operations
     const eligibleOps: Operation[] = []
 
     for (const op of completedOps) {
-      const hasDestroy = await this.hasDestroyOperationForInterview(
-        op.interviewId
-      )
+      const hasDestroy = await this.hasDestroyOperationForInterview(op.interviewId)
       if (!hasDestroy) {
         eligibleOps.push(op)
       }
@@ -609,7 +591,7 @@ class OperationManager {
           ':type': 'destroy',
         }),
         Limit: 1, // We only need to know if one exists
-      })
+      }),
     )
 
     return (response.Items?.length || 0) > 0
@@ -653,13 +635,12 @@ class OperationManager {
           new UpdateItemCommand({
             TableName: this.tableName,
             Key: marshall({ id: operationId }),
-            UpdateExpression:
-              'SET logs = list_append(if_not_exists(logs, :empty_list), :logs)',
+            UpdateExpression: 'SET logs = list_append(if_not_exists(logs, :empty_list), :logs)',
             ExpressionAttributeValues: marshall({
               ':logs': logs,
               ':empty_list': [],
             }),
-          })
+          }),
         )
 
         // Emit SSE event for log updates - enables real-time log streaming
@@ -676,10 +657,7 @@ class OperationManager {
   /**
    * Sets the final result of an operation and updates status accordingly.
    */
-  async setOperationResult(
-    operationId: string,
-    result: Operation['result']
-  ): Promise<void> {
+  async setOperationResult(operationId: string, result: Operation['result']): Promise<void> {
     const now = Math.floor(Date.now() / 1000)
     const status = result?.success ? 'completed' : 'failed'
 
@@ -694,8 +672,7 @@ class OperationManager {
       new UpdateItemCommand({
         TableName: this.tableName,
         Key: marshall({ id: operationId }),
-        UpdateExpression:
-          'SET #result = :result, #status = :status, completedAt = :completedAt',
+        UpdateExpression: 'SET #result = :result, #status = :status, completedAt = :completedAt',
         ExpressionAttributeNames: {
           '#result': 'result',
           '#status': 'status',
@@ -706,9 +683,9 @@ class OperationManager {
             ':status': status,
             ':completedAt': now,
           },
-          { removeUndefinedValues: true }
+          { removeUndefinedValues: true },
         ),
-      })
+      }),
     )
 
     operationsLogger.info('Operation result set in DynamoDB', {
@@ -729,7 +706,7 @@ class OperationManager {
   async updateOperationInfrastructureReady(
     operationId: string,
     accessUrl?: string,
-    password?: string
+    password?: string,
   ): Promise<void> {
     const operation = await this.getOperation(operationId)
     if (!operation) return
@@ -755,9 +732,9 @@ class OperationManager {
           {
             ':result': updatedResult,
           },
-          { removeUndefinedValues: true }
+          { removeUndefinedValues: true },
         ),
-      })
+      }),
     )
 
     // Fetch updated operation and emit event
@@ -774,7 +751,7 @@ class OperationManager {
   async updateScheduledInterviewCredentials(
     operationId: string,
     accessUrl: string,
-    password: string
+    password: string,
   ): Promise<void> {
     const operation = await this.getOperation(operationId)
     if (!operation) return
@@ -797,9 +774,9 @@ class OperationManager {
           {
             ':result': updatedResult,
           },
-          { removeUndefinedValues: true }
+          { removeUndefinedValues: true },
         ),
-      })
+      }),
     )
 
     // Fetch updated operation and emit event
@@ -814,10 +791,7 @@ class OperationManager {
    */
   async cancelOperation(operationId: string): Promise<boolean> {
     const operation = await this.getOperation(operationId)
-    if (
-      !operation ||
-      !['pending', 'running', 'scheduled'].includes(operation.status)
-    ) {
+    if (!operation || !['pending', 'running', 'scheduled'].includes(operation.status)) {
       return false
     }
 
@@ -827,8 +801,7 @@ class OperationManager {
       new UpdateItemCommand({
         TableName: this.tableName,
         Key: marshall({ id: operationId }),
-        UpdateExpression:
-          'SET #status = :status, completedAt = :completedAt, #result = :result',
+        UpdateExpression: 'SET #status = :status, completedAt = :completedAt, #result = :result',
         ExpressionAttributeNames: {
           '#status': 'status',
           '#result': 'result',
@@ -842,9 +815,9 @@ class OperationManager {
               error: 'Operation cancelled by user',
             },
           },
-          { removeUndefinedValues: true }
+          { removeUndefinedValues: true },
         ),
-      })
+      }),
     )
 
     await this.addOperationLog(operationId, 'Operation cancelled by user')
@@ -862,12 +835,10 @@ class OperationManager {
    * Cancels all scheduled operations for a specific interview.
    * Used when an interview is manually destroyed before scheduled operations execute.
    */
-  async cancelScheduledOperationsForInterview(
-    interviewId: string
-  ): Promise<number> {
+  async cancelScheduledOperationsForInterview(interviewId: string): Promise<number> {
     // Query all operations for this interview
     const operations = await this.getOperationsByInterview(interviewId)
-    const scheduledOps = operations.filter(op => op.status === 'scheduled')
+    const scheduledOps = operations.filter((op) => op.status === 'scheduled')
 
     if (scheduledOps.length === 0) {
       return 0
@@ -881,8 +852,7 @@ class OperationManager {
         new UpdateItemCommand({
           TableName: this.tableName,
           Key: marshall({ id: op.id }),
-          UpdateExpression:
-            'SET #status = :status, completedAt = :completedAt, #result = :result',
+          UpdateExpression: 'SET #status = :status, completedAt = :completedAt, #result = :result',
           ExpressionAttributeNames: {
             '#status': 'status',
             '#result': 'result',
@@ -893,19 +863,15 @@ class OperationManager {
               ':completedAt': now,
               ':result': {
                 success: false,
-                error:
-                  'Operation cancelled due to manual interview destruction',
+                error: 'Operation cancelled due to manual interview destruction',
               },
             },
-            { removeUndefinedValues: true }
+            { removeUndefinedValues: true },
           ),
-        })
+        }),
       )
 
-      await this.addOperationLog(
-        op.id,
-        'Operation cancelled due to manual interview destruction'
-      )
+      await this.addOperationLog(op.id, 'Operation cancelled due to manual interview destruction')
 
       // Fetch updated operation and emit event
       const updatedOperation = await this.getOperation(op.id)
@@ -939,9 +905,7 @@ class OperationManager {
   async cleanup(): Promise<void> {
     // With DynamoDB TTL, this is handled automatically
     // This method is kept for compatibility but does nothing
-    operationsLogger.info(
-      'Cleanup not needed - DynamoDB TTL handles automatic cleanup'
-    )
+    operationsLogger.info('Cleanup not needed - DynamoDB TTL handles automatic cleanup')
   }
 }
 
@@ -957,7 +921,7 @@ if (typeof window === 'undefined') {
     .then(() => {
       operationsLogger.info('Scheduler initialized')
     })
-    .catch(error => {
+    .catch((error) => {
       operationsLogger.error('Failed to initialize scheduler', {
         error: error instanceof Error ? error.message : 'Unknown error',
       })

@@ -59,10 +59,7 @@ export default function TakeHomePage() {
 
   // Polling for status updates when activated and not yet active
   useEffect(() => {
-    if (
-      status?.sessionStatus === 'activated' &&
-      status.instanceStatus !== 'active'
-    ) {
+    if (status?.sessionStatus === 'activated' && status.instanceStatus !== 'active') {
       const interval = setInterval(() => {
         fetchStatus()
       }, 5000) // Poll every 5 seconds
@@ -75,7 +72,7 @@ export default function TakeHomePage() {
   useEffect(() => {
     if (timeRemaining !== null && timeRemaining > 0) {
       const interval = setInterval(() => {
-        setTimeRemaining(prev => {
+        setTimeRemaining((prev) => {
           if (prev === null || prev <= 0) {
             return 0
           }
@@ -106,9 +103,7 @@ export default function TakeHomePage() {
       await fetchStatus()
     } catch (err) {
       console.error('Error activating take-home:', err)
-      setError(
-        err instanceof Error ? err.message : 'Failed to activate take-home'
-      )
+      setError(err instanceof Error ? err.message : 'Failed to activate take-home')
     } finally {
       setActivating(false)
     }
@@ -159,9 +154,7 @@ export default function TakeHomePage() {
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
           <div className="text-center">
             <div className="text-red-600 text-5xl mb-4">⚠️</div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">
-              Error Loading Assessment
-            </h1>
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">Error Loading Assessment</h1>
             <p className="text-slate-600 mb-4">{error}</p>
             <button
               onClick={() => {
@@ -188,105 +181,93 @@ export default function TakeHomePage() {
       <div className="max-w-4xl mx-auto p-4 sm:p-8">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-4">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Take-Home Coding Assessment
-          </h1>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Take-Home Coding Assessment</h1>
           {status.candidateName && (
             <p className="text-slate-600">Welcome, {status.candidateName}</p>
           )}
         </div>
 
         {/* Show instructions unless revoked or expired */}
-        {status.sessionStatus !== 'revoked' &&
-          status.sessionStatus !== 'expired' && (
-            <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-4">
-              {/* Platform Instructions */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-4">
-                <h2 className="text-xl font-bold text-blue-900 mb-4">
-                  📋 Platform Instructions
-                </h2>
-                <div className="space-y-3 text-sm text-blue-900">
+        {status.sessionStatus !== 'revoked' && status.sessionStatus !== 'expired' && (
+          <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-4">
+            {/* Platform Instructions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-4">
+              <h2 className="text-xl font-bold text-blue-900 mb-4">📋 Platform Instructions</h2>
+              <div className="space-y-3 text-sm text-blue-900">
+                <p>
+                  <strong>Getting Started:</strong> Click &ldquo;Activate Take-Home
+                  Assessment&rdquo; below to begin provisioning your dedicated cloud workspace. The
+                  timer will start immediately upon activation.
+                </p>
+                <p>
+                  <strong>Setup Time:</strong> Your workspace will be ready in approximately 3-5
+                  minutes. You&apos;ll see progress updates as the environment is being prepared.
+                </p>
+                <p>
+                  <strong>Time Limit:</strong> You will have{' '}
+                  <span className="font-semibold">{getDurationHours()} hours</span> to complete the
+                  challenge once your workspace is active.
+                </p>
+                <p>
+                  <strong>Automatic Shutdown:</strong> Once your workspace is created, it will
+                  automatically shut down after {getDurationHours()} hours to preserve resources.
+                </p>
+                <p>
+                  <strong>Work Saving:</strong> All your work will be automatically saved when the
+                  workspace shuts down.
+                </p>
+                <p>
+                  <strong>One-Time Access:</strong> You can only activate and start this assessment
+                  once. Make sure you&apos;re ready to begin before clicking the button.
+                </p>
+                {status.availableUntil && (
                   <p>
-                    <strong>Getting Started:</strong> Click &ldquo;Activate
-                    Take-Home Assessment&rdquo; below to begin provisioning your
-                    dedicated cloud workspace. The timer will start immediately
-                    upon activation.
-                  </p>
-                  <p>
-                    <strong>Setup Time:</strong> Your workspace will be ready in
-                    approximately 3-5 minutes. You&apos;ll see progress updates
-                    as the environment is being prepared.
-                  </p>
-                  <p>
-                    <strong>Time Limit:</strong> You will have{' '}
+                    <strong>Availability Window:</strong> This assessment must be activated before{' '}
                     <span className="font-semibold">
-                      {getDurationHours()} hours
-                    </span>{' '}
-                    to complete the challenge once your workspace is active.
+                      {new Date(status.availableUntil).toLocaleString()}
+                    </span>
+                    .
                   </p>
-                  <p>
-                    <strong>Automatic Shutdown:</strong> Once your workspace is
-                    created, it will automatically shut down after{' '}
-                    {getDurationHours()} hours to preserve resources.
-                  </p>
-                  <p>
-                    <strong>Work Saving:</strong> All your work will be
-                    automatically saved when the workspace shuts down.
-                  </p>
-                  <p>
-                    <strong>One-Time Access:</strong> You can only activate and
-                    start this assessment once. Make sure you&apos;re ready to
-                    begin before clicking the button.
-                  </p>
-                  {status.availableUntil && (
-                    <p>
-                      <strong>Availability Window:</strong> This assessment must
-                      be activated before{' '}
-                      <span className="font-semibold">
-                        {new Date(status.availableUntil).toLocaleString()}
-                      </span>
-                      .
-                    </p>
-                  )}
+                )}
+              </div>
+            </div>
+
+            {/* Additional Instructions from Manager */}
+            {status.additionalInstructions && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 mb-4">
+                <h2 className="text-xl font-bold text-amber-900 mb-4">
+                  📝 Additional Instructions
+                </h2>
+                <div className="text-sm text-amber-900 whitespace-pre-wrap">
+                  {status.additionalInstructions}
                 </div>
               </div>
+            )}
 
-              {/* Additional Instructions from Manager */}
-              {status.additionalInstructions && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 mb-4">
-                  <h2 className="text-xl font-bold text-amber-900 mb-4">
-                    📝 Additional Instructions
-                  </h2>
-                  <div className="text-sm text-amber-900 whitespace-pre-wrap">
-                    {status.additionalInstructions}
-                  </div>
-                </div>
-              )}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <p className="text-red-800 text-sm">{error}</p>
+              </div>
+            )}
 
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                  <p className="text-red-800 text-sm">{error}</p>
-                </div>
-              )}
-
-              {status.sessionStatus === 'available' && (
-                <button
-                  onClick={handleActivate}
-                  disabled={activating}
-                  className="w-full sm:w-auto px-8 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 cursor-pointer disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
-                >
-                  {activating ? (
-                    <span className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                      Activating...
-                    </span>
-                  ) : (
-                    'Activate Take-Home Assessment'
-                  )}
-                </button>
-              )}
-            </div>
-          )}
+            {status.sessionStatus === 'available' && (
+              <button
+                onClick={handleActivate}
+                disabled={activating}
+                className="w-full sm:w-auto px-8 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 cursor-pointer disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
+              >
+                {activating ? (
+                  <span className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Activating...
+                  </span>
+                ) : (
+                  'Activate Take-Home Assessment'
+                )}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Status: Activated + Initializing/Configuring */}
         {status.sessionStatus === 'activated' &&
@@ -306,8 +287,7 @@ export default function TakeHomePage() {
                       : 'Preparing your coding environment...'}
                 </p>
                 <p className="text-slate-600 mb-4">
-                  This typically takes 3-5 minutes. You can safely close this
-                  page and return later.
+                  This typically takes 3-5 minutes. You can safely close this page and return later.
                 </p>
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 inline-block">
@@ -330,14 +310,10 @@ export default function TakeHomePage() {
             <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-4">
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-bold text-slate-900">
-                    Your Environment is Ready!
-                  </h2>
+                  <h2 className="text-2xl font-bold text-slate-900">Your Environment is Ready!</h2>
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-                    <span className="text-sm font-medium text-green-700">
-                      Active
-                    </span>
+                    <span className="text-sm font-medium text-green-700">Active</span>
                   </div>
                 </div>
 
@@ -377,8 +353,8 @@ export default function TakeHomePage() {
                     </div>
                     {timeRemaining < 600 && (
                       <p className="text-red-700 text-xs mt-2">
-                        Your environment will be automatically destroyed when
-                        time expires. Save your work!
+                        Your environment will be automatically destroyed when time expires. Save
+                        your work!
                       </p>
                     )}
                   </div>
@@ -386,14 +362,10 @@ export default function TakeHomePage() {
               </div>
 
               <div className="bg-slate-50 rounded-lg p-4 sm:p-6 mb-6">
-                <h3 className="text-sm font-medium text-slate-700 mb-3">
-                  Access Credentials
-                </h3>
+                <h3 className="text-sm font-medium text-slate-700 mb-3">Access Credentials</h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">
-                      Workspace URL
-                    </label>
+                    <label className="block text-xs text-slate-500 mb-1">Workspace URL</label>
                     <div className="flex items-center space-x-2">
                       <a
                         href={status.accessUrl}
@@ -414,9 +386,7 @@ export default function TakeHomePage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">
-                      Password
-                    </label>
+                    <label className="block text-xs text-slate-500 mb-1">Password</label>
                     <div className="flex items-center space-x-2">
                       <input
                         type="text"
@@ -440,38 +410,32 @@ export default function TakeHomePage() {
           )}
 
         {/* Status: Activated + Error */}
-        {status.sessionStatus === 'activated' &&
-          status.instanceStatus === 'error' && (
-            <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-4">
-              <div className="text-center">
-                <div className="text-red-600 text-5xl mb-4">⚠️</div>
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                  Setup Failed
-                </h2>
-                <p className="text-slate-600 mb-4">
-                  There was an error setting up your environment. Please contact
-                  support with your assessment link.
+        {status.sessionStatus === 'activated' && status.instanceStatus === 'error' && (
+          <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-4">
+            <div className="text-center">
+              <div className="text-red-600 text-5xl mb-4">⚠️</div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">Setup Failed</h2>
+              <p className="text-slate-600 mb-4">
+                There was an error setting up your environment. Please contact support with your
+                assessment link.
+              </p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 inline-block">
+                <p className="text-red-900 text-sm">
+                  Status: <span className="font-medium">Error</span>
                 </p>
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 inline-block">
-                  <p className="text-red-900 text-sm">
-                    Status: <span className="font-medium">Error</span>
-                  </p>
-                </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
         {/* Status: Completed */}
         {status.sessionStatus === 'completed' && (
           <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-4">
             <div className="text-center">
               <div className="text-green-600 text-5xl mb-4">✓</div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                Assessment Completed
-              </h2>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">Assessment Completed</h2>
               <p className="text-slate-600 mb-4">
-                Your take-home assessment has been completed and the environment
-                has been destroyed.
+                Your take-home assessment has been completed and the environment has been destroyed.
               </p>
               {status.destroyedAt && (
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 inline-block">
@@ -492,12 +456,9 @@ export default function TakeHomePage() {
           <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-4">
             <div className="text-center">
               <div className="text-amber-600 text-5xl mb-4">⏱️</div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                Assessment Expired
-              </h2>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">Assessment Expired</h2>
               <p className="text-slate-600 mb-4">
-                This take-home assessment is no longer available. The activation
-                window has passed.
+                This take-home assessment is no longer available. The activation window has passed.
               </p>
               {status.availableUntil && (
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 inline-block">
@@ -518,12 +479,8 @@ export default function TakeHomePage() {
           <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-4">
             <div className="text-center">
               <div className="text-red-600 text-5xl mb-4">🚫</div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                Assessment Revoked
-              </h2>
-              <p className="text-slate-600 mb-4">
-                This take-home assessment has been revoked.
-              </p>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">Assessment Revoked</h2>
+              <p className="text-slate-600 mb-4">This take-home assessment has been revoked.</p>
             </div>
           </div>
         )}

@@ -44,7 +44,7 @@ export default function Navigation() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-1">
-            {navItems.map(item => (
+            {navItems.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
@@ -98,11 +98,7 @@ export default function Navigation() {
                   stroke="currentColor"
                   aria-hidden="true"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               )}
             </button>
@@ -114,7 +110,7 @@ export default function Navigation() {
       {isMenuOpen && (
         <div className="md:hidden border-t border-slate-800">
           <div className="px-2 pt-2 pb-3 space-y-1">
-            {navItems.map(item => (
+            {navItems.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}

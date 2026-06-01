@@ -8,17 +8,17 @@ jest.mock('@aws-sdk/client-dynamodb', () => {
     DynamoDBClient: jest.fn().mockImplementation(() => ({
       send: mockSend,
     })),
-    PutItemCommand: jest.fn(params => params),
-    GetItemCommand: jest.fn(params => params),
-    UpdateItemCommand: jest.fn(params => params),
-    QueryCommand: jest.fn(params => params),
+    PutItemCommand: jest.fn((params) => params),
+    GetItemCommand: jest.fn((params) => params),
+    UpdateItemCommand: jest.fn((params) => params),
+    QueryCommand: jest.fn((params) => params),
     __mockSend: mockSend, // Expose for test access
   }
 })
 
 jest.mock('@aws-sdk/util-dynamodb', () => ({
-  marshall: jest.fn(obj => obj),
-  unmarshall: jest.fn(obj => obj),
+  marshall: jest.fn((obj) => obj),
+  unmarshall: jest.fn((obj) => obj),
 }))
 
 jest.mock('../config', () => ({
@@ -137,11 +137,7 @@ describe('Assessment Manager', () => {
       },
     })
 
-    await assessmentManager.updateInstanceStatus(
-      'int-123',
-      'interview',
-      'active'
-    )
+    await assessmentManager.updateInstanceStatus('int-123', 'interview', 'active')
 
     const updated = await assessmentManager.getAssessment('int-123')
     expect(updated?.instanceStatus).toBe('active')
@@ -159,11 +155,7 @@ describe('Assessment Manager', () => {
       },
     })
 
-    await assessmentManager.updateSessionStatus(
-      'int-123',
-      'interview',
-      'completed'
-    )
+    await assessmentManager.updateSessionStatus('int-123', 'interview', 'completed')
 
     const updated = await assessmentManager.getAssessment('int-123')
     if (updated && updated.sessionType === 'interview') {

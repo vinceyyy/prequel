@@ -51,12 +51,10 @@ export default function ApiKeysPage() {
   } = useApiKeyPolling()
 
   // Separate keys into active and history
-  const activeKeys = apiKeys.filter(k =>
-    ['scheduled', 'available', 'active', 'orphan'].includes(k.status)
+  const activeKeys = apiKeys.filter((k) =>
+    ['scheduled', 'available', 'active', 'orphan'].includes(k.status),
   )
-  const historicalKeys = apiKeys.filter(k =>
-    ['expired', 'revoked', 'error'].includes(k.status)
-  )
+  const historicalKeys = apiKeys.filter((k) => ['expired', 'revoked', 'error'].includes(k.status))
 
   const handleCreateKey = async () => {
     if (!formData.name.trim()) return
@@ -100,9 +98,7 @@ export default function ApiKeysPage() {
       setShowCreateForm(false)
 
       if (formData.activationMode === 'immediate') {
-        setNotification(
-          `API key created: ${result.apiKey.apiKey?.substring(0, 20)}...`
-        )
+        setNotification(`API key created: ${result.apiKey.apiKey?.substring(0, 20)}...`)
       } else if (formData.activationMode === 'recipient') {
         setNotification(`Shareable API key created for "${formData.name}"`)
       } else {
@@ -110,9 +106,7 @@ export default function ApiKeysPage() {
       }
       setTimeout(() => setNotification(null), 5000)
     } catch (error) {
-      setNotification(
-        `Failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      )
+      setNotification(`Failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setTimeout(() => setNotification(null), 5000)
     } finally {
       setLoading(false)
@@ -138,17 +132,13 @@ export default function ApiKeysPage() {
         throw new Error(errorData.error || 'Failed to revoke')
       }
 
-      setNotification(
-        key.status === 'orphan' ? 'Orphan deleted' : 'API key revoked'
-      )
+      setNotification(key.status === 'orphan' ? 'Orphan deleted' : 'API key revoked')
       setTimeout(() => setNotification(null), 3000)
 
       // Refresh the list immediately
       await refresh()
     } catch (error) {
-      setNotification(
-        `Failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      )
+      setNotification(`Failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setTimeout(() => setNotification(null), 5000)
     } finally {
       setRevokingId(null)
@@ -170,9 +160,7 @@ export default function ApiKeysPage() {
       setNotification('Deleted from history')
       setTimeout(() => setNotification(null), 3000)
     } catch (error) {
-      setNotification(
-        `Failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      )
+      setNotification(`Failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setTimeout(() => setNotification(null), 5000)
     }
   }
@@ -228,9 +216,7 @@ export default function ApiKeysPage() {
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold text-slate-900">API Keys</h1>
-              <p className="text-slate-600 mt-2">
-                Provision and manage temporary OpenAI API keys
-              </p>
+              <p className="text-slate-600 mt-2">Provision and manage temporary OpenAI API keys</p>
             </div>
             <div className="flex items-center space-x-4">
               <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg font-medium">
@@ -251,28 +237,22 @@ export default function ApiKeysPage() {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                <h3 className="font-medium text-blue-900">
-                  Shared Rate Limits
-                </h3>
+                <h3 className="font-medium text-blue-900">Shared Rate Limits</h3>
                 <p className="text-sm text-blue-800 mt-1">
-                  All API keys in this project share access to a common pool of
-                  models. These limits are shared across all keys, meaning all
-                  keys collectively consume the same tokens-per-minute quota.
+                  All API keys in this project share access to a common pool of models. These limits
+                  are shared across all keys, meaning all keys collectively consume the same
+                  tokens-per-minute quota.
                 </p>
                 <p className="text-sm text-blue-800 mt-1">
-                  <strong>Cost limit:</strong> Each model can consume up to $15
-                  per hour at maximum usage configured.
+                  <strong>Cost limit:</strong> Each model can consume up to $15 per hour at maximum
+                  usage configured.
                 </p>
                 <div className="mt-3 overflow-x-auto">
                   <table className="text-sm text-blue-800 border-collapse">
                     <thead>
                       <tr className="border-b border-blue-200">
-                        <th className="text-left pr-6 pb-1 font-medium">
-                          Model
-                        </th>
-                        <th className="text-right pb-1 font-medium">
-                          Tokens/min
-                        </th>
+                        <th className="text-left pr-6 pb-1 font-medium">Model</th>
+                        <th className="text-right pb-1 font-medium">Tokens/min</th>
                       </tr>
                     </thead>
                     <tbody className="font-mono text-xs">
@@ -320,16 +300,12 @@ export default function ApiKeysPage() {
 
         {orphanCheckFailed && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 text-sm text-amber-800">
-            Could not check for orphan keys. OpenAI API may be temporarily
-            unavailable.
+            Could not check for orphan keys. OpenAI API may be temporarily unavailable.
           </div>
         )}
 
         <div className="mb-6">
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="btn-primary cursor-pointer"
-          >
+          <button onClick={() => setShowCreateForm(true)} className="btn-primary cursor-pointer">
             Create New API Key
           </button>
         </div>
@@ -376,21 +352,15 @@ export default function ApiKeysPage() {
         {showCreateForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="card p-6 w-full max-w-md fade-in">
-              <h2 className="text-xl font-semibold mb-4 text-slate-900">
-                Create New API Key
-              </h2>
+              <h2 className="text-xl font-semibold mb-4 text-slate-900">Create New API Key</h2>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Name *
-                  </label>
+                  <label className="block text-sm font-medium text-slate-900 mb-1">Name *</label>
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={e =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="input-field"
                     placeholder="e.g., Test Key for John"
                   />
@@ -403,9 +373,7 @@ export default function ApiKeysPage() {
                   <input
                     type="text"
                     value={formData.description}
-                    onChange={e =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="input-field"
                     placeholder="Optional description"
                   />
@@ -420,25 +388,22 @@ export default function ApiKeysPage() {
                       { value: 'immediate', label: 'Provision immediately' },
                       { value: 'scheduled', label: 'Schedule for later' },
                       { value: 'recipient', label: 'Let recipient activate' },
-                    ].map(option => (
+                    ].map((option) => (
                       <label key={option.value} className="flex items-center">
                         <input
                           type="radio"
                           name="activationMode"
                           value={option.value}
                           checked={formData.activationMode === option.value}
-                          onChange={e =>
+                          onChange={(e) =>
                             setFormData({
                               ...formData,
-                              activationMode: e.target
-                                .value as typeof formData.activationMode,
+                              activationMode: e.target.value as typeof formData.activationMode,
                             })
                           }
                           className="mr-2"
                         />
-                        <span className="text-sm text-slate-700">
-                          {option.label}
-                        </span>
+                        <span className="text-sm text-slate-700">{option.label}</span>
                       </label>
                     ))}
                   </div>
@@ -452,7 +417,7 @@ export default function ApiKeysPage() {
                     <input
                       type="datetime-local"
                       value={formData.scheduledAt}
-                      onChange={e =>
+                      onChange={(e) =>
                         setFormData({
                           ...formData,
                           scheduledAt: e.target.value,
@@ -470,7 +435,7 @@ export default function ApiKeysPage() {
                     </label>
                     <select
                       value={formData.availableDays}
-                      onChange={e =>
+                      onChange={(e) =>
                         setFormData({
                           ...formData,
                           availableDays: parseInt(e.target.value),
@@ -478,7 +443,7 @@ export default function ApiKeysPage() {
                       }
                       className="input-field"
                     >
-                      {AVAILABLE_DAYS_OPTIONS.map(opt => (
+                      {AVAILABLE_DAYS_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
                           {opt.label}
                         </option>
@@ -488,12 +453,10 @@ export default function ApiKeysPage() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-1">
-                    Duration
-                  </label>
+                  <label className="block text-sm font-medium text-slate-900 mb-1">Duration</label>
                   <select
                     value={formData.durationSeconds}
-                    onChange={e =>
+                    onChange={(e) =>
                       setFormData({
                         ...formData,
                         durationSeconds: parseInt(e.target.value),
@@ -501,7 +464,7 @@ export default function ApiKeysPage() {
                     }
                     className="input-field"
                   >
-                    {DURATION_OPTIONS.map(opt => (
+                    {DURATION_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -559,47 +522,30 @@ export default function ApiKeysPage() {
                 <tbody className="bg-white divide-y divide-slate-200">
                   {initialLoading ? (
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="px-6 py-4 text-center text-slate-500"
-                      >
+                      <td colSpan={6} className="px-6 py-4 text-center text-slate-500">
                         Loading...
                       </td>
                     </tr>
                   ) : activeKeys.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="px-6 py-4 text-center text-slate-500"
-                      >
+                      <td colSpan={6} className="px-6 py-4 text-center text-slate-500">
                         No active API keys
                       </td>
                     </tr>
                   ) : (
-                    activeKeys.map(key => (
-                      <tr
-                        key={key.id}
-                        className={
-                          key.status === 'orphan' ? 'bg-orange-50' : ''
-                        }
-                      >
+                    activeKeys.map((key) => (
+                      <tr key={key.id} className={key.status === 'orphan' ? 'bg-orange-50' : ''}>
                         <td className="px-6 py-4">
                           <div className="text-sm font-medium text-slate-900">
-                            {key.status === 'orphan' && (
-                              <span className="mr-1">⚠️</span>
-                            )}
+                            {key.status === 'orphan' && <span className="mr-1">⚠️</span>}
                             {key.name}
                           </div>
                           {key.description && (
-                            <div className="text-sm text-slate-500">
-                              {key.description}
-                            </div>
+                            <div className="text-sm text-slate-500">{key.description}</div>
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <span
-                            className={`status-badge ${getStatusBadgeClass(key.status)}`}
-                          >
+                          <span className={`status-badge ${getStatusBadgeClass(key.status)}`}>
                             {key.status}
                           </span>
                         </td>
@@ -653,8 +599,7 @@ export default function ApiKeysPage() {
                                   {copiedKeyId === key.id ? 'Copied!' : 'Copy Link'}
                                 </button>
                               )}
-                            {(key.source === 'standalone' ||
-                              key.status === 'orphan') && (
+                            {(key.source === 'standalone' || key.status === 'orphan') && (
                               <button
                                 onClick={() => handleRevoke(key)}
                                 disabled={revokingId === key.id}
@@ -724,30 +669,21 @@ export default function ApiKeysPage() {
                 <tbody className="bg-white divide-y divide-slate-200">
                   {historicalKeys.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="px-6 py-4 text-center text-slate-500"
-                      >
+                      <td colSpan={6} className="px-6 py-4 text-center text-slate-500">
                         No historical API keys
                       </td>
                     </tr>
                   ) : (
-                    historicalKeys.map(key => (
+                    historicalKeys.map((key) => (
                       <tr key={key.id}>
                         <td className="px-6 py-4">
-                          <div className="text-sm font-medium text-slate-900">
-                            {key.name}
-                          </div>
+                          <div className="text-sm font-medium text-slate-900">{key.name}</div>
                           {key.description && (
-                            <div className="text-sm text-slate-500">
-                              {key.description}
-                            </div>
+                            <div className="text-sm text-slate-500">{key.description}</div>
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <span
-                            className={`status-badge ${getStatusBadgeClass(key.status)}`}
-                          >
+                          <span className={`status-badge ${getStatusBadgeClass(key.status)}`}>
                             {key.status}
                           </span>
                         </td>

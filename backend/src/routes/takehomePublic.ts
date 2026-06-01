@@ -50,12 +50,8 @@ takehomePublicRouter.get('/:token', async (c) => {
     // Add fields based on session status
     switch (takeHome.sessionStatus) {
       case 'available':
-        response.availableFrom = new Date(
-          takeHome.availableFrom * 1000
-        ).toISOString()
-        response.availableUntil = new Date(
-          takeHome.availableUntil * 1000
-        ).toISOString()
+        response.availableFrom = new Date(takeHome.availableFrom * 1000).toISOString()
+        response.availableUntil = new Date(takeHome.availableUntil * 1000).toISOString()
         response.candidateName = takeHome.candidateName
         response.challengeId = takeHome.challengeId
         response.additionalInstructions = takeHome.additionalInstructions
@@ -67,18 +63,11 @@ takehomePublicRouter.get('/:token', async (c) => {
 
         // Safely handle activatedAt and autoDestroyAt fields
         if (takeHome.activatedAt && typeof takeHome.activatedAt === 'number') {
-          response.activatedAt = new Date(
-            takeHome.activatedAt * 1000
-          ).toISOString()
+          response.activatedAt = new Date(takeHome.activatedAt * 1000).toISOString()
         }
 
-        if (
-          takeHome.autoDestroyAt &&
-          typeof takeHome.autoDestroyAt === 'number'
-        ) {
-          response.autoDestroyAt = new Date(
-            takeHome.autoDestroyAt * 1000
-          ).toISOString()
+        if (takeHome.autoDestroyAt && typeof takeHome.autoDestroyAt === 'number') {
+          response.autoDestroyAt = new Date(takeHome.autoDestroyAt * 1000).toISOString()
           response.timeRemaining = takeHome.autoDestroyAt - now
         }
 
@@ -94,26 +83,18 @@ takehomePublicRouter.get('/:token', async (c) => {
 
         // Safely handle activatedAt field
         if (takeHome.activatedAt && typeof takeHome.activatedAt === 'number') {
-          response.activatedAt = new Date(
-            takeHome.activatedAt * 1000
-          ).toISOString()
+          response.activatedAt = new Date(takeHome.activatedAt * 1000).toISOString()
         }
 
         // Safely handle destroyedAt field
         if (takeHome.destroyedAt && typeof takeHome.destroyedAt === 'number') {
-          response.destroyedAt = new Date(
-            takeHome.destroyedAt * 1000
-          ).toISOString()
+          response.destroyedAt = new Date(takeHome.destroyedAt * 1000).toISOString()
         }
         break
 
       case 'expired':
-        response.availableFrom = new Date(
-          takeHome.availableFrom * 1000
-        ).toISOString()
-        response.availableUntil = new Date(
-          takeHome.availableUntil * 1000
-        ).toISOString()
+        response.availableFrom = new Date(takeHome.availableFrom * 1000).toISOString()
+        response.availableUntil = new Date(takeHome.availableUntil * 1000).toISOString()
         break
 
       case 'revoked':
@@ -149,19 +130,13 @@ takehomePublicRouter.post('/:token/activate', async (c) => {
 
     // Validate: sessionStatus is 'available'
     if (takeHome.sessionStatus !== 'available') {
-      return c.json(
-        { error: 'Take-home already activated or completed' },
-        400
-      )
+      return c.json({ error: 'Take-home already activated or completed' }, 400)
     }
 
     // Validate: current time is within availableFrom/availableUntil window
     const now = Math.floor(Date.now() / 1000)
     if (now < takeHome.availableFrom || now > takeHome.availableUntil) {
-      return c.json(
-        { error: 'Take-home has expired or is not yet available' },
-        400
-      )
+      return c.json({ error: 'Take-home has expired or is not yet available' }, 400)
     }
 
     // Calculate autoDestroyAt based on durationHours (default 4 hours)
@@ -180,19 +155,15 @@ takehomePublicRouter.post('/:token/activate', async (c) => {
       takeHome.challengeId,
       undefined, // scheduledAt (immediate activation)
       autoDestroyAt,
-      false // saveFiles
+      false, // saveFiles
     )
 
     // Update take-home: sessionStatus='activated', isActivated=true, activatedAt=now, autoDestroyAt
-    await assessmentManager.updateSessionStatus(
-      takeHome.id,
-      'takehome',
-      'activated'
-    )
+    await assessmentManager.updateSessionStatus(takeHome.id, 'takehome', 'activated')
     await assessmentManager.updateTakeHomeActivation(
       takeHome.id,
       activatedAt,
-      Math.floor(autoDestroyAt.getTime() / 1000)
+      Math.floor(autoDestroyAt.getTime() / 1000),
     )
 
     // Start background provisioning using instance.provisionInstance()
@@ -212,11 +183,7 @@ takehomePublicRouter.post('/:token/activate', async (c) => {
             operationManager.addOperationLog(operationId, data)
           },
           onInfrastructureReady: (accessUrl: string) => {
-            operationManager.updateOperationInfrastructureReady(
-              operationId,
-              accessUrl,
-              password
-            )
+            operationManager.updateOperationInfrastructureReady(operationId, accessUrl, password)
           },
         })
 
@@ -230,7 +197,7 @@ takehomePublicRouter.post('/:token/activate', async (c) => {
 
         await operationManager.addOperationLog(
           operationId,
-          `Provisioning result: success=${result.success}, accessUrl=${result.accessUrl || 'none'}`
+          `Provisioning result: success=${result.success}, accessUrl=${result.accessUrl || 'none'}`,
         )
 
         await operationManager.setOperationResult(operationId, result)
@@ -239,42 +206,30 @@ takehomePublicRouter.post('/:token/activate', async (c) => {
           logger.info('Updating instance status to active', {
             takeHomeId: takeHome.id,
           })
-          await assessmentManager.updateInstanceStatus(
-            takeHome.id,
-            'takehome',
-            'active'
-          )
+          await assessmentManager.updateInstanceStatus(takeHome.id, 'takehome', 'active')
 
           // Update access credentials if available
           if (result.accessUrl) {
-            await assessmentManager.updateAccessCredentials(
-              takeHome.id,
-              result.accessUrl,
-              password
-            )
+            await assessmentManager.updateAccessCredentials(takeHome.id, result.accessUrl, password)
             await operationManager.addOperationLog(
               operationId,
-              `✅ Access credentials updated: ${result.accessUrl}`
+              `✅ Access credentials updated: ${result.accessUrl}`,
             )
           }
 
           await operationManager.addOperationLog(
             operationId,
-            '✅ Instance status updated to active'
+            '✅ Instance status updated to active',
           )
         } else {
           logger.error('Provisioning failed, updating status to error', {
             takeHomeId: takeHome.id,
             error: result.error,
           })
-          await assessmentManager.updateInstanceStatus(
-            takeHome.id,
-            'takehome',
-            'error'
-          )
+          await assessmentManager.updateInstanceStatus(takeHome.id, 'takehome', 'error')
           await operationManager.addOperationLog(
             operationId,
-            `❌ Provisioning failed: ${result.error}`
+            `❌ Provisioning failed: ${result.error}`,
           )
         }
       } catch (error) {
@@ -287,11 +242,7 @@ takehomePublicRouter.post('/:token/activate', async (c) => {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
         })
-        await assessmentManager.updateInstanceStatus(
-          takeHome.id,
-          'takehome',
-          'error'
-        )
+        await assessmentManager.updateInstanceStatus(takeHome.id, 'takehome', 'error')
       }
     })
 
@@ -314,7 +265,7 @@ takehomePublicRouter.post('/:token/activate', async (c) => {
         error: 'Failed to activate take-home',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })

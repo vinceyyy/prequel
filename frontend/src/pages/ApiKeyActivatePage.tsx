@@ -21,10 +21,7 @@ export default function ApiKeyPage() {
   // Update time remaining when apiKey changes
   useEffect(() => {
     if (apiKey?.status === 'active' && apiKey.expiresAt) {
-      const remaining = Math.max(
-        0,
-        Math.floor((apiKey.expiresAt - Date.now() / 1000) / 1)
-      )
+      const remaining = Math.max(0, Math.floor((apiKey.expiresAt - Date.now() / 1000) / 1))
       setTimeRemaining(remaining)
     } else {
       setTimeRemaining(null)
@@ -35,7 +32,7 @@ export default function ApiKeyPage() {
   useEffect(() => {
     if (timeRemaining !== null && timeRemaining > 0) {
       const interval = setInterval(() => {
-        setTimeRemaining(prev => {
+        setTimeRemaining((prev) => {
           if (prev === null || prev <= 0) {
             return 0
           }
@@ -134,9 +131,7 @@ export default function ApiKeyPage() {
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
           <div className="text-center">
             <div className="text-red-600 text-5xl mb-4">⚠️</div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">
-              Error Loading API Key
-            </h1>
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">Error Loading API Key</h1>
             <p className="text-slate-600 mb-4">{fetchError || error}</p>
           </div>
         </div>
@@ -153,9 +148,7 @@ export default function ApiKeyPage() {
       <div className="max-w-2xl mx-auto p-4 sm:p-8">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 mb-4">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            OpenAI API Key Access
-          </h1>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">OpenAI API Key Access</h1>
           {apiKey.name && <p className="text-slate-600">Key: {apiKey.name}</p>}
         </div>
 
@@ -164,9 +157,7 @@ export default function ApiKeyPage() {
           <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
             <div className="text-center">
               <div className="text-purple-600 text-5xl mb-4">⏰</div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                Scheduled
-              </h2>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">Scheduled</h2>
               {apiKey.scheduledAt && (
                 <p className="text-slate-600 mb-4">
                   This API key is scheduled to become available on{' '}
@@ -176,9 +167,7 @@ export default function ApiKeyPage() {
                 </p>
               )}
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 inline-block">
-                <p className="text-purple-900 text-sm">
-                  Please check back at the scheduled time.
-                </p>
+                <p className="text-purple-900 text-sm">Please check back at the scheduled time.</p>
               </div>
             </div>
           </div>
@@ -188,19 +177,12 @@ export default function ApiKeyPage() {
         {apiKey.status === 'available' && (
           <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-              <h2 className="text-xl font-bold text-blue-900 mb-4">
-                Instructions
-              </h2>
+              <h2 className="text-xl font-bold text-blue-900 mb-4">Instructions</h2>
               <div className="space-y-3 text-sm text-blue-900">
-                <p>
-                  You have been granted access to a temporary OpenAI API key.
-                </p>
+                <p>You have been granted access to a temporary OpenAI API key.</p>
                 <p>Once activated:</p>
                 <ul className="list-disc list-inside ml-2 space-y-1">
-                  <li>
-                    The key will be valid for{' '}
-                    {formatDuration(getDurationSeconds())}
-                  </li>
+                  <li>The key will be valid for {formatDuration(getDurationSeconds())}</li>
                   <li>It will be automatically deleted when expired</li>
                   <li>You can use it with any OpenAI-compatible tool</li>
                 </ul>
@@ -241,15 +223,9 @@ export default function ApiKeyPage() {
           <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
             <div className="text-center">
               <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                Initializing API Key
-              </h2>
-              <p className="text-slate-600 mb-4">
-                Creating your OpenAI API key...
-              </p>
-              <p className="text-slate-600 text-sm">
-                This typically takes a few seconds.
-              </p>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">Initializing API Key</h2>
+              <p className="text-slate-600 mb-4">Creating your OpenAI API key...</p>
+              <p className="text-slate-600 text-sm">This typically takes a few seconds.</p>
             </div>
           </div>
         )}
@@ -259,14 +235,10 @@ export default function ApiKeyPage() {
           <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-slate-900">
-                  Your API Key is Ready!
-                </h2>
+                <h2 className="text-2xl font-bold text-slate-900">Your API Key is Ready!</h2>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-                  <span className="text-sm font-medium text-green-700">
-                    Active
-                  </span>
+                  <span className="text-sm font-medium text-green-700">Active</span>
                 </div>
               </div>
 
@@ -306,8 +278,7 @@ export default function ApiKeyPage() {
                   </div>
                   {timeRemaining < 600 && (
                     <p className="text-red-700 text-xs mt-2">
-                      Your API key will be automatically deleted when time
-                      expires.
+                      Your API key will be automatically deleted when time expires.
                     </p>
                   )}
                 </div>
@@ -315,9 +286,7 @@ export default function ApiKeyPage() {
             </div>
 
             <div className="bg-slate-50 rounded-lg p-4 sm:p-6 mb-6">
-              <h3 className="text-sm font-medium text-slate-700 mb-3">
-                API Key
-              </h3>
+              <h3 className="text-sm font-medium text-slate-700 mb-3">API Key</h3>
               <div className="flex items-center space-x-2">
                 <input
                   type="text"
@@ -335,17 +304,15 @@ export default function ApiKeyPage() {
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <h3 className="text-sm font-bold text-blue-900 mb-2">
-                Usage Instructions
-              </h3>
+              <h3 className="text-sm font-bold text-blue-900 mb-2">Usage Instructions</h3>
               <div className="text-sm text-blue-900 space-y-2">
                 <p>Use this key with any OpenAI-compatible tool or library:</p>
                 <div className="bg-white rounded p-2 font-mono text-xs overflow-x-auto">
                   export OPENAI_API_KEY={apiKey.apiKey}
                 </div>
                 <p className="text-xs">
-                  The key will be automatically deleted after{' '}
-                  {formatDuration(getDurationSeconds())}.
+                  The key will be automatically deleted after {formatDuration(getDurationSeconds())}
+                  .
                 </p>
               </div>
             </div>
@@ -359,9 +326,7 @@ export default function ApiKeyPage() {
                   <thead>
                     <tr className="border-b border-slate-300">
                       <th className="text-left pr-6 pb-1 font-medium">Model</th>
-                      <th className="text-right pb-1 font-medium">
-                        Tokens/min
-                      </th>
+                      <th className="text-right pb-1 font-medium">Tokens/min</th>
                     </tr>
                   </thead>
                   <tbody className="font-mono text-xs">
@@ -405,12 +370,9 @@ export default function ApiKeyPage() {
           <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
             <div className="text-center">
               <div className="text-amber-600 text-5xl mb-4">⏱️</div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                API Key Expired
-              </h2>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">API Key Expired</h2>
               <p className="text-slate-600 mb-4">
-                This API key is no longer available. It has been automatically
-                deleted.
+                This API key is no longer available. It has been automatically deleted.
               </p>
               {apiKey.expiredAt && (
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 inline-block">
@@ -431,9 +393,7 @@ export default function ApiKeyPage() {
           <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
             <div className="text-center">
               <div className="text-red-600 text-5xl mb-4">🚫</div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                API Key Revoked
-              </h2>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">API Key Revoked</h2>
               <p className="text-slate-600 mb-4">
                 This API key has been revoked and is no longer available.
               </p>
@@ -459,9 +419,7 @@ export default function ApiKeyPage() {
           <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
             <div className="text-center">
               <div className="text-amber-600 text-5xl mb-4">⚠️</div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                API Key Issue
-              </h2>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">API Key Issue</h2>
               <p className="text-slate-600 mb-4">
                 This API key has a configuration issue. Please contact support.
               </p>

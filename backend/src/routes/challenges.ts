@@ -82,7 +82,7 @@ challengesRouter.get('/', async (c) => {
     })
   } catch (error) {
     logger.error(
-      `[API] Error fetching challenges: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[API] Error fetching challenges: ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
 
     // Fallback: Return empty array instead of failing completely
@@ -101,8 +101,7 @@ challengesRouter.get('/', async (c) => {
  */
 challengesRouter.get('/manage', async (c) => {
   try {
-    const sortBy =
-      (c.req.query('sortBy') as 'newest' | 'usage' | 'lastUsed') || 'newest'
+    const sortBy = (c.req.query('sortBy') as 'newest' | 'usage' | 'lastUsed') || 'newest'
 
     logger.info(`[API] Listing challenges for management (sortBy: ${sortBy})`)
 
@@ -115,7 +114,7 @@ challengesRouter.get('/manage', async (c) => {
     })
   } catch (error) {
     logger.error(
-      `[API] Error listing challenges for management: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[API] Error listing challenges for management: ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
 
     return c.json(
@@ -124,7 +123,7 @@ challengesRouter.get('/manage', async (c) => {
         error: 'Failed to list challenges',
         challenges: [],
       },
-      500
+      500,
     )
   }
 })
@@ -147,13 +146,11 @@ challengesRouter.post('/manage', async (c) => {
           error: 'Validation failed',
           validationErrors,
         },
-        400
+        400,
       )
     }
 
-    const challenge = await challengeService.createChallenge(
-      body as CreateChallengeInput
-    )
+    const challenge = await challengeService.createChallenge(body as CreateChallengeInput)
 
     logger.info(`[API] Challenge created successfully: ${challenge.id}`)
 
@@ -162,24 +159,21 @@ challengesRouter.post('/manage', async (c) => {
         success: true,
         challenge,
       },
-      201
+      201,
     )
   } catch (error) {
     logger.error(
-      `[API] Error creating challenge: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[API] Error creating challenge: ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
 
     // Handle specific DynamoDB errors
-    if (
-      error instanceof Error &&
-      error.message.includes('ConditionalCheckFailedException')
-    ) {
+    if (error instanceof Error && error.message.includes('ConditionalCheckFailedException')) {
       return c.json(
         {
           success: false,
           error: 'Challenge already exists',
         },
-        409
+        409,
       )
     }
 
@@ -189,7 +183,7 @@ challengesRouter.post('/manage', async (c) => {
         error: 'Failed to create challenge',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -212,14 +206,12 @@ challengesRouter.post('/manage/upload', async (c) => {
     const challengeId = formData.get('challengeId') as string
     const overwrite = formData.get('overwrite') === 'true'
 
-    logger.info(
-      `[API] Uploading ${files.length} files for challenge: ${challengeId}`
-    )
+    logger.info(`[API] Uploading ${files.length} files for challenge: ${challengeId}`)
 
     // Debug: Log file details
     files.forEach((file, index) => {
       logger.info(
-        `[API] File ${index}: name=${file.name}, relativePath=${filePaths[index] || 'undefined'}`
+        `[API] File ${index}: name=${file.name}, relativePath=${filePaths[index] || 'undefined'}`,
       )
     })
 
@@ -229,7 +221,7 @@ challengesRouter.post('/manage/upload', async (c) => {
           success: false,
           error: 'Challenge ID is required',
         },
-        400
+        400,
       )
     }
 
@@ -239,7 +231,7 @@ challengesRouter.post('/manage/upload', async (c) => {
           success: false,
           error: 'No files provided',
         },
-        400
+        400,
       )
     }
 
@@ -255,9 +247,7 @@ challengesRouter.post('/manage/upload', async (c) => {
 
       // Check file size only
       if (file.size > maxFileSize) {
-        invalidFiles.push(
-          `${file.name} (too large: ${Math.round(file.size / 1024 / 1024)}MB)`
-        )
+        invalidFiles.push(`${file.name} (too large: ${Math.round(file.size / 1024 / 1024)}MB)`)
       }
     }
 
@@ -267,7 +257,7 @@ challengesRouter.post('/manage/upload', async (c) => {
           success: false,
           error: `Total upload size too large: ${Math.round(totalSize / 1024 / 1024)}MB (max: 100MB)`,
         },
-        400
+        400,
       )
     }
 
@@ -278,7 +268,7 @@ challengesRouter.post('/manage/upload', async (c) => {
           error: 'Invalid files detected',
           invalidFiles,
         },
-        400
+        400,
       )
     }
 
@@ -302,7 +292,7 @@ challengesRouter.post('/manage/upload', async (c) => {
             new HeadObjectCommand({
               Bucket: BUCKET_NAME,
               Key: fileInfo.s3Key,
-            })
+            }),
           )
           existingFiles.push(fileInfo.relativePath)
         } catch {
@@ -318,7 +308,7 @@ challengesRouter.post('/manage/upload', async (c) => {
             existingFiles,
             message: 'Set overwrite=true to replace existing files',
           },
-          409
+          409,
         )
       }
     }
@@ -357,10 +347,10 @@ challengesRouter.post('/manage/upload', async (c) => {
         logger.info(`[API] Uploaded file: ${s3Key}`)
       } catch (error) {
         logger.error(
-          `[API] Failed to upload file ${fileInfo.relativePath}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          `[API] Failed to upload file ${fileInfo.relativePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         )
         uploadErrors.push(
-          `${fileInfo.relativePath}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          `${fileInfo.relativePath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         )
       }
     }
@@ -372,12 +362,12 @@ challengesRouter.post('/manage/upload', async (c) => {
           error: 'All file uploads failed',
           uploadErrors,
         },
-        500
+        500,
       )
     }
 
     logger.info(
-      `[API] Successfully uploaded ${uploadedFiles.length} files for challenge: ${challengeId}`
+      `[API] Successfully uploaded ${uploadedFiles.length} files for challenge: ${challengeId}`,
     )
 
     return c.json({
@@ -392,7 +382,7 @@ challengesRouter.post('/manage/upload', async (c) => {
     })
   } catch (error) {
     logger.error(
-      `[API] Error uploading challenge files: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[API] Error uploading challenge files: ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
 
     return c.json(
@@ -401,7 +391,7 @@ challengesRouter.post('/manage/upload', async (c) => {
         error: 'Failed to upload files',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -426,20 +416,17 @@ challengesRouter.post('/manage/:id/usage', async (c) => {
   } catch (error) {
     const paramId = c.req.param('id')
     logger.error(
-      `[API] Error incrementing usage for challenge ${paramId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[API] Error incrementing usage for challenge ${paramId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
 
     // Handle specific DynamoDB errors
-    if (
-      error instanceof Error &&
-      error.message.includes('ConditionalCheckFailedException')
-    ) {
+    if (error instanceof Error && error.message.includes('ConditionalCheckFailedException')) {
       return c.json(
         {
           success: false,
           error: 'Challenge not found or inactive',
         },
-        404
+        404,
       )
     }
 
@@ -449,7 +436,7 @@ challengesRouter.post('/manage/:id/usage', async (c) => {
         error: 'Failed to increment challenge usage',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -467,21 +454,17 @@ challengesRouter.get('/manage/:id/files/:path{.+}', async (c) => {
     const isDownload = c.req.query('download') === 'true'
 
     logger.info(
-      `[API] Getting file content: ${challengeId}/${filePath}${isDownload ? ' (download)' : ' (preview)'}`
+      `[API] Getting file content: ${challengeId}/${filePath}${isDownload ? ' (download)' : ' (preview)'}`,
     )
 
     // Security: Prevent path traversal attacks
-    if (
-      filePath.includes('..') ||
-      filePath.includes('//') ||
-      filePath.startsWith('/')
-    ) {
+    if (filePath.includes('..') || filePath.includes('//') || filePath.startsWith('/')) {
       return c.json(
         {
           success: false,
           error: 'Invalid file path',
         },
-        400
+        400,
       )
     }
 
@@ -500,7 +483,7 @@ challengesRouter.get('/manage/:id/files/:path{.+}', async (c) => {
           success: false,
           error: 'File has no content',
         },
-        404
+        404,
       )
     }
 
@@ -525,9 +508,7 @@ challengesRouter.get('/manage/:id/files/:path{.+}', async (c) => {
       const fileName = filePath.split('/').pop() || 'file'
       const mimeType = getFileMimeType(filePath)
 
-      logger.info(
-        `[API] Downloading file: ${challengeId}/${filePath} (${buffer.length} bytes)`
-      )
+      logger.info(`[API] Downloading file: ${challengeId}/${filePath} (${buffer.length} bytes)`)
 
       return c.body(buffer, 200, {
         'Content-Type': mimeType,
@@ -547,7 +528,7 @@ challengesRouter.get('/manage/:id/files/:path{.+}', async (c) => {
           size: buffer.length,
           maxSize: maxTextSize,
         },
-        413
+        413,
       )
     }
 
@@ -555,9 +536,7 @@ challengesRouter.get('/manage/:id/files/:path{.+}', async (c) => {
     const content = buffer.toString('utf-8')
     const mimeType = getFileMimeType(filePath)
 
-    logger.info(
-      `[API] Retrieved file content: ${challengeId}/${filePath} (${buffer.length} bytes)`
-    )
+    logger.info(`[API] Retrieved file content: ${challengeId}/${filePath} (${buffer.length} bytes)`)
 
     return c.json({
       success: true,
@@ -573,7 +552,7 @@ challengesRouter.get('/manage/:id/files/:path{.+}', async (c) => {
     const id = c.req.param('id')
     const paramPath = c.req.param('path')
     logger.error(
-      `[API] Error getting file content ${id}/${paramPath}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[API] Error getting file content ${id}/${paramPath}: ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
 
     // Handle S3 errors
@@ -584,7 +563,7 @@ challengesRouter.get('/manage/:id/files/:path{.+}', async (c) => {
             success: false,
             error: 'File not found',
           },
-          404
+          404,
         )
       }
       if (error.name === 'AccessDenied') {
@@ -593,7 +572,7 @@ challengesRouter.get('/manage/:id/files/:path{.+}', async (c) => {
             success: false,
             error: 'Access denied',
           },
-          403
+          403,
         )
       }
     }
@@ -604,7 +583,7 @@ challengesRouter.get('/manage/:id/files/:path{.+}', async (c) => {
         error: 'Failed to get file content',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -618,20 +597,14 @@ challengesRouter.get('/manage/:id/files', async (c) => {
     const challengeId = c.req.param('id')
     const path = c.req.query('path') || '' // Optional subdirectory path
 
-    logger.info(
-      `[API] Listing files for challenge: ${challengeId}, path: ${path}`
-    )
+    logger.info(`[API] Listing files for challenge: ${challengeId}, path: ${path}`)
 
     // Construct the S3 prefix
     // Ensure path ends with / when looking inside a directory
     const cleanPath = path ? path.replace(/\/+$/, '') : '' // Remove trailing slashes
-    const prefix = cleanPath
-      ? `${challengeId}/${cleanPath}/`
-      : `${challengeId}/`
+    const prefix = cleanPath ? `${challengeId}/${cleanPath}/` : `${challengeId}/`
 
-    logger.info(
-      `[API] S3 ListObjects: bucket=${BUCKET_NAME}, prefix="${prefix}"`
-    )
+    logger.info(`[API] S3 ListObjects: bucket=${BUCKET_NAME}, prefix="${prefix}"`)
 
     const command = new ListObjectsV2Command({
       Bucket: BUCKET_NAME,
@@ -644,31 +617,23 @@ challengesRouter.get('/manage/:id/files', async (c) => {
 
     // Debug logging
     logger.info(
-      `[API] S3 response for ${challengeId}: CommonPrefixes=${response.CommonPrefixes?.length || 0}, Contents=${response.Contents?.length || 0}, IsTruncated=${response.IsTruncated}`
+      `[API] S3 response for ${challengeId}: CommonPrefixes=${response.CommonPrefixes?.length || 0}, Contents=${response.Contents?.length || 0}, IsTruncated=${response.IsTruncated}`,
     )
     if (response.Contents && response.Contents.length > 0) {
-      logger.info(
-        `[API] S3 keys found: ${response.Contents.map((obj) => obj.Key).join(', ')}`
-      )
+      logger.info(`[API] S3 keys found: ${response.Contents.map((obj) => obj.Key).join(', ')}`)
     }
 
     // Add directories (common prefixes)
     if (response.CommonPrefixes) {
       for (const commonPrefix of response.CommonPrefixes) {
         if (commonPrefix.Prefix) {
-          const dirName = commonPrefix.Prefix.replace(prefix, '').replace(
-            /\/$/,
-            ''
-          )
+          const dirName = commonPrefix.Prefix.replace(prefix, '').replace(/\/$/, '')
 
           if (dirName) {
             // Skip empty names
             files.push({
               name: dirName,
-              path: commonPrefix.Prefix.replace(`${challengeId}/`, '').replace(
-                /\/+$/,
-                ''
-              ), // Remove trailing slash
+              path: commonPrefix.Prefix.replace(`${challengeId}/`, '').replace(/\/+$/, ''), // Remove trailing slash
               size: 0,
               lastModified: '',
               isDirectory: true,
@@ -707,9 +672,7 @@ challengesRouter.get('/manage/:id/files', async (c) => {
       return a.name.localeCompare(b.name)
     })
 
-    logger.info(
-      `[API] Found ${files.length} files/folders for challenge: ${challengeId}`
-    )
+    logger.info(`[API] Found ${files.length} files/folders for challenge: ${challengeId}`)
 
     return c.json({
       success: true,
@@ -721,7 +684,7 @@ challengesRouter.get('/manage/:id/files', async (c) => {
   } catch (error) {
     const paramId = c.req.param('id')
     logger.error(
-      `[API] Error listing files for challenge ${paramId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[API] Error listing files for challenge ${paramId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
 
     return c.json(
@@ -730,7 +693,7 @@ challengesRouter.get('/manage/:id/files', async (c) => {
         error: 'Failed to list challenge files',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -754,7 +717,7 @@ challengesRouter.get('/manage/:id/download', async (c) => {
       }
     } catch (error) {
       logger.warn(
-        `Failed to get challenge name for ${challengeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to get challenge name for ${challengeId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       )
     }
 
@@ -772,7 +735,7 @@ challengesRouter.get('/manage/:id/download', async (c) => {
           success: false,
           error: 'No files found in challenge',
         },
-        404
+        404,
       )
     }
 
@@ -818,7 +781,7 @@ challengesRouter.get('/manage/:id/download', async (c) => {
         }
       } catch (error) {
         logger.error(
-          `Failed to download file ${object.Key}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          `Failed to download file ${object.Key}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         )
         // Continue with other files
       }
@@ -833,9 +796,7 @@ challengesRouter.get('/manage/:id/download', async (c) => {
       .replace(/\s+/g, '_')
       .substring(0, 50)
 
-    logger.info(
-      `[API] Generated ZIP for challenge: ${challengeId} (${zipBuffer.length} bytes)`
-    )
+    logger.info(`[API] Generated ZIP for challenge: ${challengeId} (${zipBuffer.length} bytes)`)
 
     return c.body(new Uint8Array(zipBuffer), 200, {
       'Content-Type': 'application/zip',
@@ -846,7 +807,7 @@ challengesRouter.get('/manage/:id/download', async (c) => {
   } catch (error) {
     const paramId = c.req.param('id')
     logger.error(
-      `[API] Error downloading challenge ${paramId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[API] Error downloading challenge ${paramId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
 
     return c.json(
@@ -855,7 +816,7 @@ challengesRouter.get('/manage/:id/download', async (c) => {
         error: 'Failed to download challenge',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -877,7 +838,7 @@ challengesRouter.get('/manage/:id', async (c) => {
           success: false,
           error: 'Challenge not found',
         },
-        404
+        404,
       )
     }
 
@@ -888,7 +849,7 @@ challengesRouter.get('/manage/:id', async (c) => {
   } catch (error) {
     const paramId = c.req.param('id')
     logger.error(
-      `[API] Error getting challenge ${paramId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[API] Error getting challenge ${paramId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
 
     return c.json(
@@ -897,7 +858,7 @@ challengesRouter.get('/manage/:id', async (c) => {
         error: 'Failed to get challenge',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -922,17 +883,14 @@ challengesRouter.put('/manage/:id', async (c) => {
             error: 'ECS configuration validation failed',
             validationErrors: configErrors,
           },
-          400
+          400,
         )
       }
     }
 
     // Validate other fields
     const errors: string[] = []
-    if (
-      body.name !== undefined &&
-      (!body.name || body.name.trim().length === 0)
-    ) {
+    if (body.name !== undefined && (!body.name || body.name.trim().length === 0)) {
       errors.push('Challenge name cannot be empty')
     }
     if (
@@ -949,13 +907,13 @@ challengesRouter.put('/manage/:id', async (c) => {
           error: 'Validation failed',
           validationErrors: errors,
         },
-        400
+        400,
       )
     }
 
     const updatedChallenge = await challengeService.updateChallenge(
       id,
-      body as UpdateChallengeInput
+      body as UpdateChallengeInput,
     )
 
     logger.info(`[API] Challenge updated successfully: ${id}`)
@@ -967,20 +925,17 @@ challengesRouter.put('/manage/:id', async (c) => {
   } catch (error) {
     const paramId = c.req.param('id')
     logger.error(
-      `[API] Error updating challenge ${paramId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[API] Error updating challenge ${paramId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
 
     // Handle specific DynamoDB errors
-    if (
-      error instanceof Error &&
-      error.message.includes('ConditionalCheckFailedException')
-    ) {
+    if (error instanceof Error && error.message.includes('ConditionalCheckFailedException')) {
       return c.json(
         {
           success: false,
           error: 'Challenge not found or already deleted',
         },
-        404
+        404,
       )
     }
 
@@ -990,7 +945,7 @@ challengesRouter.put('/manage/:id', async (c) => {
         error: 'Failed to update challenge',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })
@@ -1015,20 +970,17 @@ challengesRouter.delete('/manage/:id', async (c) => {
   } catch (error) {
     const paramId = c.req.param('id')
     logger.error(
-      `[API] Error deleting challenge ${paramId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `[API] Error deleting challenge ${paramId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
 
     // Handle specific DynamoDB errors
-    if (
-      error instanceof Error &&
-      error.message.includes('ConditionalCheckFailedException')
-    ) {
+    if (error instanceof Error && error.message.includes('ConditionalCheckFailedException')) {
       return c.json(
         {
           success: false,
           error: 'Challenge not found or already deleted',
         },
-        404
+        404,
       )
     }
 
@@ -1038,7 +990,7 @@ challengesRouter.delete('/manage/:id', async (c) => {
         error: 'Failed to delete challenge',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
-      500
+      500,
     )
   }
 })

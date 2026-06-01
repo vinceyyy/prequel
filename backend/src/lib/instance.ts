@@ -60,9 +60,7 @@ export interface DestroyResult {
  *
  * This function is session-type agnostic - works for both interviews and take-homes.
  */
-export async function provisionInstance(
-  params: ProvisionParams
-): Promise<ProvisionResult> {
+export async function provisionInstance(params: ProvisionParams): Promise<ProvisionResult> {
   try {
     if (params.onData) {
       params.onData('Starting infrastructure provisioning...\n')
@@ -78,7 +76,7 @@ export async function provisionInstance(
         openaiApiKey: params.openaiApiKey,
       },
       params.onData,
-      params.onInfrastructureReady
+      params.onInfrastructureReady,
     )
 
     if (result.success) {
@@ -128,7 +126,7 @@ export async function provisionInstance(
  */
 export async function destroyInstance(
   instanceId: string,
-  params: DestroyParams = {}
+  params: DestroyParams = {},
 ): Promise<DestroyResult> {
   try {
     if (params.onData) {
@@ -141,7 +139,7 @@ export async function destroyInstance(
       params.onData,
       params.candidateName,
       params.challenge,
-      params.saveFiles
+      params.saveFiles,
     )
 
     if (result.success) {
@@ -187,7 +185,7 @@ export async function destroyInstance(
  */
 export async function updateInstanceStatus(
   assessment: Assessment,
-  newStatus: Assessment['instanceStatus']
+  newStatus: Assessment['instanceStatus'],
 ): Promise<void> {
   // Implementation will be added when we refactor interview/takehome managers
   // For now, this is a placeholder

@@ -49,10 +49,7 @@ describe('OpenAI Service', () => {
         }),
       })
 
-      const result = await openaiService.createServiceAccount(
-        projectId,
-        accountName
-      )
+      const result = await openaiService.createServiceAccount(projectId, accountName)
 
       expect(result.success).toBe(true)
       expect(result.serviceAccountId).toBeDefined()
@@ -90,10 +87,7 @@ describe('OpenAI Service', () => {
         }),
       })
 
-      const result = await openaiService.deleteServiceAccount(
-        projectId,
-        serviceAccountId
-      )
+      const result = await openaiService.deleteServiceAccount(projectId, serviceAccountId)
 
       expect(result.success).toBe(true)
       expect(result.deleted).toBe(true)
@@ -107,10 +101,7 @@ describe('OpenAI Service', () => {
         text: async () => 'Not found',
       })
 
-      const result = await openaiService.deleteServiceAccount(
-        'invalid',
-        'invalid'
-      )
+      const result = await openaiService.deleteServiceAccount('invalid', 'invalid')
 
       expect(result.success).toBe(false)
       expect(result.error).toBeDefined()
@@ -176,10 +167,7 @@ describe('OpenAI Service', () => {
       // Mock network error
       global.fetch = jest.fn().mockRejectedValue(new Error('Network error'))
 
-      const result = await openaiService.createServiceAccount(
-        'proj_test',
-        'test'
-      )
+      const result = await openaiService.createServiceAccount('proj_test', 'test')
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Network error')
@@ -192,10 +180,7 @@ describe('OpenAI Service', () => {
         text: async () => 'Unauthorized',
       })
 
-      const result = await openaiService.createServiceAccount(
-        'proj_test',
-        'test'
-      )
+      const result = await openaiService.createServiceAccount('proj_test', 'test')
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('401')
@@ -208,10 +193,7 @@ describe('OpenAI Service', () => {
         text: async () => 'Rate limit exceeded',
       })
 
-      const result = await openaiService.createServiceAccount(
-        'proj_test',
-        'test'
-      )
+      const result = await openaiService.createServiceAccount('proj_test', 'test')
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('429')
@@ -219,14 +201,9 @@ describe('OpenAI Service', () => {
 
     it('should handle network errors during deletion', async () => {
       // Mock network error for deletion
-      global.fetch = jest
-        .fn()
-        .mockRejectedValue(new Error('Connection timeout'))
+      global.fetch = jest.fn().mockRejectedValue(new Error('Connection timeout'))
 
-      const result = await openaiService.deleteServiceAccount(
-        'proj_test',
-        'svc_123'
-      )
+      const result = await openaiService.deleteServiceAccount('proj_test', 'svc_123')
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Connection timeout')
@@ -239,10 +216,7 @@ describe('OpenAI Service', () => {
         text: async () => 'Service account not found',
       })
 
-      const result = await openaiService.deleteServiceAccount(
-        'proj_test',
-        'svc_invalid'
-      )
+      const result = await openaiService.deleteServiceAccount('proj_test', 'svc_invalid')
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('404')
@@ -256,10 +230,7 @@ describe('OpenAI Service', () => {
         },
       })
 
-      const result = await openaiService.createServiceAccount(
-        'proj_test',
-        'test'
-      )
+      const result = await openaiService.createServiceAccount('proj_test', 'test')
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Invalid JSON')

@@ -111,9 +111,7 @@ export class ChallengeService {
       ...item,
       createdAt: new Date(item.createdAt as number),
       updatedAt: new Date(item.updatedAt as number),
-      lastUsedAt: item.lastUsedAt
-        ? new Date(item.lastUsedAt as number)
-        : undefined,
+      lastUsedAt: item.lastUsedAt ? new Date(item.lastUsedAt as number) : undefined,
     } as Challenge
   }
 
@@ -123,9 +121,7 @@ export class ChallengeService {
   async createChallenge(input: CreateChallengeInput): Promise<Challenge> {
     const now = new Date()
     const challenge: Challenge = {
-      id:
-        input.id ||
-        `challenge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: input.id || `challenge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: input.name,
       description: input.description,
       isActive: 'true',
@@ -161,7 +157,7 @@ export class ChallengeService {
       return challenge
     } catch (error) {
       logger.error(
-        `Failed to create challenge: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to create challenge: ${error instanceof Error ? error.message : 'Unknown error'}`,
       )
       throw new Error(`Failed to create challenge: ${error}`)
     }
@@ -186,7 +182,7 @@ export class ChallengeService {
       return this.convertTimestampsToDate(item)
     } catch (error) {
       logger.error(
-        `Failed to get challenge ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to get challenge ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       )
       throw new Error(`Failed to get challenge: ${error}`)
     }
@@ -195,9 +191,7 @@ export class ChallengeService {
   /**
    * List all active challenges, optionally sorted by different criteria.
    */
-  async listChallenges(
-    sortBy: 'newest' | 'usage' | 'lastUsed' = 'newest'
-  ): Promise<Challenge[]> {
+  async listChallenges(sortBy: 'newest' | 'usage' | 'lastUsed' = 'newest'): Promise<Challenge[]> {
     let indexName: string
 
     switch (sortBy) {
@@ -226,17 +220,13 @@ export class ChallengeService {
     try {
       const result = await dynamoClient.send(command)
       const challenges =
-        result.Items?.map(item =>
-          this.convertTimestampsToDate(unmarshall(item))
-        ) || []
+        result.Items?.map((item) => this.convertTimestampsToDate(unmarshall(item))) || []
 
-      logger.info(
-        `Listed ${challenges.length} active challenges (sorted by ${sortBy})`
-      )
+      logger.info(`Listed ${challenges.length} active challenges (sorted by ${sortBy})`)
       return challenges
     } catch (error) {
       logger.error(
-        `Failed to list challenges: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to list challenges: ${error instanceof Error ? error.message : 'Unknown error'}`,
       )
       throw new Error(`Failed to list challenges: ${error}`)
     }
@@ -245,10 +235,7 @@ export class ChallengeService {
   /**
    * Update an existing challenge.
    */
-  async updateChallenge(
-    id: string,
-    input: UpdateChallengeInput
-  ): Promise<Challenge> {
+  async updateChallenge(id: string, input: UpdateChallengeInput): Promise<Challenge> {
     const now = new Date()
 
     // Build update expression dynamically based on provided fields
@@ -285,8 +272,7 @@ export class ChallengeService {
       TableName: this.tableName,
       Key: marshall({ id }),
       UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-      ExpressionAttributeNames:
-        Object.keys(attributeNames).length > 0 ? attributeNames : undefined,
+      ExpressionAttributeNames: Object.keys(attributeNames).length > 0 ? attributeNames : undefined,
       ExpressionAttributeValues: marshall(
         {
           ...attributeValues,
@@ -295,7 +281,7 @@ export class ChallengeService {
         {
           removeUndefinedValues: true,
           convertClassInstanceToMap: true,
-        }
+        },
       ),
       ReturnValues: 'ALL_NEW',
       ConditionExpression: 'attribute_exists(id) AND isActive = :true',
@@ -310,7 +296,7 @@ export class ChallengeService {
       return updatedChallenge
     } catch (error) {
       logger.error(
-        `Failed to update challenge ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to update challenge ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       )
       throw new Error(`Failed to update challenge: ${error}`)
     }
@@ -333,7 +319,7 @@ export class ChallengeService {
         {
           removeUndefinedValues: true,
           convertClassInstanceToMap: true,
-        }
+        },
       ),
       ConditionExpression: 'attribute_exists(id) AND isActive = :true',
     })
@@ -343,7 +329,7 @@ export class ChallengeService {
       logger.info(`Challenge deleted (soft): ${id}`)
     } catch (error) {
       logger.error(
-        `Failed to delete challenge ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to delete challenge ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       )
       throw new Error(`Failed to delete challenge: ${error}`)
     }
@@ -368,7 +354,7 @@ export class ChallengeService {
         {
           removeUndefinedValues: true,
           convertClassInstanceToMap: true,
-        }
+        },
       ),
       ConditionExpression: 'attribute_exists(id) AND isActive = :true',
     })
@@ -378,7 +364,7 @@ export class ChallengeService {
       logger.info(`Challenge usage incremented: ${id}`)
     } catch (error) {
       logger.error(
-        `Failed to increment usage for challenge ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to increment usage for challenge ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       )
       throw new Error(`Failed to increment challenge usage: ${error}`)
     }
@@ -394,14 +380,10 @@ export const ECS_CONFIG_LIMITS = {
     256: [512, 1024, 2048], // Memory options for 256 CPU
     512: [1024, 2048, 3072, 4096], // Memory options for 512 CPU
     1024: [2048, 3072, 4096, 5120, 6144, 7168, 8192], // Memory options for 1024 CPU
-    2048: [
-      4096, 5120, 6144, 7168, 8192, 9216, 10240, 11264, 12288, 13312, 14336,
-      15360, 16384,
-    ],
+    2048: [4096, 5120, 6144, 7168, 8192, 9216, 10240, 11264, 12288, 13312, 14336, 15360, 16384],
     4096: [
-      8192, 9216, 10240, 11264, 12288, 13312, 14336, 15360, 16384, 17408, 18432,
-      19456, 20480, 21504, 22528, 23552, 24576, 25600, 26624, 27648, 28672,
-      29696, 30720,
+      8192, 9216, 10240, 11264, 12288, 13312, 14336, 15360, 16384, 17408, 18432, 19456, 20480,
+      21504, 22528, 23552, 24576, 25600, 26624, 27648, 28672, 29696, 30720,
     ],
   },
   storage: { min: 20, max: 200 }, // GB
@@ -439,9 +421,7 @@ export class ChallengeValidator {
     // Validate CPU
     const validCpuValues = Object.keys(ECS_CONFIG_LIMITS.cpu).map(Number)
     if (!validCpuValues.includes(config.cpu)) {
-      errors.push(
-        `Invalid CPU value: ${config.cpu}. Valid values: ${validCpuValues.join(', ')}`
-      )
+      errors.push(`Invalid CPU value: ${config.cpu}. Valid values: ${validCpuValues.join(', ')}`)
     }
 
     // Validate memory for given CPU
@@ -450,7 +430,7 @@ export class ChallengeValidator {
         ECS_CONFIG_LIMITS.cpu[config.cpu as keyof typeof ECS_CONFIG_LIMITS.cpu]
       if (!(validMemoryValues as readonly number[]).includes(config.memory)) {
         errors.push(
-          `Invalid memory value: ${config.memory} for CPU ${config.cpu}. Valid values: ${validMemoryValues.join(', ')}`
+          `Invalid memory value: ${config.memory} for CPU ${config.cpu}. Valid values: ${validMemoryValues.join(', ')}`,
         )
       }
     }
@@ -461,7 +441,7 @@ export class ChallengeValidator {
       config.storage > ECS_CONFIG_LIMITS.storage.max
     ) {
       errors.push(
-        `Storage must be between ${ECS_CONFIG_LIMITS.storage.min} and ${ECS_CONFIG_LIMITS.storage.max} GB`
+        `Storage must be between ${ECS_CONFIG_LIMITS.storage.min} and ${ECS_CONFIG_LIMITS.storage.max} GB`,
       )
     }
 

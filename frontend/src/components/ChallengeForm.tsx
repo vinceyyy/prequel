@@ -20,11 +20,7 @@ interface ChallengeFormProps {
   onCancel: () => void
 }
 
-export default function ChallengeForm({
-  challenge,
-  onSuccess,
-  onCancel,
-}: ChallengeFormProps) {
+export default function ChallengeForm({ challenge, onSuccess, onCancel }: ChallengeFormProps) {
   const [formData, setFormData] = useState({
     name: challenge?.name || '',
     description: challenge?.description || '',
@@ -68,9 +64,7 @@ export default function ChallengeForm({
 
   // Get valid memory options for selected CPU
   const getMemoryOptions = (cpu: number) => {
-    return (
-      ECS_CONFIG_LIMITS.cpu[cpu as keyof typeof ECS_CONFIG_LIMITS.cpu] || []
-    )
+    return ECS_CONFIG_LIMITS.cpu[cpu as keyof typeof ECS_CONFIG_LIMITS.cpu] || []
   }
 
   // Handle CPU change - update memory if current value is invalid
@@ -78,14 +72,12 @@ export default function ChallengeForm({
     const validMemoryOptions = getMemoryOptions(newCpu)
     const currentMemory = formData.ecsConfig.memory
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       ecsConfig: {
         ...prev.ecsConfig,
         cpu: newCpu,
-        memory: (validMemoryOptions as readonly number[]).includes(
-          currentMemory
-        )
+        memory: (validMemoryOptions as readonly number[]).includes(currentMemory)
           ? currentMemory
           : (validMemoryOptions[0] as number),
       },
@@ -99,30 +91,23 @@ export default function ChallengeForm({
     console.log(`[ChallengeForm] Selected ${selectedFiles.length} files`)
 
     const fileArray = Array.from(selectedFiles)
-    fileArray.forEach(file => {
-      const filePath =
-        (file as { webkitRelativePath?: string }).webkitRelativePath ||
-        file.name
+    fileArray.forEach((file) => {
+      const filePath = (file as { webkitRelativePath?: string }).webkitRelativePath || file.name
       console.log(`[ChallengeForm] File: ${file.name}, path: ${filePath}`)
     })
 
-    const validFiles = fileArray.filter(file => {
+    const validFiles = fileArray.filter((file) => {
       // Check file size (max 10MB per file)
       if (file.size > 10 * 1024 * 1024) {
-        const filePath =
-          (file as { webkitRelativePath?: string }).webkitRelativePath ||
-          file.name
-        setErrors(prev => [
-          ...prev,
-          `${filePath} is too large (max 10MB per file)`,
-        ])
+        const filePath = (file as { webkitRelativePath?: string }).webkitRelativePath || file.name
+        setErrors((prev) => [...prev, `${filePath} is too large (max 10MB per file)`])
         return false
       }
       return true
     })
 
     console.log(`[ChallengeForm] Adding ${validFiles.length} valid files`)
-    setFiles(prev => [...prev, ...validFiles])
+    setFiles((prev) => [...prev, ...validFiles])
   }
 
   // Handle drag and drop - supports both files and folders
@@ -169,42 +154,29 @@ export default function ChallengeForm({
 
     try {
       await Promise.all(promises)
-      console.log(
-        `[ChallengeForm] Processed ${allFiles.length} files from drag and drop`
-      )
+      console.log(`[ChallengeForm] Processed ${allFiles.length} files from drag and drop`)
 
       // Filter and add files using the same validation logic
-      const validFiles = allFiles.filter(file => {
+      const validFiles = allFiles.filter((file) => {
         if (file.size > 10 * 1024 * 1024) {
-          const filePath =
-            (file as { webkitRelativePath?: string }).webkitRelativePath ||
-            file.name
-          setErrors(prev => [
-            ...prev,
-            `${filePath} is too large (max 10MB per file)`,
-          ])
+          const filePath = (file as { webkitRelativePath?: string }).webkitRelativePath || file.name
+          setErrors((prev) => [...prev, `${filePath} is too large (max 10MB per file)`])
           return false
         }
         return true
       })
 
-      console.log(
-        `[ChallengeForm] Adding ${validFiles.length} valid files from drag and drop`
-      )
-      setFiles(prev => [...prev, ...validFiles])
+      console.log(`[ChallengeForm] Adding ${validFiles.length} valid files from drag and drop`)
+      setFiles((prev) => [...prev, ...validFiles])
     } catch (error) {
       console.error('[ChallengeForm] Error processing dropped items:', error)
-      setErrors(prev => [...prev, 'Error processing dropped files/folders'])
+      setErrors((prev) => [...prev, 'Error processing dropped files/folders'])
     }
   }
 
   // Recursively process file system entries
-  const processEntry = (
-    entry: FileSystemEntry,
-    path: string,
-    allFiles: File[]
-  ): Promise<void> => {
-    return new Promise(resolve => {
+  const processEntry = (entry: FileSystemEntry, path: string, allFiles: File[]): Promise<void> => {
+    return new Promise((resolve) => {
       if (entry.isFile) {
         const fileEntry = entry as FileSystemFileEntry
         fileEntry.file((file: File) => {
@@ -221,8 +193,8 @@ export default function ChallengeForm({
         const dirEntry = entry as FileSystemDirectoryEntry
         const reader = dirEntry.createReader()
         reader.readEntries((entries: FileSystemEntry[]) => {
-          const promises = entries.map(subEntry =>
-            processEntry(subEntry, path + entry.name + '/', allFiles)
+          const promises = entries.map((subEntry) =>
+            processEntry(subEntry, path + entry.name + '/', allFiles),
           )
           Promise.all(promises).then(() => resolve())
         })
@@ -234,7 +206,7 @@ export default function ChallengeForm({
 
   // Remove file from selection
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index))
+    setFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
   // Validate form
@@ -261,12 +233,9 @@ export default function ChallengeForm({
       newErrors.push(`Invalid memory ${memory}MB for CPU ${cpu}`)
     }
 
-    if (
-      storage < ECS_CONFIG_LIMITS.storage.min ||
-      storage > ECS_CONFIG_LIMITS.storage.max
-    ) {
+    if (storage < ECS_CONFIG_LIMITS.storage.min || storage > ECS_CONFIG_LIMITS.storage.max) {
       newErrors.push(
-        `Storage must be between ${ECS_CONFIG_LIMITS.storage.min} and ${ECS_CONFIG_LIMITS.storage.max} GB`
+        `Storage must be between ${ECS_CONFIG_LIMITS.storage.min} and ${ECS_CONFIG_LIMITS.storage.max} GB`,
       )
     }
 
@@ -292,18 +261,15 @@ export default function ChallengeForm({
 
         // Generate challenge ID for new challenges
         if (!challengeId) {
-          challengeId = `challenge-${Date.now()}-${Math.random()
-            .toString(36)
-            .substr(2, 9)}`
+          challengeId = `challenge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         }
 
         const uploadFormData = new FormData()
-        files.forEach(file => {
+        files.forEach((file) => {
           uploadFormData.append('files', file)
           // Preserve the relative path information if available
           const relativePath =
-            (file as { webkitRelativePath?: string }).webkitRelativePath ||
-            file.name
+            (file as { webkitRelativePath?: string }).webkitRelativePath || file.name
           uploadFormData.append('filePaths', relativePath)
         })
         uploadFormData.append('challengeId', challengeId)
@@ -334,14 +300,11 @@ export default function ChallengeForm({
             }),
           }
 
-          const response = await fetch(
-            `/api/challenges/manage/${challenge.id}`,
-            {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(updatePayload),
-            }
-          )
+          const response = await fetch(`/api/challenges/manage/${challenge.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatePayload),
+          })
 
           if (!response.ok) {
             const errorData = await response.json()
@@ -378,14 +341,11 @@ export default function ChallengeForm({
         if (isEditing) {
           setUploadProgress('Updating challenge...')
 
-          const response = await fetch(
-            `/api/challenges/manage/${challenge.id}`,
-            {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(formData),
-            }
-          )
+          const response = await fetch(`/api/challenges/manage/${challenge.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+          })
 
           if (!response.ok) {
             const errorData = await response.json()
@@ -400,9 +360,7 @@ export default function ChallengeForm({
       }
     } catch (error) {
       console.error('Error saving challenge:', error)
-      setErrors([
-        error instanceof Error ? error.message : 'Unknown error occurred',
-      ])
+      setErrors([error instanceof Error ? error.message : 'Unknown error occurred'])
     } finally {
       setUploading(false)
       setUploadProgress('')
@@ -412,24 +370,18 @@ export default function ChallengeForm({
   return (
     <div className="max-w-4xl">
       <h2 className="text-2xl font-bold mb-6">
-        {isEditing
-          ? `Edit Challenge: ${challenge.name}`
-          : 'Create New Challenge'}
+        {isEditing ? `Edit Challenge: ${challenge.name}` : 'Create New Challenge'}
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information */}
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium mb-2">
-              Challenge Name *
-            </label>
+            <label className="block text-sm font-medium mb-2">Challenge Name *</label>
             <input
               type="text"
               value={formData.name}
-              onChange={e =>
-                setFormData(prev => ({ ...prev, name: e.target.value }))
-              }
+              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="e.g., Python Data Processing"
             />
@@ -437,14 +389,10 @@ export default function ChallengeForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2">
-            Description *
-          </label>
+          <label className="block text-sm font-medium mb-2">Description *</label>
           <textarea
             value={formData.description}
-            onChange={e =>
-              setFormData(prev => ({ ...prev, description: e.target.value }))
-            }
+            onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
             rows={3}
             className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Describe what this challenge tests and any special instructions..."
@@ -453,20 +401,16 @@ export default function ChallengeForm({
 
         {/* ECS Configuration */}
         <div>
-          <h3 className="text-lg font-semibold mb-4">
-            Container Configuration
-          </h3>
+          <h3 className="text-lg font-semibold mb-4">Container Configuration</h3>
           <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">
-                CPU (units) *
-              </label>
+              <label className="block text-sm font-medium mb-2">CPU (units) *</label>
               <select
                 value={formData.ecsConfig.cpu}
-                onChange={e => handleCpuChange(Number(e.target.value))}
+                onChange={(e) => handleCpuChange(Number(e.target.value))}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {Object.keys(ECS_CONFIG_LIMITS.cpu).map(cpu => {
+                {Object.keys(ECS_CONFIG_LIMITS.cpu).map((cpu) => {
                   const cpuNum = Number(cpu)
                   const cores = getCpuCores(cpuNum)
                   return (
@@ -479,13 +423,11 @@ export default function ChallengeForm({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Memory (MB) *
-              </label>
+              <label className="block text-sm font-medium mb-2">Memory (MB) *</label>
               <select
                 value={formData.ecsConfig.memory}
-                onChange={e =>
-                  setFormData(prev => ({
+                onChange={(e) =>
+                  setFormData((prev) => ({
                     ...prev,
                     ecsConfig: {
                       ...prev.ecsConfig,
@@ -495,7 +437,7 @@ export default function ChallengeForm({
                 }
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {getMemoryOptions(formData.ecsConfig.cpu).map(memory => (
+                {getMemoryOptions(formData.ecsConfig.cpu).map((memory) => (
                   <option key={memory} value={memory}>
                     {memory} MB
                   </option>
@@ -504,16 +446,14 @@ export default function ChallengeForm({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Storage (GB) *
-              </label>
+              <label className="block text-sm font-medium mb-2">Storage (GB) *</label>
               <input
                 type="number"
                 min={ECS_CONFIG_LIMITS.storage.min}
                 max={ECS_CONFIG_LIMITS.storage.max}
                 value={formData.ecsConfig.storage}
-                onChange={e =>
-                  setFormData(prev => ({
+                onChange={(e) =>
+                  setFormData((prev) => ({
                     ...prev,
                     ecsConfig: {
                       ...prev.ecsConfig,
@@ -526,33 +466,25 @@ export default function ChallengeForm({
             </div>
           </div>
           <p className="text-sm text-gray-500 mt-2">
-            Configure the ECS container resources for this challenge. Higher
-            resources cost more but provide better performance.
+            Configure the ECS container resources for this challenge. Higher resources cost more but
+            provide better performance.
           </p>
         </div>
 
         {/* File Upload */}
         <div>
-          <h3 className="text-lg font-semibold mb-4">
-            Challenge Files {!isEditing && '*'}
-          </h3>
+          <h3 className="text-lg font-semibold mb-4">Challenge Files {!isEditing && '*'}</h3>
 
           {/* Upload Guidelines */}
           <div className="bg-blue-900/20 border border-blue-600 rounded-lg p-4 mb-6">
-            <h4 className="font-semibold text-blue-400 mb-3">
-              📁 Challenge Structure Guidelines
-            </h4>
+            <h4 className="font-semibold text-blue-400 mb-3">📁 Challenge Structure Guidelines</h4>
             <div className="space-y-3 text-sm text-gray-300">
               <div>
                 <p className="mb-2">
-                  <strong>
-                    Upload the contents, not the challenge folder itself:
-                  </strong>
+                  <strong>Upload the contents, not the challenge folder itself:</strong>
                 </p>
                 <div className="bg-gray-800/50 p-3 rounded font-mono text-xs">
-                  <div className="text-green-400">
-                    ✓ Correct files to upload:
-                  </div>
+                  <div className="text-green-400">✓ Correct files to upload:</div>
                   <div className="ml-2">
                     ├── main.py
                     <br />
@@ -575,18 +507,16 @@ export default function ChallengeForm({
                   <strong>🔧 Automatic Dependency Installation:</strong>
                 </p>
                 <p>
-                  If you include dependency files in the project root, they will
-                  be automatically installed before the candidate logs in:
+                  If you include dependency files in the project root, they will be automatically
+                  installed before the candidate logs in:
                 </p>
                 <ul className="list-disc list-inside ml-4 mt-2 space-y-1">
                   <li>
-                    <code>pyproject.toml</code> or <code>requirements.txt</code>{' '}
-                    → Python dependencies installed via uv/pip (creates{' '}
-                    <code>.venv</code>)
+                    <code>pyproject.toml</code> or <code>requirements.txt</code> → Python
+                    dependencies installed via uv/pip (creates <code>.venv</code>)
                   </li>
                   <li>
-                    <code>package.json</code> → Node.js dependencies installed
-                    via npm
+                    <code>package.json</code> → Node.js dependencies installed via npm
                   </li>
                 </ul>
               </div>
@@ -623,17 +553,12 @@ export default function ChallengeForm({
                   📁 Drag & Drop Your Challenge Files Here
                 </div>
                 <div className="bg-gray-800/50 rounded-lg p-3 text-xs text-gray-400">
-                  <p>
-                    💡 This includes complete folder structures with all
-                    subfolders preserved.
-                  </p>
+                  <p>💡 This includes complete folder structures with all subfolders preserved.</p>
                 </div>
               </div>
 
               <div className="mt-4 pt-4 border-t border-gray-700">
-                <p className="text-xs text-red-400 mt-1">
-                  Max 10MB per file, 100MB total
-                </p>
+                <p className="text-xs text-red-400 mt-1">Max 10MB per file, 100MB total</p>
               </div>
             </div>
           </div>
@@ -641,9 +566,7 @@ export default function ChallengeForm({
           {/* Selected Files */}
           {files.length > 0 && (
             <div className="mt-4">
-              <h4 className="font-medium mb-2">
-                Selected Files ({files.length}):
-              </h4>
+              <h4 className="font-medium mb-2">Selected Files ({files.length}):</h4>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {files.map((file, index) => (
                   <div
@@ -656,9 +579,7 @@ export default function ChallengeForm({
                           {file.webkitRelativePath || file.name}
                         </div>
                         {file.webkitRelativePath && (
-                          <div className="text-xs text-gray-500">
-                            File: {file.name}
-                          </div>
+                          <div className="text-xs text-gray-500">File: {file.name}</div>
                         )}
                       </div>
                       <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
@@ -675,7 +596,7 @@ export default function ChallengeForm({
                   </div>
                 ))}
               </div>
-              {files.some(file => file.webkitRelativePath) && (
+              {files.some((file) => file.webkitRelativePath) && (
                 <div className="mt-2 text-sm text-gray-500">
                   Folder structure will be preserved when uploaded to challenge.
                 </div>
@@ -687,9 +608,7 @@ export default function ChallengeForm({
         {/* Errors */}
         {errors.length > 0 && (
           <div className="bg-red-900/50 border border-red-500 rounded-lg p-4">
-            <h4 className="font-semibold text-red-400 mb-2">
-              Please fix the following errors:
-            </h4>
+            <h4 className="font-semibold text-red-400 mb-2">Please fix the following errors:</h4>
             <ul className="list-disc list-inside space-y-1 text-red-300">
               {errors.map((error, index) => (
                 <li key={index}>{error}</li>
@@ -715,11 +634,7 @@ export default function ChallengeForm({
             disabled={uploading}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed rounded-lg transition-colors"
           >
-            {uploading
-              ? 'Processing...'
-              : isEditing
-                ? 'Update Challenge'
-                : 'Create Challenge'}
+            {uploading ? 'Processing...' : isEditing ? 'Update Challenge' : 'Create Challenge'}
           </button>
           <button
             type="button"

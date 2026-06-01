@@ -8,22 +8,17 @@ export default function AdminPage() {
         <header className="mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-            <p className="text-gray-400 mt-2">
-              Manage challenges and clean up AWS resources
-            </p>
+            <p className="text-gray-400 mt-2">Manage challenges and clean up AWS resources</p>
           </div>
         </header>
 
         <div className="space-y-8">
           {/* Challenge Management Section */}
           <section className="p-6 bg-gray-800 border border-gray-700 rounded-lg">
-            <h2 className="text-2xl font-bold text-white mb-4">
-              Challenge Management
-            </h2>
+            <h2 className="text-2xl font-bold text-white mb-4">Challenge Management</h2>
             <p className="text-gray-400 mb-6">
-              Create, edit, and manage interview challenges. Upload challenge
-              files, configure ECS resources, and organize your interview
-              content.
+              Create, edit, and manage interview challenges. Upload challenge files, configure ECS
+              resources, and organize your interview content.
             </p>
             <Link
               to="/challenges"

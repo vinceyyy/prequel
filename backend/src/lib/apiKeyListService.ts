@@ -9,11 +9,7 @@ import { assessmentManager } from './assessments'
 import { openaiService } from './openai'
 import { config } from './config'
 import { logger } from './logger'
-import type {
-  ApiKeyView,
-  ApiKeyListResponse,
-  ApiKeyStatus,
-} from './types/apikey'
+import type { ApiKeyView, ApiKeyListResponse, ApiKeyStatus } from './types/apikey'
 
 // Cache for OpenAI service accounts (30 second TTL)
 let openaiAccountsCache: {
@@ -46,18 +42,13 @@ function mapInterviewStatusToKeyStatus(status: string): ApiKeyStatus {
 /**
  * Maps take-home session status to API key status
  */
-function mapTakeHomeStatusToKeyStatus(
-  sessionStatus: string,
-  instanceStatus: string
-): ApiKeyStatus {
+function mapTakeHomeStatusToKeyStatus(sessionStatus: string, instanceStatus: string): ApiKeyStatus {
   if (sessionStatus === 'available') return 'available'
   if (sessionStatus === 'activated') {
-    if (['initializing', 'configuring', 'active'].includes(instanceStatus))
-      return 'active'
+    if (['initializing', 'configuring', 'active'].includes(instanceStatus)) return 'active'
     if (['destroying', 'destroyed'].includes(instanceStatus)) return 'expired'
   }
-  if (['completed', 'expired', 'revoked'].includes(sessionStatus))
-    return 'expired'
+  if (['completed', 'expired', 'revoked'].includes(sessionStatus)) return 'expired'
   return 'error'
 }
 
@@ -71,18 +62,13 @@ async function getOpenAIAccounts(): Promise<{
   const now = Date.now()
 
   // Return cached if still valid
-  if (
-    openaiAccountsCache &&
-    now - openaiAccountsCache.timestamp < CACHE_TTL_MS
-  ) {
+  if (openaiAccountsCache && now - openaiAccountsCache.timestamp < CACHE_TTL_MS) {
     return { accounts: openaiAccountsCache.accounts, success: true }
   }
 
   // Fetch fresh
   try {
-    const result = await openaiService.listServiceAccounts(
-      config.services.openaiProjectId
-    )
+    const result = await openaiService.listServiceAccounts(config.services.openaiProjectId)
 
     if (result.success && result.accounts) {
       openaiAccountsCache = { accounts: result.accounts, timestamp: now }
@@ -107,18 +93,15 @@ export async function listAllApiKeys(): Promise<ApiKeyListResponse> {
 
   try {
     // Fetch all sources in parallel
-    const [standaloneKeys, interviews, takeHomes, openaiResult] =
-      await Promise.all([
-        apiKeyManager.getActiveKeys().catch(() => []),
-        interviewManager.getActiveInterviews().catch(() => []),
-        assessmentManager.listTakeHomes().catch(() => []),
-        getOpenAIAccounts(),
-      ])
+    const [standaloneKeys, interviews, takeHomes, openaiResult] = await Promise.all([
+      apiKeyManager.getActiveKeys().catch(() => []),
+      interviewManager.getActiveInterviews().catch(() => []),
+      assessmentManager.listTakeHomes().catch(() => []),
+      getOpenAIAccounts(),
+    ])
 
     // Also get historical standalone keys
-    const historicalKeys = await apiKeyManager
-      .getHistoricalKeys()
-      .catch(() => [])
+    const historicalKeys = await apiKeyManager.getHistoricalKeys().catch(() => [])
 
     // Track known service account IDs
     const knownServiceAccountIds = new Set<string>()
@@ -168,17 +151,12 @@ export async function listAllApiKeys(): Promise<ApiKeyListResponse> {
     // Map take-home keys
     for (const takeHome of takeHomes) {
       if (takeHome.openaiServiceAccount?.serviceAccountId) {
-        knownServiceAccountIds.add(
-          takeHome.openaiServiceAccount.serviceAccountId
-        )
+        knownServiceAccountIds.add(takeHome.openaiServiceAccount.serviceAccountId)
         keys.push({
           id: `takehome-${takeHome.id}`,
           name: takeHome.candidateName || 'Unknown',
           description: `Take-home: ${takeHome.challengeId}`,
-          status: mapTakeHomeStatusToKeyStatus(
-            takeHome.sessionStatus,
-            takeHome.instanceStatus
-          ),
+          status: mapTakeHomeStatusToKeyStatus(takeHome.sessionStatus, takeHome.instanceStatus),
           provider: 'openai',
           source: 'takehome',
           sourceId: takeHome.id,
@@ -216,7 +194,7 @@ export async function listAllApiKeys(): Promise<ApiKeyListResponse> {
     })
 
     // Count active keys
-    const activeCount = keys.filter(k => k.status === 'active').length
+    const activeCount = keys.filter((k) => k.status === 'active').length
 
     return { keys, activeCount, orphanCheckFailed }
   } catch (error) {

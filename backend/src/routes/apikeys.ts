@@ -29,14 +29,7 @@ apikeysRouter.get('/', async (c) => {
 apikeysRouter.post('/create', async (c) => {
   try {
     const body: CreateApiKeyRequest = await c.req.json()
-    const {
-      name,
-      description,
-      activationMode,
-      durationSeconds,
-      scheduledAt,
-      availableDays,
-    } = body
+    const { name, description, activationMode, durationSeconds, scheduledAt, availableDays } = body
 
     // Validation
     if (!name?.trim()) {
@@ -72,14 +65,11 @@ apikeysRouter.post('/create', async (c) => {
 
       const result = await openaiService.createServiceAccount(
         config.services.openaiProjectId,
-        `interview-${config.project.environment}-apikey-${apiKeyId}-${name.trim()}`
+        `interview-${config.project.environment}-apikey-${apiKeyId}-${name.trim()}`,
       )
 
       if (!result.success) {
-        return c.json(
-          { error: `Failed to create OpenAI key: ${result.error}` },
-          500
-        )
+        return c.json({ error: `Failed to create OpenAI key: ${result.error}` }, 500)
       }
 
       status = 'active'
@@ -89,10 +79,7 @@ apikeysRouter.post('/create', async (c) => {
       expiresAt = now + durationSeconds
     } else if (activationMode === 'scheduled') {
       if (!scheduledAt) {
-        return c.json(
-          { error: 'scheduledAt is required for scheduled mode' },
-          400
-        )
+        return c.json({ error: 'scheduledAt is required for scheduled mode' }, 400)
       }
 
       scheduledAtTimestamp = Math.floor(new Date(scheduledAt).getTime() / 1000)
@@ -152,14 +139,11 @@ apikeysRouter.post('/:id/revoke', async (c) => {
       if (config.services.openaiProjectId) {
         const result = await openaiService.deleteServiceAccount(
           config.services.openaiProjectId,
-          serviceAccountId
+          serviceAccountId,
         )
 
         if (!result.success) {
-          return c.json(
-            { error: `Failed to delete orphan: ${result.error}` },
-            500
-          )
+          return c.json({ error: `Failed to delete orphan: ${result.error}` }, 500)
         }
 
         // Clear cache so orphan disappears from list immediately
@@ -180,7 +164,7 @@ apikeysRouter.post('/:id/revoke', async (c) => {
     if (apiKey.serviceAccountId && config.services.openaiProjectId) {
       const result = await openaiService.deleteServiceAccount(
         config.services.openaiProjectId,
-        apiKey.serviceAccountId
+        apiKey.serviceAccountId,
       )
 
       if (!result.success) {

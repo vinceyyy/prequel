@@ -97,10 +97,7 @@ class OpenAIService {
    * @param name - Name for the service account (e.g., "interview-abc123")
    * @returns Result with service account ID and API key
    */
-  async createServiceAccount(
-    projectId: string,
-    name: string
-  ): Promise<CreateServiceAccountResult> {
+  async createServiceAccount(projectId: string, name: string): Promise<CreateServiceAccountResult> {
     if (!this.adminKey) {
       return {
         success: false,
@@ -120,7 +117,7 @@ class OpenAIService {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ name }),
-        }
+        },
       )
 
       if (!response.ok) {
@@ -160,7 +157,7 @@ class OpenAIService {
    */
   async deleteServiceAccount(
     projectId: string,
-    serviceAccountId: string
+    serviceAccountId: string,
   ): Promise<DeleteServiceAccountResult> {
     if (!this.adminKey) {
       return {
@@ -180,7 +177,7 @@ class OpenAIService {
             Authorization: `Bearer ${this.adminKey}`,
             'Content-Type': 'application/json',
           },
-        }
+        },
       )
 
       if (!response.ok) {
@@ -216,9 +213,7 @@ class OpenAIService {
    * @param projectId - The OpenAI project ID
    * @returns Result with list of service accounts
    */
-  async listServiceAccounts(
-    projectId: string
-  ): Promise<ListServiceAccountsResult> {
+  async listServiceAccounts(projectId: string): Promise<ListServiceAccountsResult> {
     if (!this.adminKey) {
       return {
         success: false,
@@ -237,7 +232,7 @@ class OpenAIService {
             Authorization: `Bearer ${this.adminKey}`,
             'Content-Type': 'application/json',
           },
-        }
+        },
       )
 
       if (!response.ok) {

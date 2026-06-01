@@ -21,11 +21,7 @@ apikeyPublicRouter.get('/:token', async (c) => {
     const now = Math.floor(Date.now() / 1000)
 
     // Check if availability window has passed
-    if (
-      apiKey.status === 'available' &&
-      apiKey.availableUntil &&
-      apiKey.availableUntil < now
-    ) {
+    if (apiKey.status === 'available' && apiKey.availableUntil && apiKey.availableUntil < now) {
       return c.json({
         key: {
           status: 'expired',
@@ -88,27 +84,20 @@ apikeyPublicRouter.post('/:token/activate', async (c) => {
       } else if (apiKey.status === 'scheduled') {
         return c.json(
           {
-            error:
-              'This API key is scheduled for future availability and cannot be activated yet',
+            error: 'This API key is scheduled for future availability and cannot be activated yet',
           },
-          400
+          400,
         )
       } else if (apiKey.status === 'expired') {
-        return c.json(
-          { error: 'This API key has expired and cannot be activated' },
-          400
-        )
+        return c.json({ error: 'This API key has expired and cannot be activated' }, 400)
       } else if (apiKey.status === 'revoked') {
-        return c.json(
-          { error: 'This API key has been revoked and cannot be activated' },
-          400
-        )
+        return c.json({ error: 'This API key has been revoked and cannot be activated' }, 400)
       } else {
         return c.json(
           {
             error: `API key cannot be activated from status: ${apiKey.status}`,
           },
-          400
+          400,
         )
       }
     }
@@ -124,7 +113,7 @@ apikeyPublicRouter.post('/:token/activate', async (c) => {
     // Create OpenAI service account
     const result = await openaiService.createServiceAccount(
       config.services.openaiProjectId,
-      `interview-${config.project.environment}-apikey-${apiKey.id}-${apiKey.name}`
+      `interview-${config.project.environment}-apikey-${apiKey.id}-${apiKey.name}`,
     )
 
     if (!result.success) {

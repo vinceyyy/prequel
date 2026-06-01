@@ -22,11 +22,7 @@ interface FileBrowserProps {
   onBack: () => void
 }
 
-export default function FileBrowser({
-  challengeId,
-  challengeName,
-  onBack,
-}: FileBrowserProps) {
+export default function FileBrowser({ challengeId, challengeName, onBack }: FileBrowserProps) {
   const [files, setFiles] = useState<FileInfo[]>([])
   const [currentPath, setCurrentPath] = useState('')
   const [loading, setLoading] = useState(true)
@@ -43,9 +39,7 @@ export default function FileBrowser({
         setError(null)
 
         const queryParams = path ? `?path=${encodeURIComponent(path)}` : ''
-        const response = await fetch(
-          `/api/challenges/manage/${challengeId}/files${queryParams}`
-        )
+        const response = await fetch(`/api/challenges/manage/${challengeId}/files${queryParams}`)
 
         if (response.ok) {
           const data = await response.json()
@@ -65,7 +59,7 @@ export default function FileBrowser({
         setLoading(false)
       }
     },
-    [challengeId]
+    [challengeId],
   )
 
   // Load file content
@@ -74,9 +68,7 @@ export default function FileBrowser({
       setLoadingContent(true)
       setError(null)
 
-      const response = await fetch(
-        `/api/challenges/manage/${challengeId}/files/${filePath}`
-      )
+      const response = await fetch(`/api/challenges/manage/${challengeId}/files/${filePath}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -106,9 +98,7 @@ export default function FileBrowser({
   // Download entire challenge as zip
   const downloadChallenge = async () => {
     try {
-      const response = await fetch(
-        `/api/challenges/manage/${challengeId}/download`
-      )
+      const response = await fetch(`/api/challenges/manage/${challengeId}/download`)
 
       if (response.ok) {
         const blob = await response.blob()
@@ -143,7 +133,7 @@ export default function FileBrowser({
 
   // Navigate up one level
   const navigateUp = () => {
-    const pathParts = currentPath.split('/').filter(part => part.length > 0)
+    const pathParts = currentPath.split('/').filter((part) => part.length > 0)
     if (pathParts.length > 0) {
       pathParts.pop()
       const newPath = pathParts.join('/')
@@ -155,7 +145,7 @@ export default function FileBrowser({
   const getBreadcrumbs = () => {
     if (!currentPath) return [{ name: challengeName, path: '' }]
 
-    const parts = currentPath.split('/').filter(part => part.length > 0)
+    const parts = currentPath.split('/').filter((part) => part.length > 0)
     const breadcrumbs = [{ name: challengeName, path: '' }]
 
     let accumulatedPath = ''
@@ -261,9 +251,7 @@ export default function FileBrowser({
                 <button
                   onClick={() => navigateToDirectory(crumb.path)}
                   className={`hover:text-white transition-colors ${
-                    index === getBreadcrumbs().length - 1
-                      ? 'text-white font-semibold'
-                      : ''
+                    index === getBreadcrumbs().length - 1 ? 'text-white font-semibold' : ''
                   }`}
                 >
                   {crumb.name}
@@ -290,9 +278,7 @@ export default function FileBrowser({
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-900/50 border border-red-500 rounded-lg">
-          {error}
-        </div>
+        <div className="mb-6 p-4 bg-red-900/50 border border-red-500 rounded-lg">{error}</div>
       )}
 
       <div className="grid lg:grid-cols-2 gap-6">
@@ -321,13 +307,11 @@ export default function FileBrowser({
             </div>
           ) : (
             <div className="space-y-1 max-h-96 overflow-y-auto">
-              {files.map(file => (
+              {files.map((file) => (
                 <div
                   key={file.path}
                   className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${
-                    selectedFile === file.path
-                      ? 'bg-blue-600'
-                      : 'hover:bg-gray-700'
+                    selectedFile === file.path ? 'bg-blue-600' : 'hover:bg-gray-700'
                   }`}
                   onClick={() => {
                     if (file.isDirectory) {
@@ -344,15 +328,12 @@ export default function FileBrowser({
                       {!file.isDirectory && (
                         <p className="text-sm text-gray-400">
                           {formatFileSize(file.size)}
-                          {file.lastModified &&
-                            ` • ${formatDate(file.lastModified)}`}
+                          {file.lastModified && ` • ${formatDate(file.lastModified)}`}
                         </p>
                       )}
                     </div>
                   </div>
-                  {file.isDirectory && (
-                    <span className="text-gray-400 ml-2">→</span>
-                  )}
+                  {file.isDirectory && <span className="text-gray-400 ml-2">→</span>}
                 </div>
               ))}
             </div>
@@ -362,17 +343,13 @@ export default function FileBrowser({
         {/* File Content */}
         <div className="bg-gray-800 rounded-lg p-4">
           <h3 className="text-lg font-semibold mb-4">
-            {selectedFile
-              ? `Content: ${selectedFile.split('/').pop()}`
-              : 'File Content'}
+            {selectedFile ? `Content: ${selectedFile.split('/').pop()}` : 'File Content'}
           </h3>
 
           {loadingContent ? (
             <div className="text-center py-8">
               <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-              <p className="mt-2 text-sm text-gray-400">
-                Loading file content...
-              </p>
+              <p className="mt-2 text-sm text-gray-400">Loading file content...</p>
             </div>
           ) : !selectedFile ? (
             <div className="text-center py-8 text-gray-400">
@@ -389,15 +366,10 @@ export default function FileBrowser({
                 <div className="text-sm text-gray-400">
                   <span>{formatFileSize(fileContent.size)}</span>
                   {fileContent.lastModified && (
-                    <span>
-                      {' '}
-                      • Modified: {formatDate(fileContent.lastModified)}
-                    </span>
+                    <span> • Modified: {formatDate(fileContent.lastModified)}</span>
                   )}
                 </div>
-                <div className="text-sm text-gray-400">
-                  {fileContent.mimeType}
-                </div>
+                <div className="text-sm text-gray-400">{fileContent.mimeType}</div>
               </div>
 
               {/* File Content */}

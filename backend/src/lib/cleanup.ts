@@ -94,12 +94,7 @@ export class CleanupService {
    * @returns Promise with detailed cleanup results
    */
   async performCleanup(options: CleanupOptions = {}): Promise<CleanupResult> {
-    const {
-      dryRun = false,
-      forceDestroy = false,
-      maxConcurrency = 3,
-      timeout = 300,
-    } = options
+    const { dryRun = false, forceDestroy = false, maxConcurrency = 3, timeout = 300 } = options
 
     const result: CleanupResult = {
       success: true,
@@ -126,9 +121,7 @@ export class CleanupService {
       result.details.push(`🧹 Starting cleanup operation (dry run: ${dryRun})`)
 
       // Step 1: Discover all terraform workspaces in S3
-      result.details.push(
-        '📋 Step 1: Discovering terraform workspaces in S3...'
-      )
+      result.details.push('📋 Step 1: Discovering terraform workspaces in S3...')
       const workspaceIds = await this.listAllWorkspaces()
       result.summary.workspacesFound = workspaceIds.length
       result.details.push(`Found ${workspaceIds.length} workspaces in S3`)
@@ -141,44 +134,32 @@ export class CleanupService {
       // Step 2: Check which interviews still exist in DynamoDB
       result.details.push('🔍 Step 2: Checking interview status in DynamoDB...')
       const existingInterviews = await this.getExistingInterviews(workspaceIds)
-      result.details.push(
-        `${existingInterviews.size} interviews still exist in DynamoDB`
-      )
+      result.details.push(`${existingInterviews.size} interviews still exist in DynamoDB`)
 
       // Step 3: Identify dangling workspaces
-      const danglingWorkspaces = workspaceIds.filter(
-        id => !existingInterviews.has(id)
-      )
-      const activeWorkspaces = workspaceIds.filter(id =>
-        existingInterviews.has(id)
-      )
+      const danglingWorkspaces = workspaceIds.filter((id) => !existingInterviews.has(id))
+      const activeWorkspaces = workspaceIds.filter((id) => existingInterviews.has(id))
 
       result.summary.danglingResourcesFound = danglingWorkspaces.length
-      result.details.push(
-        `${danglingWorkspaces.length} dangling workspaces found`
-      )
-      result.details.push(
-        `${activeWorkspaces.length} workspaces still have active interviews`
-      )
+      result.details.push(`${danglingWorkspaces.length} dangling workspaces found`)
+      result.details.push(`${activeWorkspaces.length} workspaces still have active interviews`)
 
       if (danglingWorkspaces.length === 0 && !forceDestroy) {
-        result.details.push(
-          '✅ No dangling workspaces found - nothing to clean up'
-        )
+        result.details.push('✅ No dangling workspaces found - nothing to clean up')
         return result
       }
 
       // Step 4: Handle active workspaces (only if forced)
       if (activeWorkspaces.length > 0 && forceDestroy) {
         result.details.push(
-          `⚠️  Force destroy enabled - will clean up ${activeWorkspaces.length} active workspaces`
+          `⚠️  Force destroy enabled - will clean up ${activeWorkspaces.length} active workspaces`,
         )
         danglingWorkspaces.push(...activeWorkspaces)
       } else if (activeWorkspaces.length > 0) {
         result.details.push(
-          `⏭️  Skipping ${activeWorkspaces.length} active workspaces (use forceDestroy to clean these)`
+          `⏭️  Skipping ${activeWorkspaces.length} active workspaces (use forceDestroy to clean these)`,
         )
-        activeWorkspaces.forEach(id => {
+        activeWorkspaces.forEach((id) => {
           result.workspaceResults.push({
             interviewId: id,
             status: 'skipped',
@@ -189,10 +170,8 @@ export class CleanupService {
       }
 
       if (dryRun) {
-        result.details.push(
-          `🔍 DRY RUN: Would clean up ${danglingWorkspaces.length} workspaces:`
-        )
-        danglingWorkspaces.forEach(id => {
+        result.details.push(`🔍 DRY RUN: Would clean up ${danglingWorkspaces.length} workspaces:`)
+        danglingWorkspaces.forEach((id) => {
           result.details.push(`  - ${id}`)
           result.workspaceResults.push({
             interviewId: id,
@@ -205,19 +184,14 @@ export class CleanupService {
 
       // Step 5: Clean up dangling workspaces with concurrency control
       result.details.push(
-        `🚀 Step 5: Cleaning up ${danglingWorkspaces.length} dangling workspaces...`
+        `🚀 Step 5: Cleaning up ${danglingWorkspaces.length} dangling workspaces...`,
       )
-      await this.cleanupWorkspacesConcurrently(
-        danglingWorkspaces,
-        maxConcurrency,
-        timeout,
-        result
-      )
+      await this.cleanupWorkspacesConcurrently(danglingWorkspaces, maxConcurrency, timeout, result)
 
       // Step 6: Cleanup verification
       result.details.push('✅ Step 6: Cleanup completed')
       result.details.push(
-        `Summary: ${result.summary.workspacesDestroyed} destroyed, ${result.summary.workspacesSkipped} skipped, ${result.summary.workspacesErrored} errors`
+        `Summary: ${result.summary.workspacesDestroyed} destroyed, ${result.summary.workspacesSkipped} skipped, ${result.summary.workspacesErrored} errors`,
       )
 
       if (result.summary.workspacesErrored > 0) {
@@ -248,13 +222,11 @@ export class CleanupService {
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 10000,
-        }
+        },
       ).catch(() => ({ stdout: 'not-exists', stderr: '' }))
 
       if (checkResult.stdout.trim() === 'not-exists') {
-        logger.info(
-          'Instance bucket does not exist - no workspaces to clean up'
-        )
+        logger.info('Instance bucket does not exist - no workspaces to clean up')
         return []
       }
 
@@ -264,7 +236,7 @@ export class CleanupService {
         {
           env: process.env as NodeJS.ProcessEnv,
           timeout: 30000,
-        }
+        },
       )
 
       // Check if the output is empty (no workspaces)
@@ -275,10 +247,10 @@ export class CleanupService {
 
       // Extract interview IDs from S3 paths
       const workspaceIds = new Set<string>()
-      const lines = stdout.split('\n').filter(line => line.trim()) // Filter empty lines
+      const lines = stdout.split('\n').filter((line) => line.trim()) // Filter empty lines
 
       for (const line of lines) {
-        const match = line.match(/workspaces\/([^\/]+)\//)
+        const match = line.match(/workspaces\/([^/]+)\//)
         if (match && match[1] && match[1] !== '.directory') {
           workspaceIds.add(match[1])
         }
@@ -294,9 +266,7 @@ export class CleanupService {
 
         // Handle common S3 error cases gracefully
         if (errorMessage.includes('NoSuchBucket')) {
-          logger.info(
-            'Instance bucket does not exist - no workspaces to clean up'
-          )
+          logger.info('Instance bucket does not exist - no workspaces to clean up')
           return []
         }
 
@@ -311,15 +281,12 @@ export class CleanupService {
           return []
         }
 
-        if (
-          errorMessage.includes('AccessDenied') ||
-          errorMessage.includes('Forbidden')
-        ) {
+        if (errorMessage.includes('AccessDenied') || errorMessage.includes('Forbidden')) {
           logger.warn('Access denied to S3 bucket - check AWS permissions', {
             bucket: config.storage.instanceBucket,
           })
           throw new Error(
-            `Access denied to S3 bucket: ${config.storage.instanceBucket}. Check AWS permissions.`
+            `Access denied to S3 bucket: ${config.storage.instanceBucket}. Check AWS permissions.`,
           )
         }
       }
@@ -335,9 +302,7 @@ export class CleanupService {
   /**
    * Gets the set of interview IDs that still exist in DynamoDB.
    */
-  private async getExistingInterviews(
-    workspaceIds: string[]
-  ): Promise<Set<string>> {
+  private async getExistingInterviews(workspaceIds: string[]): Promise<Set<string>> {
     const existingInterviews = new Set<string>()
 
     // Check each workspace ID against DynamoDB
@@ -346,7 +311,7 @@ export class CleanupService {
     for (let i = 0; i < workspaceIds.length; i += batchSize) {
       const batch = workspaceIds.slice(i, i + batchSize)
 
-      const batchPromises = batch.map(async interviewId => {
+      const batchPromises = batch.map(async (interviewId) => {
         try {
           const interview = await interviewManager.getInterview(interviewId)
           if (interview) {
@@ -364,7 +329,7 @@ export class CleanupService {
 
       // Small delay to avoid overwhelming DynamoDB
       if (i + batchSize < workspaceIds.length) {
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await new Promise((resolve) => setTimeout(resolve, 100))
       }
     }
 
@@ -378,14 +343,14 @@ export class CleanupService {
     workspaceIds: string[],
     maxConcurrency: number,
     timeoutSeconds: number,
-    result: CleanupResult
+    result: CleanupResult,
   ): Promise<void> {
     let activeOperations = 0
 
     const processWorkspace = async (interviewId: string): Promise<void> => {
       // Wait for available slot
       while (activeOperations >= maxConcurrency) {
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await new Promise((resolve) => setTimeout(resolve, 100))
       }
 
       activeOperations++
@@ -394,7 +359,7 @@ export class CleanupService {
         result.details.push(`🔥 Destroying workspace: ${interviewId}`)
 
         const destroyResult = await Promise.race([
-          terraformManager.destroyInterviewStreaming(interviewId, output => {
+          terraformManager.destroyInterviewStreaming(interviewId, (output) => {
             // Optionally log terraform output for debugging
             logger.debug(`Terraform output for ${interviewId}`, {
               output: output.trim(),
@@ -402,10 +367,7 @@ export class CleanupService {
           }),
           // Timeout after specified seconds
           new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error('Operation timed out')),
-              timeoutSeconds * 1000
-            )
+            setTimeout(() => reject(new Error('Operation timed out')), timeoutSeconds * 1000),
           ),
         ])
 
@@ -424,13 +386,10 @@ export class CleanupService {
             error: destroyResult.error,
           })
           result.summary.workspacesErrored++
-          result.details.push(
-            `❌ Failed to destroy: ${interviewId} - ${destroyResult.error}`
-          )
+          result.details.push(`❌ Failed to destroy: ${interviewId} - ${destroyResult.error}`)
         }
       } catch (error) {
-        const errorMsg =
-          error instanceof Error ? error.message : 'Unknown error'
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
         result.workspaceResults.push({
           interviewId,
           status: 'error',
@@ -458,9 +417,7 @@ export class CleanupService {
   }> {
     const workspaces = await this.listAllWorkspaces()
     const existingInterviews = await this.getExistingInterviews(workspaces)
-    const danglingWorkspaces = workspaces.filter(
-      id => !existingInterviews.has(id)
-    )
+    const danglingWorkspaces = workspaces.filter((id) => !existingInterviews.has(id))
 
     return {
       workspaces,

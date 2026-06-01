@@ -6,16 +6,10 @@ import FileBrowser from '@/components/FileBrowser'
 export default function ChallengesPage() {
   const [challenges, setChallenges] = useState<Challenge[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(
-    null
-  )
-  const [activeTab, setActiveTab] = useState<
-    'list' | 'create' | 'edit' | 'files'
-  >('list')
+  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null)
+  const [activeTab, setActiveTab] = useState<'list' | 'create' | 'edit' | 'files'>('list')
   const [notification, setNotification] = useState<string | null>(null)
-  const [sortBy, setSortBy] = useState<'newest' | 'usage' | 'lastUsed'>(
-    'newest'
-  )
+  const [sortBy, setSortBy] = useState<'newest' | 'usage' | 'lastUsed'>('newest')
   const [searchTerm, setSearchTerm] = useState('')
 
   // Load challenges
@@ -47,9 +41,9 @@ export default function ChallengesPage() {
 
   // Filter challenges based on search term
   const filteredChallenges = challenges.filter(
-    challenge =>
+    (challenge) =>
       challenge.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      challenge.description.toLowerCase().includes(searchTerm.toLowerCase())
+      challenge.description.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   // Handle challenge deletion
@@ -80,9 +74,7 @@ export default function ChallengesPage() {
 
   // Handle challenge creation/update success
   const handleChallengeSuccess = () => {
-    setNotification(
-      `Challenge ${selectedChallenge ? 'updated' : 'created'} successfully`
-    )
+    setNotification(`Challenge ${selectedChallenge ? 'updated' : 'created'} successfully`)
     loadChallenges()
     setSelectedChallenge(null)
     setActiveTab('list')
@@ -146,12 +138,9 @@ export default function ChallengesPage() {
       <div className="max-w-7xl mx-auto w-full">
         <header className="mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-white">
-              Challenge Management
-            </h1>
+            <h1 className="text-3xl font-bold text-white">Challenge Management</h1>
             <p className="text-gray-400 mt-2">
-              Manage interview challenges, upload files, and configure ECS
-              settings
+              Manage interview challenges, upload files, and configure ECS settings
             </p>
           </div>
         </header>
@@ -216,12 +205,12 @@ export default function ChallengesPage() {
                 type="text"
                 placeholder="Search challenges..."
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <select
                 value={sortBy}
-                onChange={e => setSortBy(e.target.value as typeof sortBy)}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                 className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="newest">Newest First</option>
@@ -238,41 +227,28 @@ export default function ChallengesPage() {
               </div>
             ) : filteredChallenges.length === 0 ? (
               <div className="text-center py-8 text-gray-400">
-                {searchTerm
-                  ? 'No challenges match your search'
-                  : 'No challenges found'}
+                {searchTerm ? 'No challenges match your search' : 'No challenges found'}
                 <br />
-                <button
-                  onClick={() => setActiveTab('create')}
-                  className="mt-4 btn-primary"
-                >
+                <button onClick={() => setActiveTab('create')} className="mt-4 btn-primary">
                   Create First Challenge
                 </button>
               </div>
             ) : (
               <div className="grid gap-4">
-                {filteredChallenges.map(challenge => (
+                {filteredChallenges.map((challenge) => (
                   <div
                     key={challenge.id}
                     className="p-6 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 transition-colors"
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="text-xl font-semibold mb-2">
-                          {challenge.name}
-                        </h3>
-                        <p className="text-gray-400 mb-2">
-                          {challenge.description}
-                        </p>
+                        <h3 className="text-xl font-semibold mb-2">{challenge.name}</h3>
+                        <p className="text-gray-400 mb-2">{challenge.description}</p>
                         <div className="flex items-center gap-4 text-sm text-gray-500">
-                          <span>
-                            Created: {formatDate(challenge.createdAt)}
-                          </span>
+                          <span>Created: {formatDate(challenge.createdAt)}</span>
                           <span>Used: {challenge.usageCount} times</span>
                           {challenge.lastUsedAt && (
-                            <span>
-                              Last used: {formatDate(challenge.lastUsedAt)}
-                            </span>
+                            <span>Last used: {formatDate(challenge.lastUsedAt)}</span>
                           )}
                         </div>
                       </div>

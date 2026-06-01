@@ -16,11 +16,7 @@ export const AUTH_COOKIE = 'auth-token'
  *   NOT public and require a session.
  */
 function isPublicPath(path: string): boolean {
-  if (
-    path === '/api/auth/login' ||
-    path === '/api/auth/logout' ||
-    path === '/api/health'
-  ) {
+  if (path === '/api/auth/login' || path === '/api/auth/logout' || path === '/api/health') {
     return true
   }
   return path.startsWith('/api/apikey/') || path.startsWith('/api/takehome/')

@@ -6,15 +6,13 @@ describe('Interview with OpenAI service account', () => {
     const mockSend = jest.fn()
 
     // Store original client to restore later
-    const originalClient = (
-      interviewManager as unknown as { dynamoClient: unknown }
-    ).dynamoClient
+    const originalClient = (interviewManager as unknown as { dynamoClient: unknown }).dynamoClient
 
     // Mock DynamoDB PutItemCommand response
     mockSend.mockResolvedValueOnce({})
-    ;(
-      interviewManager as unknown as { dynamoClient: { send: jest.Mock } }
-    ).dynamoClient = { send: mockSend }
+    ;(interviewManager as unknown as { dynamoClient: { send: jest.Mock } }).dynamoClient = {
+      send: mockSend,
+    }
 
     const interview = await interviewManager.createInterview({
       id: 'test-123',
@@ -29,7 +27,6 @@ describe('Interview with OpenAI service account', () => {
     expect(interview.openaiApiKey).toBe('sk-test123')
 
     // Restore original client
-    ;(interviewManager as unknown as { dynamoClient: unknown }).dynamoClient =
-      originalClient
+    ;(interviewManager as unknown as { dynamoClient: unknown }).dynamoClient = originalClient
   })
 })
