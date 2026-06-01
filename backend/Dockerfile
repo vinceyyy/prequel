@@ -9,7 +9,7 @@
 # lib/terraform.ts and the file-extraction flow), serving the SPA from ./public.
 
 # ---------- Stage 1: build ----------
-FROM node:24-bullseye-slim AS build
+FROM node:26-bullseye-slim AS build
 # ca-certificates is required by the vite-plus (`vp`) Rust binary, which
 # initializes an HTTPS client at startup and aborts if the system CA store is empty.
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
@@ -31,7 +31,7 @@ RUN pnpm run build
 RUN pnpm --filter @prequel/backend deploy --prod --legacy /app/out
 
 # ---------- Stage 2: runtime ----------
-FROM node:24-bullseye-slim AS runtime
+FROM node:26-bullseye-slim AS runtime
 WORKDIR /app
 
 # terraform + AWS CLI v2 + Session Manager plugin (arch-detected), carried over
