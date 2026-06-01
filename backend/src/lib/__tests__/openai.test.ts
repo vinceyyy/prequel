@@ -1,7 +1,7 @@
 import { openaiService } from '../openai'
 
 // Mock the config module
-jest.mock('../config', () => ({
+vi.mock('../config', () => ({
   config: {
     services: {
       openaiAdminKey: 'sk-admin-test-key',
@@ -11,18 +11,18 @@ jest.mock('../config', () => ({
 }))
 
 // Mock the logger module
-jest.mock('../logger', () => ({
+vi.mock('../logger', () => ({
   logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   },
 }))
 
 describe('OpenAI Service', () => {
   beforeEach(() => {
     // Clear all mocks before each test
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   describe('createServiceAccount', () => {
@@ -31,7 +31,7 @@ describe('OpenAI Service', () => {
       const accountName = 'interview-abc123'
 
       // Mock successful fetch response
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           object: 'organization.project.service_account',
@@ -59,7 +59,7 @@ describe('OpenAI Service', () => {
 
     it('should return error when API call fails', async () => {
       // Mock failed fetch response
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 401,
         text: async () => 'Unauthorized',
@@ -78,7 +78,7 @@ describe('OpenAI Service', () => {
       const serviceAccountId = 'svc_acct_abc'
 
       // Mock successful delete response
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
           object: 'organization.project.service_account.deleted',
@@ -95,7 +95,7 @@ describe('OpenAI Service', () => {
 
     it('should return error when deletion fails', async () => {
       // Mock failed delete response
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 404,
         text: async () => 'Not found',
@@ -111,7 +111,7 @@ describe('OpenAI Service', () => {
   describe('listServiceAccounts', () => {
     it('should return list of service accounts', async () => {
       // Mock successful response
-      global.fetch = jest.fn().mockResolvedValueOnce({
+      global.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           data: [
@@ -134,7 +134,7 @@ describe('OpenAI Service', () => {
 
     it('should return error when API call fails', async () => {
       // Mock failed fetch response
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 401,
         text: async () => 'Unauthorized',
@@ -148,7 +148,7 @@ describe('OpenAI Service', () => {
 
     it('should handle empty list response', async () => {
       // Mock empty list response
-      global.fetch = jest.fn().mockResolvedValueOnce({
+      global.fetch = vi.fn().mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           data: [],
@@ -165,7 +165,7 @@ describe('OpenAI Service', () => {
   describe('Error handling', () => {
     it('should handle network errors gracefully', async () => {
       // Mock network error
-      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'))
+      global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
 
       const result = await openaiService.createServiceAccount('proj_test', 'test')
 
@@ -174,7 +174,7 @@ describe('OpenAI Service', () => {
     })
 
     it('should handle 401 unauthorized errors', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 401,
         text: async () => 'Unauthorized',
@@ -187,7 +187,7 @@ describe('OpenAI Service', () => {
     })
 
     it('should handle 429 rate limiting errors', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 429,
         text: async () => 'Rate limit exceeded',
@@ -201,7 +201,7 @@ describe('OpenAI Service', () => {
 
     it('should handle network errors during deletion', async () => {
       // Mock network error for deletion
-      global.fetch = jest.fn().mockRejectedValue(new Error('Connection timeout'))
+      global.fetch = vi.fn().mockRejectedValue(new Error('Connection timeout'))
 
       const result = await openaiService.deleteServiceAccount('proj_test', 'svc_123')
 
@@ -210,7 +210,7 @@ describe('OpenAI Service', () => {
     })
 
     it('should handle 404 not found errors during deletion', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 404,
         text: async () => 'Service account not found',
@@ -223,7 +223,7 @@ describe('OpenAI Service', () => {
     })
 
     it('should handle malformed JSON responses', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => {
           throw new Error('Invalid JSON')

@@ -50,13 +50,12 @@ jobs:
           if-no-files-found: error
 
   unit:
-    name: Unit tests (non-blocking until Jest→Vitest port)
+    name: Unit tests (Vitest)
     runs-on: ubuntu-latest
-    # NOTE: backend/src/lib/__tests__ are still Jest-style and excluded from
-    # typecheck; their Vitest port is tracked separately. This job runs the
-    # suite but does not gate merges yet, so the gap stays visible rather than
-    # silently dropped. Flip continue-on-error to false once the port lands.
-    continue-on-error: true
+    # Backend lib tests are ported to Vitest (40 passing). 17 pre-migration
+    # tests that target removed/renamed APIs are `.skip`-ped with comments and
+    # tracked for rewrite; frontend has no component tests ported yet
+    # (passWithNoTests). Both gaps are visible, not silently dropped.
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

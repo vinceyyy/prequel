@@ -1,14 +1,15 @@
 // portal/src/lib/__tests__/instance.test.ts
+import type { Mock } from 'vitest'
 import { provisionInstance, destroyInstance } from '../instance'
 import { terraformManager } from '../terraform'
 
 // Mock dependencies
-jest.mock('../terraform')
-jest.mock('../openai')
-jest.mock('../config', () => ({
+vi.mock('../terraform')
+vi.mock('../openai')
+vi.mock('../config', () => ({
   config: {
     aws: {
-      getCredentials: jest.fn(),
+      getCredentials: vi.fn(),
       region: 'us-east-1',
     },
     database: {
@@ -19,7 +20,7 @@ jest.mock('../config', () => ({
 
 describe('Instance Management', () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   test('provisionInstance creates infrastructure and returns result', async () => {
@@ -30,7 +31,7 @@ describe('Instance Management', () => {
       infrastructureReady: true,
     }
 
-    ;(terraformManager.createInterviewStreaming as jest.Mock).mockResolvedValue(mockTerraformResult)
+    ;(terraformManager.createInterviewStreaming as Mock).mockResolvedValue(mockTerraformResult)
 
     const result = await provisionInstance({
       instanceId: 'test-123',
@@ -63,7 +64,7 @@ describe('Instance Management', () => {
       historyS3Key: 'history/test-123.tar.gz',
     }
 
-    ;(terraformManager.destroyInterviewStreaming as jest.Mock).mockResolvedValue(
+    ;(terraformManager.destroyInterviewStreaming as Mock).mockResolvedValue(
       mockTerraformResult,
     )
 

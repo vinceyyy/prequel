@@ -1,3 +1,5 @@
+import { vi } from 'vitest'
+
 export const operationManager = {
-  getAllOperations: jest.fn(),
+  getAllOperations: vi.fn(),
 }

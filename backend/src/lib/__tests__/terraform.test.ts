@@ -1,16 +1,17 @@
+import type { MockedFunction } from 'vitest'
 import { terraformManager } from '../terraform'
 
 // Mock fetch globally
-global.fetch = jest.fn()
+global.fetch = vi.fn()
 
 describe('TerraformManager', () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   describe('waitForServiceHealth', () => {
     it('should return success when service responds with 200', async () => {
-      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
+      const mockFetch = global.fetch as MockedFunction<typeof fetch>
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -19,7 +20,7 @@ describe('TerraformManager', () => {
       const result = await terraformManager['waitForServiceHealth'](
         'https://test.example.com',
         30000, // 30 second timeout for test
-        jest.fn(),
+        vi.fn(),
       )
 
       expect(result.success).toBe(true)
@@ -35,13 +36,13 @@ describe('TerraformManager', () => {
     })
 
     it('should handle non-200 responses', async () => {
-      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
+      const mockFetch = global.fetch as MockedFunction<typeof fetch>
       mockFetch.mockResolvedValue({
         ok: false,
         status: 503,
       } as Response)
 
-      const onData = jest.fn()
+      const onData = vi.fn()
       const result = await terraformManager['waitForServiceHealth'](
         'https://test.example.com',
         5000, // Very short timeout for test
@@ -56,7 +57,7 @@ describe('TerraformManager', () => {
   describe('retryHealthCheck', () => {
     it('should get interview status and retry health check with successful response', async () => {
       // Mock getInterviewStatus to return success with access URL
-      const mockGetInterviewStatus = jest.spyOn(terraformManager, 'getInterviewStatus')
+      const mockGetInterviewStatus = vi.spyOn(terraformManager, 'getInterviewStatus')
       mockGetInterviewStatus.mockResolvedValue({
         success: true,
         output: '',
@@ -66,7 +67,7 @@ describe('TerraformManager', () => {
       })
 
       // Mock fetch to return successful response
-      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
+      const mockFetch = global.fetch as MockedFunction<typeof fetch>
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -89,7 +90,7 @@ describe('TerraformManager', () => {
     })
 
     it('should handle missing interview status', async () => {
-      const mockGetInterviewStatus = jest.spyOn(terraformManager, 'getInterviewStatus')
+      const mockGetInterviewStatus = vi.spyOn(terraformManager, 'getInterviewStatus')
       mockGetInterviewStatus.mockResolvedValue({
         success: false,
         output: '',
@@ -103,7 +104,7 @@ describe('TerraformManager', () => {
     })
 
     it('should handle missing access URL', async () => {
-      const mockGetInterviewStatus = jest.spyOn(terraformManager, 'getInterviewStatus')
+      const mockGetInterviewStatus = vi.spyOn(terraformManager, 'getInterviewStatus')
       mockGetInterviewStatus.mockResolvedValue({
         success: true,
         output: '',

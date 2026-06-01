@@ -25,6 +25,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // No component tests ported yet (tracked as a follow-up); don't fail the
+    // suite for an empty set.
+    passWithNoTests: true,
     setupFiles: ['./src/test/setup.ts'],
     coverage: {
       provider: 'v8',

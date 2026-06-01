@@ -1,38 +1,47 @@
 // portal/src/lib/__tests__/assessments.test.ts
+import type { Mock } from 'vitest'
 import type { Interview, TakeHome } from '../types/assessment'
 
 // Mock AWS SDK - create mock functions in factory
-jest.mock('@aws-sdk/client-dynamodb', () => {
-  const mockSend = jest.fn()
+vi.mock('@aws-sdk/client-dynamodb', () => {
+  const mockSend = vi.fn()
   return {
-    DynamoDBClient: jest.fn().mockImplementation(() => ({
-      send: mockSend,
-    })),
-    PutItemCommand: jest.fn((params) => params),
-    GetItemCommand: jest.fn((params) => params),
-    UpdateItemCommand: jest.fn((params) => params),
-    QueryCommand: jest.fn((params) => params),
+    DynamoDBClient: vi.fn().mockImplementation(function (this: { send: unknown }) {
+      this.send = mockSend
+    }),
+    PutItemCommand: vi.fn(function (this: Record<string, unknown>, params) {
+      Object.assign(this, params)
+    }),
+    GetItemCommand: vi.fn(function (this: Record<string, unknown>, params) {
+      Object.assign(this, params)
+    }),
+    UpdateItemCommand: vi.fn(function (this: Record<string, unknown>, params) {
+      Object.assign(this, params)
+    }),
+    QueryCommand: vi.fn(function (this: Record<string, unknown>, params) {
+      Object.assign(this, params)
+    }),
     __mockSend: mockSend, // Expose for test access
   }
 })
 
-jest.mock('@aws-sdk/util-dynamodb', () => ({
-  marshall: jest.fn((obj) => obj),
-  unmarshall: jest.fn((obj) => obj),
+vi.mock('@aws-sdk/util-dynamodb', () => ({
+  marshall: vi.fn((obj) => obj),
+  unmarshall: vi.fn((obj) => obj),
 }))
 
-jest.mock('../config', () => ({
+vi.mock('../config', () => ({
   config: {
-    aws: { getCredentials: jest.fn(() => ({})), region: 'us-east-1' },
+    aws: { getCredentials: vi.fn(() => ({})), region: 'us-east-1' },
     database: { assessmentsTable: 'test-assessments' },
   },
 }))
 
-jest.mock('../logger', () => ({
+vi.mock('../logger', () => ({
   logger: {
-    info: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
   },
 }))
 
@@ -40,7 +49,7 @@ import { assessmentManager } from '../assessments'
 import * as dynamodb from '@aws-sdk/client-dynamodb'
 
 interface DynamoDBMock {
-  __mockSend: jest.Mock
+  __mockSend: Mock
 }
 
 describe('Assessment Manager', () => {
