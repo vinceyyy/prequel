@@ -1,11 +1,19 @@
 name: release-please
 
 # Watches main for conventional-commit prefixes (feat:, fix:, …) and opens a
-# release PR with version bumps + a CHANGELOG entry. Merging that PR creates the
-# git tag + GitHub Release.
+# release PR with version bumps + a CHANGELOG entry. Merging that PR should
+# create the git tag + GitHub Release.
 #
-# This uses the default GITHUB_TOKEN (no GitHub App needed) — prequel is a
-# standard repo without an enterprise policy blocking default-token writes.
+# Uses the default GITHUB_TOKEN. Requires the repo setting
+# "Allow GitHub Actions to create and approve pull requests" to be ON
+# (Settings → Actions → General → Workflow permissions) so release-please can
+# open its release PR.
+#
+# The steps after the action work around a release-please bug for single-package
+# manifest configs with an empty component: createReleases() skips tagging
+# (componentNoSpace undefined), so the manifest gets bumped but no tag/Release is
+# created and the next run aborts with "untagged, merged release PRs outstanding".
+# The fallback tags + releases idempotently and reconciles the autorelease label.
 
 on:
   push:
@@ -30,3 +38,66 @@ jobs:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
           target-branch: main
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # The action renders the release PR title with the empty component
+      # substituted to the branch name ("main") for single-package configs.
+      # Read the real version from the PR body and fix the title.
+      - name: Rename open release PR title to use the actual version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          PR_JSON=$(gh pr list --base main --state open --label "autorelease: pending" --json number,title,body -q '.[0]')
+          if [ -z "$PR_JSON" ] || [ "$PR_JSON" = "null" ]; then echo "No open release PR."; exit 0; fi
+          PR_NUM=$(echo "$PR_JSON" | jq -r .number)
+          PR_TITLE=$(echo "$PR_JSON" | jq -r .title)
+          VERSION=$(echo "$PR_JSON" | jq -r .body | grep -oE '<summary>[0-9]+\.[0-9]+\.[0-9]+</summary>' | head -1 | sed 's|<summary>||;s|</summary>||')
+          if [ -z "$VERSION" ]; then echo "No version in PR #$PR_NUM body; skipping."; exit 0; fi
+          NEW_TITLE="chore: release $VERSION"
+          if [ "$PR_TITLE" != "$NEW_TITLE" ]; then gh pr edit "$PR_NUM" --title "$NEW_TITLE"; fi
+
+      - name: Tag + release if release-please skipped, then reconcile labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh label create "autorelease: tagged" --color 0E8A16 --description "release-please: tagged" 2>/dev/null || true
+
+          MANIFEST_VERSION=$(jq -r '."."' .release-please-manifest.json)
+          LATEST_TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || echo "")
+          LATEST_VERSION="${LATEST_TAG#v}"
+          echo "manifest=$MANIFEST_VERSION latest_release=$LATEST_VERSION"
+
+          if [ "$MANIFEST_VERSION" != "$LATEST_VERSION" ]; then
+            if git rev-parse "v$MANIFEST_VERSION" >/dev/null 2>&1; then
+              TAG_SHA=$(git rev-parse "v$MANIFEST_VERSION")
+            else
+              PR_JSON=$(gh pr list --base main --state closed --label "autorelease: pending" --json number,mergeCommit,mergedAt -q 'sort_by(.mergedAt) | reverse | .[0]')
+              if [ -z "$PR_JSON" ] || [ "$PR_JSON" = "null" ]; then
+                echo "No merged release PR to tag."
+                TAG_SHA=""
+              else
+                TAG_SHA=$(echo "$PR_JSON" | jq -r .mergeCommit.oid)
+                git tag "v$MANIFEST_VERSION" "$TAG_SHA"
+                git push origin "v$MANIFEST_VERSION"
+              fi
+            fi
+            if [ -n "$TAG_SHA" ] && ! gh release view "v$MANIFEST_VERSION" >/dev/null 2>&1; then
+              awk -v v="$MANIFEST_VERSION" 'BEGIN{flag=0} $0 ~ "^## \\[" v "\\]" {flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md > /tmp/notes.md
+              gh release create "v$MANIFEST_VERSION" --title "v$MANIFEST_VERSION" --notes-file /tmp/notes.md --target "$TAG_SHA"
+            fi
+          else
+            echo "Manifest already released; reconciling labels only."
+          fi
+
+          # Always flip merged-but-pending release PRs to tagged so the next
+          # release isn't blocked by "untagged, merged release PRs outstanding".
+          for PR in $(gh pr list --base main --state closed --label "autorelease: pending" --json number -q '.[].number'); do
+            gh pr edit "$PR" --remove-label "autorelease: pending" --add-label "autorelease: tagged" || true
+          done
