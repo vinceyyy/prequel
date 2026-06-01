@@ -10,64 +10,12 @@ import {
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
 import { operationsLogger } from './logger'
 import { config } from './config'
+import type { Operation, OperationEvent } from './types/operation'
+import { OperationEventBus } from './operationEvents'
+import { operationToDynamoItem, dynamoItemToOperation } from './operationMarshalling'
 
-/**
- * Event emitted when an operation's state changes.
- * Used by SSE endpoint to notify connected clients in real-time.
- *
- * Client-side filtering by session type:
- * Operations can be filtered by checking the `operation.interviewId` prefix:
- * - `operation.interviewId.startsWith('INTERVIEW#')` - Interview session operations
- * - `operation.interviewId.startsWith('TAKEHOME#')` - Take-home session operations
- *
- * This allows clients (interviews page vs take-homes page) to only respond to
- * events relevant to their specific session type.
- */
-export interface OperationEvent {
-  type: 'operation_update' | 'operation_logs'
-  operation?: Operation
-  operationId?: string
-  logs?: string[]
-  timestamp: string
-}
-
-/**
- * Represents a background operation (instance creation or destruction).
- *
- * Operations track the complete lifecycle of long-running tasks including
- * scheduling, execution, completion, and detailed logging. They serve as
- * the source of truth for instance status and provide audit trails.
- *
- * NOTE: Despite the field name 'interviewId', this actually stores the
- * instanceId which can reference either an Interview or TakeHome record.
- * The field will be renamed to 'instanceId' in a future update to match
- * the new architecture.
- */
-export interface Operation {
-  id: string
-  type: 'create' | 'destroy' | 'revoke_takehome'
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'scheduled'
-  interviewId: string // TODO: Rename to instanceId (references Interview or TakeHome)
-  candidateName?: string
-  challenge?: string
-  saveFiles?: boolean
-  createdAt: Date
-  executionStartedAt?: Date
-  completedAt?: Date
-  scheduledAt?: Date
-  autoDestroyAt?: Date
-  logs: string[]
-  result?: {
-    success: boolean
-    accessUrl?: string
-    password?: string
-    error?: string
-    fullOutput?: string
-    healthCheckPassed?: boolean
-    infrastructureReady?: boolean
-    historyS3Key?: string
-  }
-}
+// Re-export operation types so existing importers (e.g. '../operations') keep working.
+export type { Operation, OperationEvent } from './types/operation'
 
 /**
  * DynamoDB-backed operation manager with persistent storage and event emission.
@@ -110,7 +58,7 @@ export interface Operation {
 class OperationManager {
   private dynamoClient: DynamoDBClient
   private tableName: string
-  private eventListeners: ((event: OperationEvent) => void)[] = []
+  private events = new OperationEventBus()
 
   /**
    * Creates a new OperationManager instance with DynamoDB client.
@@ -136,7 +84,7 @@ class OperationManager {
    * @param listener - Function to call when operations change state
    */
   addEventListener(listener: (event: OperationEvent) => void) {
-    this.eventListeners.push(listener)
+    this.events.addEventListener(listener)
   }
 
   /**
@@ -144,121 +92,7 @@ class OperationManager {
    * @param listener - The listener function to remove
    */
   removeEventListener(listener: (event: OperationEvent) => void) {
-    const index = this.eventListeners.indexOf(listener)
-    if (index > -1) {
-      this.eventListeners.splice(index, 1)
-    }
-  }
-
-  /**
-   * Emits an operation update event to all registered listeners.
-   * Called automatically whenever operation state changes.
-   * @param operation - The operation that changed state
-   */
-  private emit(operation: Operation) {
-    const event: OperationEvent = {
-      type: 'operation_update',
-      operation,
-      timestamp: new Date().toISOString(),
-    }
-
-    this.eventListeners.forEach((listener) => {
-      try {
-        listener(event)
-      } catch (error) {
-        operationsLogger.error('Error in operation event listener', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-        })
-      }
-    })
-  }
-
-  /**
-   * Emits a log update event to all registered listeners.
-   * Enables real-time log streaming via Server-Sent Events.
-   */
-  private emitLogUpdate(operationId: string, logs: string[]): void {
-    const event: OperationEvent = {
-      type: 'operation_logs',
-      operationId,
-      logs,
-      timestamp: new Date().toISOString(),
-    }
-
-    this.eventListeners.forEach((listener) => {
-      try {
-        listener(event)
-      } catch (error) {
-        operationsLogger.error('Error in operation log event listener', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-        })
-      }
-    })
-  }
-
-  /**
-   * Converts a Date to Unix timestamp (seconds) for DynamoDB storage.
-   * DynamoDB doesn't have native Date support, so we store as numbers.
-   */
-  private dateToTimestamp(date?: Date): number | undefined {
-    return date ? Math.floor(date.getTime() / 1000) : undefined
-  }
-
-  /**
-   * Converts Unix timestamp back to Date object.
-   */
-  private timestampToDate(timestamp?: number): Date | undefined {
-    return timestamp ? new Date(timestamp * 1000) : undefined
-  }
-
-  /**
-   * Converts Operation to DynamoDB item format.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private operationToDynamoItem(operation: Operation): Record<string, any> {
-    const now = Date.now()
-    const ttl = Math.floor(now / 1000) + 24 * 60 * 60 // 24 hours from now
-
-    return {
-      id: operation.id,
-      type: operation.type,
-      status: operation.status,
-      interviewId: operation.interviewId,
-      candidateName: operation.candidateName,
-      challenge: operation.challenge,
-      saveFiles: operation.saveFiles,
-      createdAt: this.dateToTimestamp(operation.createdAt),
-      executionStartedAt: this.dateToTimestamp(operation.executionStartedAt),
-      completedAt: this.dateToTimestamp(operation.completedAt),
-      scheduledAt: this.dateToTimestamp(operation.scheduledAt),
-      autoDestroyAt: this.dateToTimestamp(operation.autoDestroyAt),
-      logs: operation.logs,
-      result: operation.result,
-      ttl, // TTL for automatic cleanup
-    }
-  }
-
-  /**
-   * Converts DynamoDB item to Operation format.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private dynamoItemToOperation(item: Record<string, any>): Operation {
-    return {
-      id: item.id,
-      type: item.type,
-      status: item.status,
-      interviewId: item.interviewId,
-      candidateName: item.candidateName,
-      challenge: item.challenge,
-      saveFiles: item.saveFiles,
-      createdAt: this.timestampToDate(item.createdAt) || new Date(),
-      executionStartedAt: this.timestampToDate(item.executionStartedAt),
-      completedAt: this.timestampToDate(item.completedAt),
-      scheduledAt: this.timestampToDate(item.scheduledAt),
-      autoDestroyAt: this.timestampToDate(item.autoDestroyAt),
-      logs: item.logs || [],
-      result: item.result,
-    }
+    this.events.removeEventListener(listener)
   }
 
   /**
@@ -310,7 +144,7 @@ class OperationManager {
       logs: [],
     }
 
-    const item = this.operationToDynamoItem(operation)
+    const item = operationToDynamoItem(operation)
 
     try {
       await this.dynamoClient.send(
@@ -320,7 +154,7 @@ class OperationManager {
         }),
       )
 
-      this.emit(operation)
+      this.events.emit(operation)
       return operationId
     } catch (error) {
       operationsLogger.error('Error creating operation in DynamoDB', {
@@ -348,7 +182,7 @@ class OperationManager {
     }
 
     const item = unmarshall(response.Item)
-    return this.dynamoItemToOperation(item)
+    return dynamoItemToOperation(item)
   }
 
   /**
@@ -363,7 +197,7 @@ class OperationManager {
     )
 
     const operations = (response.Items || [])
-      .map((item) => this.dynamoItemToOperation(unmarshall(item)))
+      .map((item) => dynamoItemToOperation(unmarshall(item)))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
     return operations
@@ -414,7 +248,7 @@ class OperationManager {
     )
 
     const operations = (response.Items || [])
-      .map((item) => this.dynamoItemToOperation(unmarshall(item)))
+      .map((item) => dynamoItemToOperation(unmarshall(item)))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
     return operations
@@ -437,7 +271,7 @@ class OperationManager {
     )
 
     const operations = (response.Items || [])
-      .map((item) => this.dynamoItemToOperation(unmarshall(item)))
+      .map((item) => dynamoItemToOperation(unmarshall(item)))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
     return operations
@@ -484,7 +318,7 @@ class OperationManager {
     // Fetch updated operation and emit event
     const operation = await this.getOperation(operationId)
     if (operation) {
-      this.emit(operation)
+      this.events.emit(operation)
     }
   }
 
@@ -512,7 +346,7 @@ class OperationManager {
     )
 
     const operations = (response.Items || [])
-      .map((item) => this.dynamoItemToOperation(unmarshall(item)))
+      .map((item) => dynamoItemToOperation(unmarshall(item)))
       .sort((a, b) => (a.scheduledAt?.getTime() || 0) - (b.scheduledAt?.getTime() || 0))
 
     return operations
@@ -551,7 +385,7 @@ class OperationManager {
     )
 
     const completedOps = (response.Items || [])
-      .map((item) => this.dynamoItemToOperation(unmarshall(item)))
+      .map((item) => dynamoItemToOperation(unmarshall(item)))
       .filter(
         (op) =>
           op.type === 'create' &&
@@ -644,7 +478,7 @@ class OperationManager {
         )
 
         // Emit SSE event for log updates - enables real-time log streaming
-        this.emitLogUpdate(operationId, logs)
+        this.events.emitLogUpdate(operationId, logs)
       } catch (error) {
         operationsLogger.error('Error flushing logs for operation', {
           operationId,
@@ -696,7 +530,7 @@ class OperationManager {
     // Fetch updated operation and emit event
     const operation = await this.getOperation(operationId)
     if (operation) {
-      this.emit(operation)
+      this.events.emit(operation)
     }
   }
 
@@ -740,7 +574,7 @@ class OperationManager {
     // Fetch updated operation and emit event
     const updatedOperation = await this.getOperation(operationId)
     if (updatedOperation) {
-      this.emit(updatedOperation)
+      this.events.emit(updatedOperation)
     }
   }
 
@@ -782,7 +616,7 @@ class OperationManager {
     // Fetch updated operation and emit event
     const updatedOperation = await this.getOperation(operationId)
     if (updatedOperation) {
-      this.emit(updatedOperation)
+      this.events.emit(updatedOperation)
     }
   }
 
@@ -825,7 +659,7 @@ class OperationManager {
     // Fetch updated operation and emit event
     const updatedOperation = await this.getOperation(operationId)
     if (updatedOperation) {
-      this.emit(updatedOperation)
+      this.events.emit(updatedOperation)
     }
 
     return true
@@ -876,7 +710,7 @@ class OperationManager {
       // Fetch updated operation and emit event
       const updatedOperation = await this.getOperation(op.id)
       if (updatedOperation) {
-        this.emit(updatedOperation)
+        this.events.emit(updatedOperation)
       }
     }
 
