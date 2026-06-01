@@ -5,46 +5,26 @@ import fs from 'fs/promises'
 import { fileExtractionService } from './fileExtraction'
 import { challengeService } from './challenges'
 import { config } from './config'
+import { processTerraformOutput } from './terraformOutput'
+import { deleteWorkspaceFromS3, downloadWorkspaceFromS3 } from './terraformWorkspaceS3'
+import {
+  cleanupWorkspaceFiles,
+  performDirectResourceCleanup,
+  prepareWorkspaceForDestroy,
+  runTerraformDestroy,
+  scaleDownECSService,
+  type DestroyDeps,
+} from './terraformDestroy'
+import {
+  createInterviewStreaming,
+  getMinimalTfvarsContentPlaceholder,
+  type CreateDeps,
+} from './terraformCreate'
+import type { InterviewInstance, TerraformExecutionResult } from './types/terraform'
 
 const execAsync = promisify(exec)
 
-/**
- * Result of a Terraform command execution.
- *
- * Contains the execution status, output, and any error information
- * from running Terraform commands like init, plan, apply, or destroy.
- */
-export interface TerraformExecutionResult {
-  success: boolean // Whether the command executed successfully
-  output: string // Primary command output (usually stdout)
-  error?: string // Error message if command failed
-  fullOutput?: string // Complete output including stderr and metadata
-  command?: string // The original command that was executed
-}
-
-/**
- * Represents a coding interview instance with its infrastructure and metadata.
- *
- * This interface defines the complete structure of an interview including
- * AWS infrastructure details, candidate information, and current status.
- */
-export interface InterviewInstance {
-  id: string // Unique interview identifier (8-character UUID)
-  candidateName: string // Name of the candidate taking the interview
-  challenge: string // Challenge name (e.g., 'javascript', 'python')
-  password: string // Generated password for VS Code access
-  openaiApiKey?: string // Optional OpenAI API key
-  accessUrl?: string // Full URL to access the VS Code instance
-  status:
-    | 'scheduled' // Waiting for scheduled start time
-    | 'initializing' // Terraform provisioning AWS resources
-    | 'configuring' // Infrastructure ready, ECS container booting
-    | 'active' // Fully ready for candidate access
-    | 'destroying' // Infrastructure being torn down
-    | 'destroyed' // Infrastructure completely removed
-    | 'error' // Failed state requiring manual intervention
-  createdAt: Date // When the interview was created
-}
+export type { InterviewInstance, TerraformExecutionResult } from './types/terraform'
 
 /**
  * Manages AWS infrastructure for coding interviews using Terraform.
@@ -112,15 +92,6 @@ class TerraformManager {
   }
 
   /**
-   * Gets the AWS CLI prefix for commands.
-   * For local development, returns empty string since AWS_PROFILE env var is set.
-   * For ECS, returns empty string since IAM roles are used.
-   */
-  private getAwsCliPrefix(): string {
-    return ''
-  }
-
-  /**
    * Fixes Terraform provider binary permissions after download.
    *
    * Terraform providers downloaded via `terraform init` may not have execute
@@ -139,36 +110,6 @@ class TerraformManager {
     } catch (error) {
       console.log('[fixProviderPermissions] Warning: Could not fix provider permissions:', error)
     }
-  }
-
-  /**
-   * Processes and formats Terraform command output for streaming display.
-   *
-   * Cleans ANSI color codes and prefixes each line with [Terraform] for
-   * clear identification in mixed log output. Preserves line structure
-   * and handles empty lines appropriately.
-   *
-   * @param output - Raw Terraform command output
-   * @param onData - Optional callback to receive formatted output
-   */
-  private processTerraformOutput(output: string, onData?: (data: string) => void): void {
-    if (!onData) return
-
-    // Strip ANSI color codes for clean display
-    // eslint-disable-next-line no-control-regex -- intentionally matching the ESC control char
-    const cleanOutput = output.replaceAll(/\x1b\[[0-9;]*m/g, '')
-    // Split into lines and prefix each line with [Terraform]
-    const lines = cleanOutput.split('\n')
-    lines.forEach((line, index) => {
-      // Only send non-empty lines, and preserve the last newline if it exists
-      if (line || (index === lines.length - 1 && cleanOutput.endsWith('\n'))) {
-        onData(
-          '[Terraform] ' +
-            line +
-            (index < lines.length - 1 || cleanOutput.endsWith('\n') ? '\n' : ''),
-        )
-      }
-    })
   }
 
   private async execTerraformStreaming(
@@ -246,14 +187,14 @@ class TerraformManager {
       child.stdout?.on('data', (data: Buffer) => {
         const output = data.toString()
         stdout += output
-        this.processTerraformOutput(output, onData)
+        processTerraformOutput(output, onData)
         console.log(`[execTerraformStreaming - Terraform STDOUT]`, output.trim())
       })
 
       child.stderr?.on('data', (data: Buffer) => {
         const output = data.toString()
         stderr += output
-        this.processTerraformOutput(output, onData)
+        processTerraformOutput(output, onData)
         console.log(`[execTerraformStreaming - Terraform STDERR]`, output.trim())
       })
 
@@ -295,148 +236,6 @@ class TerraformManager {
         })
       })
     })
-  }
-
-  private async uploadWorkspaceToS3(interviewId: string, workspaceDir: string): Promise<void> {
-    const { exec } = await import('child_process')
-    const { promisify } = await import('util')
-    const execAsync = promisify(exec)
-
-    const s3Key = `workspaces/${interviewId}/`
-
-    try {
-      // Upload entire workspace directory to S3
-      await execAsync(
-        `aws s3 sync "${workspaceDir}" "s3://${config.storage.instanceBucket}/${s3Key}"`,
-        {
-          env: process.env as NodeJS.ProcessEnv,
-          timeout: 60000,
-        },
-      )
-      console.log(`[uploadWorkspaceToS3] Uploaded workspace to S3: ${s3Key}`)
-    } catch (error) {
-      console.error(`[uploadWorkspaceToS3] Failed to upload workspace to S3:`, error)
-      throw error
-    }
-  }
-
-  private async downloadWorkspaceFromS3(
-    interviewId: string,
-    workspaceDir: string,
-  ): Promise<boolean> {
-    const { exec } = await import('child_process')
-    const { promisify } = await import('util')
-    const execAsync = promisify(exec)
-
-    const s3Key = `workspaces/${interviewId}/`
-
-    try {
-      // Check if workspace exists in S3
-      await execAsync(`aws s3 ls "s3://${config.storage.instanceBucket}/${s3Key}"`, {
-        env: process.env as NodeJS.ProcessEnv,
-        timeout: 30000,
-      })
-
-      // Download workspace from S3
-      await execAsync(
-        `aws s3 sync "s3://${config.storage.instanceBucket}/${s3Key}" "${workspaceDir}"`,
-        {
-          env: process.env as NodeJS.ProcessEnv,
-          timeout: 60000,
-        },
-      )
-      console.log(`[downloadWorkspaceFromS3] Downloaded workspace from S3: ${s3Key}`)
-      return true
-    } catch {
-      console.log(`[downloadWorkspaceFromS3] No existing workspace found in S3: ${s3Key}`)
-      return false
-    }
-  }
-
-  private async downloadTemplatesFromS3(workspaceDir: string): Promise<void> {
-    const { exec } = await import('child_process')
-    const { promisify } = await import('util')
-    const execAsync = promisify(exec)
-
-    try {
-      // Download template files from S3
-      await execAsync(
-        `aws s3 sync "s3://${config.storage.instanceBucket}/terraform/" "${workspaceDir}"`,
-        {
-          env: process.env as NodeJS.ProcessEnv,
-          timeout: 60000,
-        },
-      )
-      console.log(`[downloadTemplatesFromS3] Downloaded templates from S3 to: ${workspaceDir}`)
-    } catch (error) {
-      console.error(`[downloadTemplatesFromS3] Failed to download templates from S3:`, error)
-      throw error
-    }
-  }
-
-  private async createWorkspace(interviewId: string): Promise<string> {
-    // Use /tmp for container compatibility
-    const workspaceDir = path.join('/tmp', 'interview-workspaces', `workspace-${interviewId}`)
-
-    // Create workspace directory
-    await fs.mkdir(workspaceDir, { recursive: true })
-
-    // Try to download existing workspace from S3 first
-    const existsInS3 = await this.downloadWorkspaceFromS3(interviewId, workspaceDir)
-
-    if (!existsInS3) {
-      // Download template files from S3
-      await this.downloadTemplatesFromS3(workspaceDir)
-
-      // Replace interview ID placeholder in backend configuration
-      const mainTfPath = path.join(workspaceDir, 'main.tf')
-      let mainTfContent = await fs.readFile(mainTfPath, 'utf-8')
-      mainTfContent = mainTfContent
-        .replace('INTERVIEW_ID_PLACEHOLDER', interviewId)
-        .replaceAll('TERRAFORM_STATE_BUCKET_PLACEHOLDER', this.terraformStateBucket)
-        .replaceAll('AWS_REGION_PLACEHOLDER', this.awsRegion)
-        .replaceAll('ENVIRONMENT_PLACEHOLDER', config.project.environment)
-      await fs.writeFile(mainTfPath, mainTfContent)
-
-      // Upload new workspace to S3 for persistence
-      await this.uploadWorkspaceToS3(interviewId, workspaceDir)
-    }
-
-    return workspaceDir
-  }
-
-  private async createTfvarsFile(
-    workspaceDir: string,
-    instance: Omit<InterviewInstance, 'accessUrl' | 'status' | 'createdAt'>,
-  ): Promise<void> {
-    const tfvarsContent = `
-aws_region = "${this.awsRegion}"
-interview_id = "${instance.id}"
-candidate_name = "${instance.candidateName}"
-challenge = "${instance.challenge}"
-password = "${instance.password}"
-welcome_text = "Welcome, ${instance.candidateName}!"
-openai_api_key = "${instance.openaiApiKey}"
-`.trim()
-    console.log(`[createTfvarsFile] tfvarsContent: ${tfvarsContent}`)
-
-    const tfvarsPath = path.join(workspaceDir, 'terraform.tfvars')
-    await fs.writeFile(tfvarsPath, tfvarsContent)
-  }
-
-  private getMinimalTfvarsContentPlaceholder(interviewId: string): string {
-    return `
-interview_id = "${interviewId}"
-candidate_name = "unknown"
-challenge = "javascript"
-password = "destroy-temp-password"
-aws_region = "${this.awsRegion}"
-openai_admin_key = "sk-admin-cleanup-placeholder-admin-key"
-openai_api_key = "cleanup-placeholder-api-key"
-openai_project_name = "${config.services.openaiProjectId || 'cleanup-project'}"
-openai_project_id = "${config.services.openaiProjectId || 'cleanup-project'}"
-openai_service_account_name = "cleanup-placeholder-service-account-name"
-`.trim()
   }
 
   /**
@@ -597,519 +396,40 @@ openai_service_account_name = "cleanup-placeholder-service-account-name"
       infrastructureReady?: boolean
     }
   > {
-    const workspaceDir = await this.createWorkspace(instance.id)
-    const executionLog: string[] = []
-
-    const streamData = (data: string) => {
-      if (onData) onData(data)
-    }
-
-    try {
-      // Create tfvars file
-      await this.createTfvarsFile(workspaceDir, instance)
-      executionLog.push(`Created workspace: ${workspaceDir}`)
-      streamData(`Created workspace: ${workspaceDir}\n`)
-
-      // Initialize Terraform
-      executionLog.push('Initializing Terraform...')
-      streamData('Initializing Terraform...\n')
-      const initResult = await this.execTerraformStreaming(
-        'terraform init -input=false',
-        workspaceDir,
-        streamData,
-      )
-      executionLog.push(`Init result: ${initResult.success ? 'SUCCESS' : 'FAILED'}`)
-      if (initResult.fullOutput) executionLog.push(initResult.fullOutput)
-
-      // Fix provider permissions after successful init
-      if (initResult.success) {
-        await this.fixProviderPermissions(workspaceDir)
-        executionLog.push('Provider permissions fixed')
-      }
-
-      if (!initResult.success) {
-        return {
-          ...initResult,
-          error: `Init failed: ${initResult.error}`,
-          executionLog,
-        }
-      }
-
-      // Plan
-      executionLog.push('Planning infrastructure changes...')
-      streamData('Planning infrastructure changes...\n')
-      const planResult = await this.execTerraformStreaming(
-        'terraform plan -input=false -out=tfplan',
-        workspaceDir,
-        streamData,
-      )
-      executionLog.push(`Plan result: ${planResult.success ? 'SUCCESS' : 'FAILED'}`)
-      if (planResult.fullOutput) executionLog.push(planResult.fullOutput)
-
-      if (!planResult.success) {
-        return {
-          ...planResult,
-          error: `Plan failed: ${planResult.error}`,
-          executionLog,
-        }
-      }
-
-      // Apply
-      executionLog.push('Applying infrastructure changes...')
-      streamData('Applying infrastructure changes...\n')
-      const applyResult = await this.execTerraformStreaming(
-        'terraform apply -input=false -auto-approve tfplan',
-        workspaceDir,
-        streamData,
-      )
-      executionLog.push(`Apply result: ${applyResult.success ? 'SUCCESS' : 'FAILED'}`)
-      if (applyResult.fullOutput) executionLog.push(applyResult.fullOutput)
-
-      if (!applyResult.success) {
-        return {
-          ...applyResult,
-          error: `Apply failed: ${applyResult.error}`,
-          executionLog,
-        }
-      }
-
-      // Get outputs
-      executionLog.push('Retrieving infrastructure outputs...')
-      streamData('Retrieving infrastructure outputs...\n')
-      const outputResult = await this.execTerraformStreaming(
-        'terraform output -json',
-        workspaceDir,
-        streamData,
-      )
-      executionLog.push(`Outputs result: ${outputResult.success ? 'SUCCESS' : 'FAILED'}`)
-
-      if (outputResult.success) {
-        try {
-          // Log raw output for debugging
-          console.log('[createInterview] Raw terraform output length:', outputResult.output.length)
-          console.log(
-            '[createInterview] Raw terraform output (first 500 chars):',
-            outputResult.output.substring(0, 500),
-          )
-
-          const outputs = JSON.parse(outputResult.output)
-          const accessUrl = outputs.access_url?.value
-          executionLog.push(`Access URL: ${accessUrl || 'Not found'}`)
-          streamData(`Access URL: ${accessUrl || 'Not found'}\n`)
-
-          // Infrastructure is ready - notify callback
-          if (accessUrl && onInfrastructureReady) {
-            executionLog.push('✅ Infrastructure provisioning completed!')
-            streamData('✅ Infrastructure provisioning completed!\n')
-
-            onInfrastructureReady(accessUrl)
-          }
-
-          let healthCheckPassed = false
-
-          if (accessUrl) {
-            // Wait for ECS service to become healthy before marking as active
-            executionLog.push('Waiting for ECS service to become healthy...')
-            streamData('Waiting for ECS service to become healthy...\n')
-
-            const healthCheck = await this.waitForServiceHealth(accessUrl, 300000, streamData)
-            healthCheckPassed = healthCheck.success
-
-            if (healthCheck.success) {
-              executionLog.push('✅ ECS service is healthy and ready for use!')
-              streamData('✅ ECS service is healthy and ready for use!\n')
-            } else {
-              executionLog.push(`⚠️ Health check failed: ${healthCheck.error}`)
-              streamData(`⚠️ Health check failed: ${healthCheck.error}\n`)
-              streamData(
-                'Note: Interview infrastructure is created but service may need more time to start.\n',
-              )
-
-              // Still continue with success but with warning
-              // The interview will be marked as active, but logs will show the health check issue
-            }
-
-            // Health check complete - service is ready
-          }
-
-          // Upload updated workspace to S3 after successful apply
-          try {
-            await this.uploadWorkspaceToS3(instance.id, workspaceDir)
-            executionLog.push('✅ Workspace uploaded to S3 successfully')
-          } catch (s3Error) {
-            const s3ErrorMsg = s3Error instanceof Error ? s3Error.message : 'Unknown error'
-            executionLog.push(`⚠️ Failed to upload workspace to S3: ${s3ErrorMsg}`)
-            streamData(`⚠️ Failed to upload workspace to S3: ${s3ErrorMsg}\n`)
-            // Continue anyway - infrastructure is created and working
-          }
-
-          return {
-            success: true,
-            output: applyResult.output,
-            fullOutput: executionLog.join('\n\n'),
-            accessUrl,
-            healthCheckPassed,
-            infrastructureReady: !!accessUrl,
-            executionLog,
-          }
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Unknown'
-          executionLog.push(`Failed to parse Terraform outputs: ${errorMsg}`)
-          executionLog.push(
-            `Raw output (first 500 chars): ${outputResult.output.substring(0, 500)}`,
-          )
-          streamData(`Failed to parse Terraform outputs: ${errorMsg}\n`)
-
-          // Try to extract access_url using regex as fallback
-          let accessUrl: string | undefined
-          const urlMatch = outputResult.output.match(/"access_url":\s*{\s*"value":\s*"([^"]+)"/)
-          if (urlMatch) {
-            accessUrl = urlMatch[1]
-            executionLog.push(`Extracted URL via regex: ${accessUrl}`)
-            streamData(`Extracted URL via regex: ${accessUrl}\n`)
-          }
-
-          return {
-            success: true,
-            output: applyResult.output,
-            error: 'Could not parse Terraform outputs',
-            executionLog,
-            healthCheckPassed: false,
-            infrastructureReady: false,
-            accessUrl, // Include extracted URL even on parse failure
-          }
-        }
-      }
-
-      return {
-        ...applyResult,
-        executionLog,
-        healthCheckPassed: false,
-        infrastructureReady: false,
-      }
-    } catch (error: unknown) {
-      const errorMsg = `Workspace creation failed: ${
-        error instanceof Error ? error.message : 'Unknown error'
-      }`
-      executionLog.push(errorMsg)
-      streamData(errorMsg + '\n')
-
-      return {
-        success: false,
-        output: '',
-        error: errorMsg,
-        executionLog,
-        healthCheckPassed: false,
-        infrastructureReady: false,
-      }
-    }
+    return createInterviewStreaming(instance, this.createDeps(), onData, onInfrastructureReady)
   }
 
-  private async scaleDownECSService(
-    interviewId: string,
-    streamData: (data: string) => void,
-  ): Promise<void> {
-    const { exec } = await import('child_process')
-    const { promisify } = await import('util')
-    const execAsync = promisify(exec)
-
-    try {
-      const serviceName = `interview-${interviewId}`
-
-      streamData(`Scaling down service ${serviceName} to 0...\n`)
-      await execAsync(
-        `${this.getAwsCliPrefix()}aws ecs update-service --cluster ${
-          config.infrastructure.ecsCluster
-        } --service ${serviceName} --desired-count 0 --region ${this.awsRegion}`,
-        { timeout: 30000 },
-      )
-
-      streamData(`Waiting for service tasks to stop...\n`)
-      await execAsync(
-        `${this.getAwsCliPrefix()}aws ecs wait services-stable --cluster ${
-          config.infrastructure.ecsCluster
-        } --services ${serviceName} --region ${this.awsRegion}`,
-        { timeout: 120000 },
-      )
-
-      streamData(`Service scaled down successfully\n`)
-    } catch (taskError) {
-      streamData(`Warning: Could not scale down ECS service: ${taskError}\n`)
-      // Continue with cleanup even if service scaling fails
-    }
-  }
-
-  private async prepareWorkspaceForDestroy(
-    interviewId: string,
-    streamData: (data: string) => void,
-  ): Promise<{ workspaceDir: string; success: boolean }> {
-    const workspaceDir = path.join('/tmp', 'interview-workspaces', `workspace-${interviewId}`)
-
-    // Try to download workspace from S3 if it doesn't exist locally
-    const existsLocally = await fs
-      .access(workspaceDir)
-      .then(() => true)
-      .catch(() => false)
-
-    if (!existsLocally) {
-      streamData(`Downloading workspace from S3 for interview ${interviewId}...\n`)
-      await fs.mkdir(workspaceDir, { recursive: true })
-      const downloadedFromS3 = await this.downloadWorkspaceFromS3(interviewId, workspaceDir)
-
-      if (!downloadedFromS3) {
-        streamData(`No workspace found in S3, will attempt direct resource cleanup...\n`)
-        return { workspaceDir, success: false }
-      }
-      streamData(`Workspace downloaded successfully\n`)
-    } else {
-      streamData(`Using existing local workspace\n`)
-    }
-
-    // Ensure terraform.tfvars exists
-    const tfvarsPath = path.join(workspaceDir, 'terraform.tfvars')
-    const tfvarsExists = await fs
-      .access(tfvarsPath)
-      .then(() => true)
-      .catch(() => false)
-
-    if (!tfvarsExists) {
-      streamData(`terraform.tfvars missing, creating minimal version for destroy...\n`)
-      await fs.writeFile(tfvarsPath, this.getMinimalTfvarsContentPlaceholder(interviewId))
-      streamData(`Created minimal terraform.tfvars for destruction\n`)
-    } else {
-      streamData(`Found existing terraform.tfvars file\n`)
-    }
-
-    return { workspaceDir, success: true }
-  }
-
-  private async performDirectResourceCleanup(
-    interviewId: string,
-    streamData: (data: string) => void,
-  ): Promise<TerraformExecutionResult> {
-    const { exec } = await import('child_process')
-    const { promisify } = await import('util')
-    const execAsync = promisify(exec)
-
-    streamData(`No workspace found in S3, attempting direct resource cleanup...\n`)
-
-    // Clean up ECS service
-    streamData(`Cleaning up ECS service interview-${interviewId}...\n`)
-    await execAsync(
-      `${this.getAwsCliPrefix()}aws ecs delete-service --cluster ${
-        config.infrastructure.ecsCluster
-      } --service interview-${interviewId} --force --region ${this.awsRegion} || true`,
-      { timeout: 30000 },
-    )
-
-    // Clean up target group
-    streamData(`Cleaning up target group for interview-${interviewId}...\n`)
-    await execAsync(
-      `${this.getAwsCliPrefix()}aws elbv2 delete-target-group --target-group-arn $(aws elbv2 describe-target-groups --names interview-${interviewId}-tg --query 'TargetGroups[0].TargetGroupArn' --output text --region ${
-        this.awsRegion
-      }) --region ${this.awsRegion} || true`,
-      { timeout: 30000 },
-    )
-
-    // Clean up dedicated ALB for this interview
-    streamData(`Cleaning up dedicated ALB for interview-${interviewId}...\n`)
-    const albName = `interview-${interviewId}-alb`.substring(0, 32)
-    await execAsync(
-      `${this.getAwsCliPrefix()}aws elbv2 delete-load-balancer --load-balancer-arn $(aws elbv2 describe-load-balancers --names ${albName} --query 'LoadBalancers[0].LoadBalancerArn' --output text --region ${
-        this.awsRegion
-      }) --region ${this.awsRegion} || true`,
-      { timeout: 30000 },
-    )
-
-    // Clean up Route53 record for subdomain
-    streamData(`Cleaning up Route53 record for ${interviewId}.${this.domainName}...\n`)
-    await execAsync(
-      `${this.getAwsCliPrefix()}aws route53 list-resource-record-sets --hosted-zone-id $(aws route53 list-hosted-zones --query 'HostedZones[?Name==\`${
-        this.domainName
-      }.\`].Id' --output text | cut -d'/' -f3 --region ${
-        this.awsRegion
-      }) --query 'ResourceRecordSets[?Name==\`${interviewId}.${
-        this.domainName
-      }.\`]' --output json --region ${
-        this.awsRegion
-      } | jq -r '.[0] | if . then "{\\"Action\\": \\"DELETE\\", \\"ResourceRecordSet\\": .}" else empty end' | if read change; then aws route53 change-resource-record-sets --hosted-zone-id $(aws route53 list-hosted-zones --query 'HostedZones[?Name==\`${
-        this.domainName
-      }.\`].Id' --output text | cut -d'/' -f3) --change-batch "{\\"Changes\\": [$change]}" --region ${
-        this.awsRegion
-      }; fi || true`,
-      { timeout: 30000 },
-    )
-
-    // Clean up security groups for the ALB and ECS
-    streamData(`Cleaning up security groups for ALB and ECS...\n`)
-    await execAsync(
-      `${this.getAwsCliPrefix()}aws ec2 delete-security-group --group-id $(aws ec2 describe-security-groups --filters "Name=group-name,Values=interview-${interviewId}-ecs" --query 'SecurityGroups[0].GroupId' --output text --region ${
-        this.awsRegion
-      }) --region ${this.awsRegion} || true`,
-      { timeout: 30000 },
-    )
-    await execAsync(
-      `${this.getAwsCliPrefix()}aws ec2 delete-security-group --group-id $(aws ec2 describe-security-groups --filters "Name=group-name,Values=interview-${interviewId}-alb" --query 'SecurityGroups[0].GroupId' --output text --region ${
-        this.awsRegion
-      }) --region ${this.awsRegion} || true`,
-      { timeout: 30000 },
-    )
-
-    // Clean up SSM parameter
-    streamData(`Cleaning up SSM parameter...\n`)
-    await execAsync(
-      `${this.getAwsCliPrefix()}aws ssm delete-parameter --name /${
-        config.project.prefix
-      }/interviews/${interviewId}/password --region ${this.awsRegion} || true`,
-      { timeout: 30000 },
-    )
-
-    streamData(`Direct resource cleanup completed\n`)
-    streamData(
-      `Preserving S3 workspace - manual cleanup required if resources are fully destroyed\n`,
-    )
-
+  /**
+   * Builds the dependency bundle the create helpers need from this instance,
+   * including the bound execTerraformStreaming primitive and waitForServiceHealth.
+   */
+  private createDeps(): CreateDeps {
     return {
-      success: true,
-      output: 'Interview cleanup completed using direct resource cleanup',
-      fullOutput: 'Resources cleaned up directly via AWS CLI',
+      awsRegion: this.awsRegion,
+      domainName: this.domainName,
+      terraformStateBucket: this.terraformStateBucket,
+      isRunningInECS: this.isRunningInECS,
+      awsProfile: this.awsProfile,
+      exec: this.execTerraformStreaming.bind(this),
+      fixProviderPermissions: this.fixProviderPermissions.bind(this),
+      waitForServiceHealth: this.waitForServiceHealth.bind(this),
     }
   }
 
-  private async runTerraformDestroy(
-    interviewId: string,
-    workspaceDir: string,
-    streamData: (data: string) => void,
-  ): Promise<TerraformExecutionResult> {
-    // Initialize Terraform
-    streamData(`Initializing Terraform...\n`)
-    const initResult = await this.execTerraformStreaming(
-      'terraform init -input=false -reconfigure',
-      workspaceDir,
-      streamData,
-    )
-
-    // Fix provider permissions after successful init
-    if (initResult.success) {
-      await this.fixProviderPermissions(workspaceDir)
-      streamData(`Provider permissions fixed\n`)
-    } else {
-      // Try to fix provider permissions and retry init
-      streamData(`Terraform init failed, attempting permission fix...\n`)
-
-      const permissionFixed = await this.attemptPermissionFixAndRetryInit(workspaceDir, streamData)
-
-      if (permissionFixed.success) {
-        streamData(`Init retry succeeded, proceeding with destroy...\n`)
-      } else {
-        streamData(
-          `Terraform init failed permanently, preserving workspace for manual intervention\n`,
-        )
-        throw new Error(
-          `Terraform init failed: ${initResult.error}. Workspace preserved for manual cleanup.`,
-        )
-      }
-    }
-
-    // Run terraform destroy
-    streamData(`Starting terraform destroy for interview ${interviewId}...\n`)
-    return await this.execTerraformStreaming(
-      'terraform destroy -input=false -auto-approve -var-file=terraform.tfvars',
-      workspaceDir,
-      streamData,
-    )
-  }
-
-  private async attemptPermissionFixAndRetryInit(
-    workspaceDir: string,
-    streamData: (data: string) => void,
-  ): Promise<TerraformExecutionResult> {
-    const { exec } = await import('child_process')
-    const { promisify } = await import('util')
-    const execAsync = promisify(exec)
-
-    streamData(`Attempting to fix provider permissions...\n`)
-    await execAsync(
-      `find ${workspaceDir}/.terraform -name "*terraform-provider-*" -type f -exec chmod +x {} \\;`,
-      { timeout: 30000 },
-    )
-    streamData(`Provider permissions fixed, retrying init...\n`)
-
-    // Retry init after fixing permissions
-    return await this.execTerraformStreaming(
-      'terraform init -input=false -reconfigure',
-      workspaceDir,
-      streamData,
-    )
-  }
-
-  private async cleanupWorkspaceFiles(
-    interviewId: string,
-    workspaceDir: string,
-    destroyResult: TerraformExecutionResult,
-    streamData: (data: string) => void,
-  ): Promise<void> {
-    // Clean up local workspace (always safe to do)
-    streamData(`Cleaning up local workspace...\n`)
-    await fs.rm(workspaceDir, { recursive: true, force: true })
-
-    // Only delete S3 workspace if terraform destroy succeeded
-    if (destroyResult.success) {
-      streamData(`Terraform destroy succeeded, deleting workspace from S3...\n`)
-      await this.deleteWorkspaceFromS3(interviewId)
-      streamData(`S3 workspace cleanup completed successfully\n`)
-    } else {
-      streamData(`Terraform destroy failed, preserving S3 workspace for retry\n`)
-      streamData(
-        `S3 workspace preserved at: s3://${config.storage.instanceBucket}/workspaces/${interviewId}/\n`,
-      )
-    }
-  }
-
-  private async deleteWorkspaceFromS3(interviewId: string): Promise<void> {
-    const { exec } = await import('child_process')
-    const { promisify } = await import('util')
-    const execAsync = promisify(exec)
-
-    const s3Key = `workspaces/${interviewId}/`
-
-    console.log(
-      `[deleteWorkspaceFromS3] CRITICAL: Attempting to delete workspace from S3: ${s3Key}`,
-    )
-    console.log(
-      `[deleteWorkspaceFromS3] This will permanently delete interview data for: ${interviewId}`,
-    )
-
-    try {
-      // First, check if workspace actually exists to avoid unnecessary deletion attempts
-      const listResult = await execAsync(
-        `aws s3 ls "s3://${config.storage.instanceBucket}/${s3Key}"`,
-        {
-          env: process.env as NodeJS.ProcessEnv,
-          timeout: 30000,
-        },
-      )
-
-      if (!listResult.stdout.trim()) {
-        console.log(
-          `[deleteWorkspaceFromS3] Workspace ${s3Key} does not exist in S3, skipping deletion`,
-        )
-        return
-      }
-
-      console.log(
-        `[deleteWorkspaceFromS3] Confirmed workspace exists, proceeding with deletion: ${s3Key}`,
-      )
-
-      // Delete workspace from S3
-      await execAsync(`aws s3 rm "s3://${config.storage.instanceBucket}/${s3Key}" --recursive`, {
-        env: process.env as NodeJS.ProcessEnv,
-        timeout: 60000,
-      })
-      console.log(`[deleteWorkspaceFromS3] SUCCESS: Deleted workspace from S3: ${s3Key}`)
-    } catch (error) {
-      console.error(`[deleteWorkspaceFromS3] Failed to delete workspace from S3:`, error)
-      // Don't throw - this is cleanup, continue even if S3 cleanup fails
+  /**
+   * Builds the dependency bundle the destroy helpers need from this instance,
+   * including the bound execTerraformStreaming primitive.
+   */
+  private destroyDeps(): DestroyDeps {
+    return {
+      awsRegion: this.awsRegion,
+      domainName: this.domainName,
+      exec: this.execTerraformStreaming.bind(this),
+      fixProviderPermissions: this.fixProviderPermissions.bind(this),
+      downloadWorkspaceFromS3,
+      deleteWorkspaceFromS3,
+      getMinimalTfvarsContentPlaceholder: (interviewId: string) =>
+        getMinimalTfvarsContentPlaceholder(interviewId, this.createDeps()),
     }
   }
 
@@ -1230,27 +550,30 @@ openai_service_account_name = "cleanup-placeholder-service-account-name"
         streamData(`File extraction skipped: disabled for this interview\n`)
       }
 
+      const deps = this.destroyDeps()
+
       // Step 2: Scale down ECS service
       streamData(`Looking for running tasks for interview ${interviewId}...\n`)
-      await this.scaleDownECSService(interviewId, streamData)
+      await scaleDownECSService(interviewId, streamData, deps)
 
       // Step 3: Prepare workspace for destroy
-      const { workspaceDir, success: workspaceReady } = await this.prepareWorkspaceForDestroy(
+      const { workspaceDir, success: workspaceReady } = await prepareWorkspaceForDestroy(
         interviewId,
         streamData,
+        deps,
       )
 
       // Step 4: If no workspace found, perform direct cleanup
       if (!workspaceReady) {
-        const result = await this.performDirectResourceCleanup(interviewId, streamData)
+        const result = await performDirectResourceCleanup(interviewId, streamData, deps)
         return { ...result, historyS3Key }
       }
 
       // Step 5: Run terraform destroy
-      const destroyResult = await this.runTerraformDestroy(interviewId, workspaceDir, streamData)
+      const destroyResult = await runTerraformDestroy(interviewId, workspaceDir, streamData, deps)
 
       // Step 6: Clean up workspace files
-      await this.cleanupWorkspaceFiles(interviewId, workspaceDir, destroyResult, streamData)
+      await cleanupWorkspaceFiles(interviewId, workspaceDir, destroyResult, streamData, deps)
 
       return { ...destroyResult, historyS3Key }
     } catch (error: unknown) {
@@ -1357,7 +680,7 @@ openai_service_account_name = "cleanup-placeholder-service-account-name"
 
       if (!existsLocally) {
         await fs.mkdir(workspaceDir, { recursive: true })
-        const downloadedFromS3 = await this.downloadWorkspaceFromS3(interviewId, workspaceDir)
+        const downloadedFromS3 = await downloadWorkspaceFromS3(interviewId, workspaceDir)
 
         if (!downloadedFromS3) {
           return {
