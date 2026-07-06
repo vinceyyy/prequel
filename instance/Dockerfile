@@ -1,5 +1,5 @@
 # Use the official code-server image as base - it already has Node.js and basic tools
-FROM codercom/code-server:4.122.0
+FROM codercom/code-server:4.127.0
 
 # Switch to root to install additional packages
 USER root
