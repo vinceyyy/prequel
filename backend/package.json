@@ -16,15 +16,15 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1058.0",
-    "@aws-sdk/client-ecs": "^3.1058.0",
-    "@aws-sdk/client-s3": "^3.1058.0",
-    "@aws-sdk/credential-providers": "^3.1058.0",
-    "@aws-sdk/util-dynamodb": "^3.844.0",
-    "@hono/node-server": "^2.0.4",
-    "hono": "^4.6.0",
+    "@aws-sdk/client-dynamodb": "^3.1095.0",
+    "@aws-sdk/client-ecs": "^3.1095.0",
+    "@aws-sdk/client-s3": "^3.1095.0",
+    "@aws-sdk/credential-providers": "^3.1095.0",
+    "@aws-sdk/util-dynamodb": "^3.996.7",
+    "@hono/node-server": "^2.0.12",
+    "hono": "^4.12.32",
     "jszip": "^3.10.1",
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.1"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
